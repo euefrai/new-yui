@@ -1,0 +1,16 @@
+# Render Blueprint — deploy da Yui como Web Service
+# https://render.com/docs/blueprint-spec
+
+services:
+  - type: web
+    name: yui
+    runtime: python
+
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn --bind 0.0.0.0:$PORT web_server:app
+
+    envVars:
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: OPENAI_MODEL
+        value: gpt-4o-mini
