@@ -1,0 +1,77 @@
+{
+  "preferencias": {},
+  "atalhos": {},
+  "memoria_curta": [
+    "abrir minecraft",
+    "sim",
+    "ok",
+    "abrir minecraft",
+    "sim",
+    "ok",
+    "me mostre um jeito para mim conseguir abrir esse aplicativo sem dar esse mesmo erro o tempo todo",
+    "quando eu peço para você abrir e você não encontra o caminho",
+    "sim",
+    "ok"
+  ],
+  "memoria_longa": [],
+  "perfil": {
+    "nivel_intimidade": 2,
+    "estilo_fala": "neutro",
+    "confiança": 1,
+    "emoji": true,
+    "apelido": null,
+    "mensagens": 13
+  },
+  "projetos": {
+    "vexx": {
+      "descricao": "",
+      "stack": [],
+      "decisoes": [],
+      "arquitetura": [],
+      "maturidade": 1,
+      "aprendizados": [],
+      "auto_confiança": 1,
+      "historico_auto": [],
+      "rollback_stack": [],
+      "documentacao_viva": {
+        "resumo": "",
+        "arquitetura": "",
+        "decisoes": []
+      },
+      "roadmap": [],
+      "planos": [],
+      "feedbacks": [],
+      "execucao": {
+        "plano_atual": null,
+        "etapa_atual": 0
+      },
+      "autonomia": {
+        "nivel": 2,
+        "confianca": 1
+      },
+      "contexto_imediato": {
+        "modo": "acao_pendente",
+        "confirmado": false,
+        "confirmacoes": 0,
+        "dados_acao": {
+          "tipo": "executar",
+          "acao": "abrir_qualquer_coisa",
+          "dados": {
+            "alvo": "minecraft"
+          }
+        }
+      },
+      "execucao_atual": {
+        "acao": "abrir_qualquer_coisa",
+        "status": "concluida"
+      },
+      "falhas_acao": {
+        "abrir_qualquer_coisa": {
+          "contagem": 4,
+          "ultimo_erro": "ERRO_ABERTURA | [WinError 2] O sistema não pode encontrar o arquivo especificado: 'minecraft'",
+          "bloqueado": true
+        }
+      }
+    }
+  }
+}

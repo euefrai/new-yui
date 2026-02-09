@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Yui Web</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="/web/styles.css" />
+  </head>
+  <body>
+    <div class="app">
+      <header class="app-header">
+        <h1>Yui – Assistente Web</h1>
+        <p>Converse em texto com a Yui (sem automações).</p>
+      </header>
+
+      <main class="chat-container">
+        <div id="chat-log" class="chat-log">
+          <div class="message message-yui">
+            <div class="message-author">Yui</div>
+            <div class="message-body">
+              Olá! Sou a Yui em modo web. Me faça uma pergunta em texto.
+            </div>
+          </div>
+        </div>
+      </main>
+
+      <form id="chat-form" class="chat-input-bar">
+        <input
+          id="chat-input"
+          type="text"
+          placeholder="Digite sua mensagem..."
+          autocomplete="off"
+          required
+        />
+        <button type="submit">Enviar</button>
+      </form>
+    </div>
+
+    <script src="/web/script.js"></script>
+  </body>
+</html>
+

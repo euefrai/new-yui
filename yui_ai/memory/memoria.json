@@ -1,0 +1,290 @@
+{
+  "preferencias": {},
+  "atalhos": {
+    "modo início": [
+      {
+        "acao": "abrir_qualquer_coisa",
+        "dados": {
+          "alvo": "Brave"
+        }
+      }
+    ]
+  },
+  "arquitetura": [
+    {
+      "arquivo": "main.py",
+      "tipo": "core",
+      "responsabilidade": "loop principal e orquestração"
+    }
+  ],
+  "memoria_curta": [
+    "abrir brave",
+    "brave",
+    "abrir google",
+    "google",
+    "discord",
+    "excel",
+    "abra excel",
+    "abra brave",
+    "abra edge",
+    "abrir brave",
+    "abre brave",
+    "brave",
+    "sim",
+    "abrir edge",
+    "texto",
+    "ola yui",
+    "estou bem",
+    "analise a estrutura do prjeto vexx",
+    "o que você pode fazer yui ?",
+    "me dá algumas dicas para melhorar o projeto vexx pro favor yui"
+  ],
+  "memoria_longa": [],
+  "perfil": {
+    "nivel_intimidade": 2,
+    "estilo_fala": "informal",
+    "confiança": 3,
+    "emoji": true,
+    "apelido": null,
+    "mensagens": 246
+  },
+  "projetos": {
+    "vexx": {
+      "descricao": "",
+      "stack": [
+        "o vexx usa python com arquitetura modular",
+        "decidi usar memoria curta, longa e perfil no vexx"
+      ],
+      "decisoes": [
+        "explica a arquitetura do vexx",
+        "tem algum problema na arquitetura do vexx?"
+      ],
+      "arquitetura": [
+        "Arquivo main.py: funções ['deve_salvar_memoria_longa', 'detectar_aprendizado_tecnico', 'responder_com_ia', 'detectar_leitura_codigo'], classes []",
+        ".\\yui_ai\\actions.py: funções=['abrir_app', 'abrir_explorador', 'ativar_voz', 'mover_mouse', 'mover_mouse_centro', 'mover_mouse_direcao', 'mover_mouse_continuar', 'clicar_mouse', 'digitar_texto', 'pressionar_tecla', 'abrir_qualquer_coisa', 'executar_acao'], classes=[]",
+        ".\\yui_ai\\ai_engine.py: funções=['montar_contexto_memoria', 'montar_personalidade', 'perguntar_yui', 'montar_contexto_vexx'], classes=[]",
+        ".\\yui_ai\\config.py: funções=[], classes=[]",
+        ".\\yui_ai\\intent_parser.py: funções=['interpretar_intencao'], classes=[]",
+        ".\\yui_ai\\main.py: funções=['deve_salvar_memoria_longa', 'detectar_aprendizado_tecnico', 'responder_com_ia', 'aprender_projeto_completo', 'detectar_leitura_codigo'], classes=[]",
+        ".\\yui_ai\\memory.py: funções=['carregar_memoria', 'salvar_memoria', 'registrar_conversa', 'registrar_memoria_longa', 'lembrar', 'lembrar_atalho', 'obter_memoria', 'atualizar_perfil', 'registrar_aprendizado_vexx'], classes=[]",
+        ".\\yui_ai\\panel.py: funções=['escrever_chat', 'enviar_texto', 'ativar_voz'], classes=[]",
+        ".\\yui_ai\\permissions.py: funções=['permitido'], classes=[]",
+        ".\\yui_ai\\project_reader.py: funções=['ler_arquivo_py', 'extrair_info_codigo', 'listar_arquivos_py', 'ler_projeto_completo'], classes=[]",
+        ".\\yui_ai\\voice.py: funções=['falar', 'ouvir'], classes=[]",
+        ".\\yui_ai\\wake_word.py: funções=['aguardar_wake_word'], classes=[]",
+        ".\\yui_ai\\actions.py | tipo=core | responsabilidade=inteligência e tomada de decisão | funções=['abrir_app', 'abrir_explorador', 'ativar_voz', 'mover_mouse', 'mover_mouse_centro', 'mover_mouse_direcao', 'mover_mouse_continuar', 'clicar_mouse', 'digitar_texto', 'pressionar_tecla', 'abrir_qualquer_coisa', 'executar_acao'] | classes=[]",
+        ".\\yui_ai\\ai_engine.py | tipo=core | responsabilidade=inteligência e tomada de decisão | funções=['montar_contexto_memoria', 'montar_personalidade', 'perguntar_yui', 'montar_contexto_vexx'] | classes=[]",
+        ".\\yui_ai\\config.py | tipo=core | responsabilidade=inteligência e tomada de decisão | funções=[] | classes=[]",
+        ".\\yui_ai\\intent_parser.py | tipo=core | responsabilidade=inteligência e tomada de decisão | funções=['interpretar_intencao'] | classes=[]",
+        ".\\yui_ai\\main.py | tipo=core | responsabilidade=orquestração principal | funções=['deve_salvar_memoria_longa', 'detectar_aprendizado_tecnico', 'responder_com_ia', 'aprender_projeto_completo', 'detectar_leitura_codigo'] | classes=[]",
+        ".\\yui_ai\\memory.py | tipo=core | responsabilidade=inteligência e tomada de decisão | funções=['carregar_memoria', 'salvar_memoria', 'registrar_conversa', 'registrar_memoria_longa', 'lembrar', 'lembrar_atalho', 'obter_memoria', 'atualizar_perfil', 'registrar_aprendizado_vexx'] | classes=[]",
+        ".\\yui_ai\\panel.py | tipo=core | responsabilidade=inteligência e tomada de decisão | funções=['escrever_chat', 'enviar_texto', 'ativar_voz'] | classes=[]",
+        ".\\yui_ai\\permissions.py | tipo=core | responsabilidade=inteligência e tomada de decisão | funções=['permitido'] | classes=[]",
+        ".\\yui_ai\\project_reader.py | tipo=core | responsabilidade=inteligência e tomada de decisão | funções=['ler_arquivo_py', 'extrair_info_codigo', 'listar_arquivos_py', 'ler_projeto_completo', 'classificar_arquivo'] | classes=[]",
+        ".\\yui_ai\\voice.py | tipo=core | responsabilidade=inteligência e tomada de decisão | funções=['falar', 'ouvir'] | classes=[]",
+        ".\\yui_ai\\wake_word.py | tipo=core | responsabilidade=inteligência e tomada de decisão | funções=['aguardar_wake_word'] | classes=[]",
+        ".\\yui_ai\\architecture_analyzer.py | tipo=core | responsabilidade=inteligência e tomada de decisão | funções=['analisar_problemas'] | classes=[]",
+        ".\\yui_ai\\project_reader.py | tipo=core | responsabilidade=inteligência e tomada de decisão | funções=['ler_arquivo_py', 'extrair_info_codigo', 'listar_arquivos_py', 'ler_projeto_completo', 'classificar_arquivo', 'calcular_acoplamento'] | classes=[]",
+        ".\\yui_ai\\project_visualizer.py | tipo=core | responsabilidade=inteligência e tomada de decisão | funções=['gerar_mapa_visual'] | classes=[]",
+        ".\\yui_ai\\refactor_engine.py | tipo=core | responsabilidade=inteligência e tomada de decisão | funções=['sugerir_refatoracoes'] | classes=[]",
+        ".\\yui_ai\\ai_engine.py | tipo=core | responsabilidade=inteligência e tomada de decisão | funções=['montar_contexto_memoria', 'montar_personalidade', 'perguntar_yui', 'montar_postura_arquitetural', 'montar_contexto_vexx'] | classes=[]",
+        ".\\yui_ai\\memory.py | tipo=core | responsabilidade=inteligência e tomada de decisão | funções=['carregar_memoria', 'salvar_memoria', 'registrar_conversa', 'registrar_memoria_longa', 'lembrar', 'lembrar_atalho', 'obter_memoria', 'atualizar_perfil', 'registrar_aprendizado_vexx', 'evoluir_maturidade_vexx'] | classes=[]",
+        ".\\yui_ai\\mode_controller.py | tipo=core | responsabilidade=inteligência e tomada de decisão | funções=['alternar_modo'] | classes=[]",
+        ".\\yui_ai\\refactor_engine.py | tipo=core | responsabilidade=inteligência e tomada de decisão | funções=['sugerir_refatoracoes', 'gerar_refatoracao'] | classes=[]",
+        ".\\yui_ai\\auto_mode.py | tipo=core | responsabilidade=inteligência e tomada de decisão | funções=['__init__', 'ativar_assistido', 'ativar_total', 'desativar', 'pode_aplicar'] | classes=['AutoMode']",
+        ".\\yui_ai\\auto_refactor.py | tipo=core | responsabilidade=inteligência e tomada de decisão | funções=['refatoracoes_seguras', 'aplicar_refatoracao_segura'] | classes=[]",
+        ".\\yui_ai\\decision_engine.py | tipo=core | responsabilidade=inteligência e tomada de decisão | funções=['decidir_proxima_acao'] | classes=[]",
+        ".\\yui_ai\\memory.py | tipo=core | responsabilidade=inteligência e tomada de decisão | funções=['carregar_memoria', 'salvar_memoria', 'registrar_conversa', 'registrar_memoria_longa', 'lembrar', 'lembrar_atalho', 'obter_memoria', 'atualizar_perfil', 'registrar_aprendizado_vexx', 'evoluir_maturidade_vexx', 'registrar_auto_execucao'] | classes=[]",
+        ".\\yui_ai\\refactor_engine.py | tipo=core | responsabilidade=inteligência e tomada de decisão | funções=['sugerir_refatoracoes', 'gerar_refatoracao', 'ciclo_d5_concluido'] | classes=[]",
+        ".\\yui_ai\\memory.py | tipo=core | responsabilidade=inteligência e tomada de decisão | funções=['carregar_memoria', 'salvar_memoria', 'registrar_conversa', 'registrar_memoria_longa', 'lembrar', 'lembrar_atalho', 'obter_memoria', 'atualizar_perfil', 'registrar_aprendizado_vexx', 'evoluir_maturidade_vexx', 'registrar_auto_execucao', 'obter_relatorio_auto'] | classes=[]",
+        "main.py: funções=['deve_salvar_memoria_longa', 'detectar_aprendizado_tecnico', 'responder_com_ia', 'aprender_projeto_completo', 'detectar_leitura_codigo'], classes=[]",
+        ".\\yui_ai\\actions.py | responsabilidade=inteligência e tomada de decisão",
+        ".\\yui_ai\\ai_engine.py | responsabilidade=inteligência e tomada de decisão",
+        ".\\yui_ai\\architecture_analyzer.py | responsabilidade=inteligência e tomada de decisão",
+        ".\\yui_ai\\auto_mode.py | responsabilidade=inteligência e tomada de decisão",
+        ".\\yui_ai\\auto_refactor.py | responsabilidade=inteligência e tomada de decisão",
+        ".\\yui_ai\\config.py | responsabilidade=inteligência e tomada de decisão",
+        ".\\yui_ai\\decision_engine.py | responsabilidade=inteligência e tomada de decisão",
+        ".\\yui_ai\\intent_parser.py | responsabilidade=inteligência e tomada de decisão",
+        ".\\yui_ai\\main.py | responsabilidade=orquestração principal",
+        ".\\yui_ai\\memory.py | responsabilidade=inteligência e tomada de decisão",
+        ".\\yui_ai\\mode_controller.py | responsabilidade=inteligência e tomada de decisão",
+        ".\\yui_ai\\panel.py | responsabilidade=inteligência e tomada de decisão",
+        ".\\yui_ai\\permissions.py | responsabilidade=inteligência e tomada de decisão",
+        ".\\yui_ai\\project_reader.py | responsabilidade=inteligência e tomada de decisão",
+        ".\\yui_ai\\project_visualizer.py | responsabilidade=inteligência e tomada de decisão",
+        ".\\yui_ai\\refactor_engine.py | responsabilidade=inteligência e tomada de decisão",
+        ".\\yui_ai\\voice.py | responsabilidade=inteligência e tomada de decisão",
+        ".\\yui_ai\\wake_word.py | responsabilidade=inteligência e tomada de decisão"
+      ],
+      "aprendizados": [],
+      "historico_auto": [
+        "Refatoração 'separar_responsabilidades' aplicada automaticamente.",
+        "Refatoração 'reduzir_acoplamento' aplicada automaticamente.",
+        "Refatoração 'organizar_fluxo' aplicada automaticamente.",
+        "Refatoração 'separar_responsabilidades' aplicada automaticamente.",
+        "Refatoração 'reduzir_acoplamento' aplicada automaticamente.",
+        "Refatoração 'organizar_fluxo' aplicada automaticamente.",
+        {
+          "id": "separar_responsabilidades",
+          "descricao": "Separei responsabilidades para reduzir acoplamento."
+        },
+        {
+          "id": "organizar_fluxo",
+          "descricao": "Organizei o fluxo principal para ficar mais claro."
+        },
+        {
+          "id": "limpeza_estrutura",
+          "descricao": "Removi redundâncias estruturais sem alterar comportamento."
+        },
+        {
+          "id": "separar_responsabilidades",
+          "descricao": "Separei responsabilidades para reduzir acoplamento."
+        },
+        {
+          "id": "organizar_fluxo",
+          "descricao": "Organizei o fluxo principal para ficar mais claro."
+        },
+        {
+          "id": "limpeza_estrutura",
+          "descricao": "Removi redundâncias estruturais sem alterar comportamento."
+        },
+        {
+          "id": "separar_responsabilidades",
+          "descricao": "Separei responsabilidades para reduzir acoplamento."
+        },
+        {
+          "id": "organizar_fluxo",
+          "descricao": "Organizei o fluxo principal para ficar mais claro."
+        },
+        {
+          "id": "limpeza_estrutura",
+          "descricao": "Removi redundâncias estruturais sem alterar comportamento."
+        },
+        {
+          "id": "separar_responsabilidades",
+          "descricao": "Separei responsabilidades para reduzir acoplamento."
+        },
+        {
+          "id": "organizar_fluxo",
+          "descricao": "Organizei o fluxo principal para ficar mais claro."
+        },
+        {
+          "id": "limpeza_estrutura",
+          "descricao": "Removi redundâncias estruturais sem alterar comportamento."
+        },
+        {
+          "id": "separar_responsabilidades",
+          "descricao": "Separei responsabilidades para reduzir acoplamento."
+        },
+        {
+          "id": "organizar_fluxo",
+          "descricao": "Organizei o fluxo principal para ficar mais claro."
+        },
+        {
+          "id": "limpeza_estrutura",
+          "descricao": "Removi redundâncias estruturais sem alterar comportamento."
+        }
+      ],
+      "auto_confiança": 18,
+      "documentacao_viva": {
+        "resumo": "O VEXX é uma assistente pessoal evolutiva focada em automação segura.",
+        "arquitetura": "Modular, com separação entre decisão, execução e memória.",
+        "decisoes": []
+      },
+      "roadmap": [
+        {
+          "titulo": "Aprofundar aprendizados técnicos do projeto.",
+          "impacto": 3,
+          "esforco": 2,
+          "risco": 1,
+          "prioridade": 0
+        },
+        {
+          "titulo": "Testar e validar o mecanismo de rollback.",
+          "impacto": 3,
+          "esforco": 2,
+          "risco": 1,
+          "prioridade": 0
+        },
+        {
+          "titulo": "Validar rollback em cenários reais",
+          "impacto": 4,
+          "esforco": 2,
+          "risco": 1,
+          "prioridade": 1
+        },
+        "Aprofundar aprendizados técnicos do projeto.",
+        "Testar e validar o mecanismo de rollback."
+      ],
+      "planos": [
+        {
+          "titulo": "Validar rollback em cenários reais",
+          "objetivo": "Implementar validar rollback em cenários reais",
+          "etapas": [
+            "Analisar impacto no projeto",
+            "Definir mudanças necessárias",
+            "Aplicar alterações com segurança",
+            "Validar comportamento",
+            "Atualizar documentação viva"
+          ],
+          "status": "proposto"
+        }
+      ],
+      "contexto_imediato": {
+        "modo": "acao_pendente",
+        "confirmado": false,
+        "confirmacoes": 0,
+        "dados_acao": {
+          "tipo": "executar",
+          "acao": "abrir_qualquer_coisa",
+          "dados": {
+            "alvo": "painel ia"
+          }
+        }
+      },
+      "execucao_atual": {
+        "acao": "salvar_atalho",
+        "status": "concluida"
+      },
+      "autonomia": {
+        "nivel": 3,
+        "confianca": 11
+      },
+      "falhas_acao": {
+        "abrir_qualquer_coisa": {
+          "contagem": 9,
+          "ultimo_erro": "RETORNO_INVALIDO | Retorno inválido da ação",
+          "bloqueado": true
+        },
+        "abrir_app": {
+          "contagem": 4,
+          "ultimo_erro": "Falha após todas as tentativas",
+          "bloqueado": true
+        },
+        "salvar_macro": {
+          "contagem": 4,
+          "ultimo_erro": "Falha após todas as tentativas",
+          "bloqueado": true
+        },
+        "salvar_atalho": {
+          "contagem": 2,
+          "ultimo_erro": "Falha após todas as tentativas",
+          "bloqueado": false
+        }
+      },
+      "maturidade": 1,
+      "rollback_stack": [],
+      "feedbacks": [],
+      "execucao": {
+        "plano_atual": null,
+        "etapa_atual": 0
+      }
+    }
+  },
+  "solucoes_aprendidas": {
+    "abrir_qualquer_coisa": {
+      "alvo": "brave"
+    }
+  }
+}

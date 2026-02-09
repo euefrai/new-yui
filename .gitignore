@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+*.egg-info/
+.eggs/
+dist/
+build/
+*.spec
+
+# Ambiente e secrets
+.env
+*.log
+logs/
+
+# Memória local (opcional: descomente se não quiser versionar)
+# memoria.json
+# yui_ai/memory/memoria.json
+
+# IDE / OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Executáveis e binários
+*.exe
+*.pyz
+*.zip
