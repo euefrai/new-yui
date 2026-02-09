@@ -3,8 +3,15 @@ import json
 import hashlib
 from dotenv import load_dotenv
 
+import re
+
 from yui_ai.memory.memory import obter_memoria
-from yui_ai.config.config import SYSTEM_PROMPT
+from yui_ai.config.config import SYSTEM_PROMPT, SYSTEM_PROMPT_ANALISE_CODIGO
+
+# Import tardio para evitar ciclo (code_generator importa ai_engine)
+def _build_context_chat():
+    from yui_ai.ai.context_builder import build_context
+    return build_context()
 
 # =============================================================
 # AMBIENTE
@@ -71,6 +78,33 @@ def _parse_json_resposta(texto):
         }
 
 # =============================================================
+# DETECÇÃO DE CÓDIGO (MODO ANALISADOR)
+# =============================================================
+def detectar_codigo(mensagem: str) -> bool:
+    """Ativa MODO_ANALISE_CODIGO se a mensagem parecer trecho de código."""
+    if not mensagem or len(mensagem.strip()) < 20:
+        return False
+    msg = mensagem.strip()
+    # Extensões no texto
+    if re.search(r"\b\.(py|js|ts|jsx|tsx|css|html|json|yml|yaml)\b", msg, re.I):
+        return True
+    # Chaves de código
+    if "{" in msg and "}" in msg and msg.count("{") >= 1:
+        return True
+    # Tags HTML
+    if re.search(r"</?[a-z][a-z0-9]*[\s>]", msg, re.I):
+        return True
+    # Palavras-chave de linguagens
+    if re.search(r"\b(function|const|let|var|import|from|def|class|=>)\b", msg):
+        return True
+    # Indentação típica (múltiplas linhas começando com espaços)
+    linhas = [l for l in msg.splitlines() if l.strip()]
+    if len(linhas) >= 2 and sum(1 for l in linhas if re.match(r"^[\s]+", l)) >= 2:
+        return True
+    return False
+
+
+# =============================================================
 # MOTOR DE IA
 # =============================================================
 def perguntar_yui(mensagem, intencao=None):
@@ -89,8 +123,19 @@ def perguntar_yui(mensagem, intencao=None):
             }
         }
 
+    modo_analise = detectar_codigo(mensagem)
+    system_prompt = SYSTEM_PROMPT_ANALISE_CODIGO if modo_analise else SYSTEM_PROMPT
+    user_content = mensagem
+    if modo_analise:
+        user_content = "Analise o código abaixo e responda no formato obrigatório (🧠 O que faz / ⚠️ Problemas / 💡 Como melhorar / 🚀 Versão melhorada).\n\n" + mensagem
+    else:
+        # Contexto das últimas 8 mensagens do chat (memória persistente)
+        ctx_chat = _build_context_chat()
+        if ctx_chat:
+            user_content = ctx_chat + "Usuário: " + mensagem
+
     mensagens = [
-        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "system", "content": system_prompt},
     ]
 
     ctx_vexx = montar_contexto_vexx()
@@ -101,7 +146,7 @@ def perguntar_yui(mensagem, intencao=None):
     if ctx_mem:
         mensagens.append({"role": "system", "content": ctx_mem})
 
-    mensagens.append({"role": "user", "content": mensagem})
+    mensagens.append({"role": "user", "content": user_content})
 
     cache_key = hashlib.md5(str(mensagens).encode()).hexdigest()
     if cache_key in CACHE_IA:
@@ -137,3 +182,47 @@ def perguntar_yui(mensagem, intencao=None):
                 "erro": str(e)
             }
         }
+
+
+# =============================================================
+# GERAÇÃO DE CÓDIGO (para ai/code_generator)
+# =============================================================
+SYSTEM_PROMPT_GERAR_CODIGO = """Você é a Yui, assistente técnica. O usuário pediu para gerar código.
+Responda SEMPRE em texto puro (não use JSON), no formato exato abaixo:
+
+📦 Título curto do que foi criado
+
+🧠 Explicação curta
+(uma ou duas frases em linguagem clara)
+
+💻 Código
+(bloco de código completo e funcional na linguagem pedida)
+
+⚙️ Melhorias possíveis
+- item 1
+- item 2 (opcional)
+
+Seja direta. Não invente requisitos além do pedido. NUNCA execute código — apenas mostre o código como texto."""
+
+
+def _gerar_resposta_codigo_ia(pedido: str, linguagem: str):
+    """
+    Chama a IA para gerar código conforme pedido e linguagem.
+    Retorna (sucesso: bool, texto: str, erro: Optional[str]).
+    """
+    if client is None:
+        return False, "", "OPENAI_API_KEY não configurada."
+
+    try:
+        response = client.chat.completions.create(
+            model=os.getenv("OPENAI_MODEL", "gpt-4o-mini"),
+            messages=[
+                {"role": "system", "content": SYSTEM_PROMPT_GERAR_CODIGO},
+                {"role": "user", "content": f"Linguagem: {linguagem}. Pedido do usuário: {pedido}"},
+            ],
+            temperature=0.5,
+        )
+        texto = (response.choices[0].message.content or "").strip()
+        return True, texto, None
+    except Exception as e:
+        return False, "", str(e)

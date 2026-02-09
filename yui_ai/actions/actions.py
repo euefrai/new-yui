@@ -21,6 +21,12 @@ try:
 except Exception:  # noqa: BLE001
     send2trash = None
 
+try:
+    from yui_ai.system.logger import log_error
+except Exception:  # noqa: BLE001
+    def log_error(e, ctx=None):  # type: ignore
+        pass
+
 # =============================================================
 # PADRÃO DE RETORNO
 # =============================================================
@@ -161,6 +167,7 @@ def abrir_explorador():
         subprocess.Popen("explorer", shell=True)
         return sucesso("Explorador de arquivos aberto")
     except Exception as e:
+        log_error(e, {"codigo": "ERRO_EXECUCAO"})
         return falha(str(e), "ERRO_EXECUCAO")
 
 
@@ -187,6 +194,7 @@ def abrir_url(url: str):
         webbrowser.open(url_norm)
         return sucesso(f"Abrindo {url_norm} no navegador.", {"url": url_norm})
     except Exception as e:
+        log_error(e, {"codigo": "ERRO_ABRIR_URL"})
         return falha(str(e), "ERRO_ABRIR_URL")
 
 
@@ -200,6 +208,7 @@ def pesquisar_no_navegador(termo: str):
         webbrowser.open(url_busca)
         return sucesso(f"Pesquisando '{termo}' no navegador.", {"url": url_busca, "termo": termo})
     except Exception as e:
+        log_error(e, {"codigo": "ERRO_PESQUISA"})
         return falha(str(e), "ERRO_PESQUISA")
 
 
@@ -217,6 +226,7 @@ def pressionar_tecla(tecla):
         pyautogui.press(tecla)
         return sucesso(f"Tecla '{tecla}' pressionada")
     except Exception as e:
+        log_error(e, {"codigo": "ERRO_AUTOMACAO"})
         return falha(str(e), "ERRO_AUTOMACAO")
 
 
@@ -277,6 +287,7 @@ def listar_diretorio(caminho: str, limite: int = 20):
             {"caminho": caminho_resolvido, "itens": itens_limitados, "total": len(itens)}
         )
     except Exception as e:
+        log_error(e, {"codigo": "ERRO_LISTAGEM"})
         return falha(str(e), "ERRO_LISTAGEM")
 
 
@@ -289,6 +300,7 @@ def criar_pasta(caminho: str):
         os.makedirs(caminho_resolvido, exist_ok=True)
         return sucesso("Pasta criada", {"caminho": caminho_resolvido})
     except Exception as e:
+        log_error(e, {"codigo": "ERRO_CRIAR_PASTA"})
         return falha(str(e), "ERRO_CRIAR_PASTA")
 
 
@@ -313,6 +325,7 @@ def mover_caminho(origem: str, destino: str):
         resultado = shutil.move(src, dst_final)
         return sucesso("Movido com sucesso", {"origem": src, "destino": resultado})
     except Exception as e:
+        log_error(e, {"codigo": "ERRO_MOVER"})
         return falha(str(e), "ERRO_MOVER")
 
 
@@ -348,6 +361,7 @@ def copiar_caminho(origem: str, destino: str):
         shutil.copy2(src, dst_final)
         return sucesso("Arquivo copiado com sucesso", {"origem": src, "destino": dst_final})
     except Exception as e:
+        log_error(e, {"codigo": "ERRO_COPIAR"})
         return falha(str(e), "ERRO_COPIAR")
 
 
@@ -370,6 +384,7 @@ def excluir_caminho(caminho: str, definitivo: bool = False):
             send2trash(alvo)
             return sucesso("Enviado para a Lixeira", {"caminho": alvo})
         except Exception as e:
+            log_error(e, {"codigo": "ERRO_LIXEIRA"})
             return falha(str(e), "ERRO_LIXEIRA")
 
     # definitivo (perigoso)
@@ -380,6 +395,7 @@ def excluir_caminho(caminho: str, definitivo: bool = False):
             os.remove(alvo)
         return sucesso("Excluído definitivamente", {"caminho": alvo})
     except Exception as e:
+        log_error(e, {"codigo": "ERRO_EXCLUIR"})
         return falha(str(e), "ERRO_EXCLUIR")
 
 
@@ -403,6 +419,7 @@ def renomear_caminho(origem: str, novo_nome_ou_caminho: str):
         os.replace(src, dst)
         return sucesso("Renomeado com sucesso", {"origem": src, "destino": dst})
     except Exception as e:
+        log_error(e, {"codigo": "ERRO_RENOMEAR"})
         return falha(str(e), "ERRO_RENOMEAR")
 
 
@@ -422,6 +439,7 @@ def ler_arquivo_texto(caminho: str, max_chars: int = 4000):
             conteudo = f.read(int(max_chars or 4000))
         return sucesso("Conteúdo lido", {"caminho": p, "conteudo": conteudo, "truncado": len(conteudo) >= int(max_chars or 4000)})
     except Exception as e:
+        log_error(e, {"codigo": "ERRO_LER_ARQUIVO"})
         return falha(str(e), "ERRO_LER_ARQUIVO")
 
 
@@ -443,6 +461,7 @@ def escrever_arquivo_texto(caminho: str, texto: str, modo: str = "sobrescrever")
             f.write(texto)
         return sucesso("Arquivo escrito", {"caminho": p, "modo": modo, "chars": len(texto)})
     except Exception as e:
+        log_error(e, {"codigo": "ERRO_ESCREVER_ARQUIVO"})
         return falha(str(e), "ERRO_ESCREVER_ARQUIVO")
 
 
@@ -475,6 +494,7 @@ def buscar_arquivos(pasta: str, padrao: str = "*", limite: int = 50):
                         )
         return sucesso("Busca concluída", {"pasta": raiz, "padrao": padrao, "resultados": encontrados, "limitado": False})
     except Exception as e:
+        log_error(e, {"codigo": "ERRO_BUSCA"})
         return falha(str(e), "ERRO_BUSCA")
 
 
@@ -505,6 +525,7 @@ def compactar_zip(origem: str, destino_zip: str):
                 z.write(src, os.path.basename(src))
         return sucesso("ZIP criado", {"origem": src, "destino": dst})
     except Exception as e:
+        log_error(e, {"codigo": "ERRO_ZIP"})
         return falha(str(e), "ERRO_ZIP")
 
 
@@ -524,6 +545,7 @@ def extrair_zip(arquivo_zip: str, destino_pasta: str):
             z.extractall(dst)
         return sucesso("ZIP extraído", {"zip": zpath, "destino": dst})
     except Exception as e:
+        log_error(e, {"codigo": "ERRO_UNZIP"})
         return falha(str(e), "ERRO_UNZIP")
 
 
@@ -555,6 +577,7 @@ def listar_processos(limite: int = 30):
 
         return sucesso("Processos listados", {"processos": processos, "limitado": True})
     except Exception as e:
+        log_error(e, {"codigo": "ERRO_PROCESSOS"})
         return falha(str(e), "ERRO_PROCESSOS")
 
 
@@ -584,6 +607,7 @@ def encerrar_processo(identificador: str, forcar: bool = True):
             return falha(p.stderr.strip() or p.stdout.strip() or "Falha ao encerrar processo", "ERRO_ENCERRAR")
         return sucesso("Processo encerrado", {"identificador": ident, "saida": (p.stdout or "").strip()})
     except Exception as e:
+        log_error(e, {"codigo": "ERRO_ENCERRAR"})
         return falha(str(e), "ERRO_ENCERRAR")
 
 # =============================================================
@@ -870,4 +894,5 @@ def executar_acao(acao, dados):
         return falha(f"Ação '{acao}' não reconhecida", "ACAO_DESCONHECIDA")
 
     except Exception as e:
+        log_error(e, {"codigo": "ERRO_CRITICO"})
         return falha(str(e), "ERRO_CRITICO")

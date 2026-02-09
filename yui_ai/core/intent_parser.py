@@ -46,10 +46,29 @@ def _limpar_caminho(texto: str) -> str:
 
 
 def interpretar_intencao(texto):
-    texto = texto.lower().strip()
+    texto_raw = (texto or "").strip()
+    texto = texto_raw.lower().strip()
 
     if not texto:
         return _conversa()
+
+    # =============================================================
+    # 0. EDIÇÃO DE RESPOSTA ANTERIOR (não pede novo conteúdo)
+    # =============================================================
+    triggers_editar = [
+        "altera isso", "altere isso", "muda aquilo", "mude aquilo",
+        "ajusta a resposta", "ajuste a resposta", "ajusta aquela resposta",
+        "melhora o código", "melhore o código", "melhora o codigo",
+        "refatora o que você mandou", "refatore o que você mandou",
+        "corrige o que você mandou", "corrija o que você mandou",
+        "corrige a resposta", "corrija a resposta", "edita isso", "edite isso",
+        "altera a resposta", "altere a resposta", "muda a resposta", "mude a resposta",
+    ]
+    for t in triggers_editar:
+        if t in texto or texto.startswith(t):
+            return {"tipo": "editar_resposta", "acao": None, "dados": {"pedido": texto_raw}, "nivel": 0}
+    if re.search(r"^(altera|muda|ajusta|melhora|refatora|corrige|edita)\s+(isso|aquilo|a resposta)", texto):
+        return {"tipo": "editar_resposta", "acao": None, "dados": {"pedido": texto_raw}, "nivel": 0}
 
     # =============================================================
     # 1. ENSINO NATURAL (PRIORIDADE MÁXIMA)

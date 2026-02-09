@@ -2,41 +2,40 @@
 <html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
-    <title>Yui Web</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Yui — Chat</title>
     <link rel="stylesheet" href="/web/styles.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
   </head>
   <body>
     <div class="app">
-      <header class="app-header">
-        <h1>Yui – Assistente Web</h1>
-        <p>Converse em texto com a Yui (sem automações).</p>
-      </header>
-
-      <main class="chat-container">
-        <div id="chat-log" class="chat-log">
-          <div class="message message-yui">
-            <div class="message-author">Yui</div>
-            <div class="message-body">
-              Olá! Sou a Yui em modo web. Me faça uma pergunta em texto.
-            </div>
+      <aside class="sidebar" aria-label="Menu">
+        <div class="sidebar-brand">Yui</div>
+      </aside>
+      <div class="main-wrap">
+        <header class="topbar">
+          <h1>Yui — Assistente</h1>
+        </header>
+        <main id="chat"></main>
+        <footer class="input-area">
+          <div id="replyPreview" class="reply-preview" style="display: none;">
+            <span class="reply-preview-label">↩ Respondendo</span>
+            <span id="replyPreviewText" class="reply-preview-text"></span>
+            <button type="button" id="replyPreviewCancel" class="reply-preview-cancel" title="Cancelar">×</button>
           </div>
-        </div>
-      </main>
-
-      <form id="chat-form" class="chat-input-bar">
-        <input
-          id="chat-input"
-          type="text"
-          placeholder="Digite sua mensagem..."
-          autocomplete="off"
-          required
-        />
-        <button type="submit">Enviar</button>
-      </form>
+          <div class="input-row">
+            <label class="file-btn" title="Enviar arquivo (📎)">
+              <span class="file-icon">&#128206;</span>
+              <input type="file" id="fileInput" hidden accept=".py,.js,.ts,.json,.txt,.md,.html,.css,.yml,.yaml,.java" />
+            </label>
+            <input id="msgInput" type="text" placeholder="Mensagem" autocomplete="off" />
+            <button type="button" id="sendBtn" class="send-btn">Enviar</button>
+          </div>
+        </footer>
+      </div>
     </div>
-
     <script src="/web/script.js"></script>
   </body>
 </html>
-

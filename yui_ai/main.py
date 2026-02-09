@@ -51,12 +51,54 @@ from yui_ai.memory.memory import (
 )
 
 from yui_ai.logging_setup import get_logger
+from yui_ai.memory import chat_memory
+from yui_ai.ai.code_generator import gerar_codigo, eh_pedido_de_codigo
 
 # =============================
 # CONFIGURAÇÕES GERAIS
 # =============================
 MODO_TEXTO = "texto"
 MODO_VOZ = "voz"
+
+# =============================
+# EDIÇÃO CONTEXTUAL DE RESPOSTA
+# =============================
+def editar_resposta_anterior(pedido: str, memoria=None):
+    """
+    Usa a última mensagem da Yui como base e aplica o pedido do usuário.
+    Retorna (resposta_texto, None). Se não houver mensagem anterior, retorna mensagem de erro.
+    NUNCA inventa conteúdo.
+    """
+    if memoria is None:
+        memoria = chat_memory
+    ultima = memoria.get_last_from_yui()
+    if not ultima or not (ultima.get("conteudo") or "").strip():
+        return "Não encontrei uma resposta anterior para editar. Me diga qual parte você quer alterar.", None
+    contexto_original = (ultima.get("conteudo") or "")[:4000]
+    prompt = (
+        "O usuário pediu para editar sua resposta anterior. "
+        "Resposta anterior (use como base, não invente o que não está aqui):\n\n"
+        f"{contexto_original}\n\n"
+        f"Pedido do usuário: {pedido}\n\n"
+        "Gere a versão alterada. Use exatamente este formato:\n"
+        "🛠️ O QUE FOI ALTERADO\n- item 1\n- item 2\n\n"
+        "📄 NOVA VERSÃO\n(conteúdo atualizado)\n\n"
+        "Seja direta e técnica. Não invente conteúdo que não estava na resposta anterior."
+    )
+    resposta = perguntar_yui(prompt, {"tipo": "conversa"})
+    texto = ""
+    if isinstance(resposta, dict) and resposta.get("status") == "ok":
+        data = resposta.get("data", "")
+        if isinstance(data, dict):
+            texto = data.get("resposta", "") or ""
+        else:
+            texto = str(data)
+    elif isinstance(resposta, str):
+        texto = resposta
+    if not texto:
+        texto = "Tive um problema ao gerar a edição. Tente de novo."
+    return texto, None
+
 
 # =============================
 # FUNÇÃO DE RESPOSTA DA IA
@@ -81,37 +123,65 @@ def responder_com_ia(texto, intencao=None, falar_fn=None):
         falar_use(resposta)
 
 
-def processar_texto_web(texto: str) -> str:
+def processar_texto_web(texto: str, reply_to_id: str = None):
     """
-    Versão simplificada para uso via HTTP/WEB.
-    Focada em conversa de texto, sem comandos de automação.
+    Processa mensagem para a interface web. Suporta conversa, reply e edição de resposta.
+    Retorna (resposta: str, message_id: Optional[str]).
     """
     texto = (texto or "").strip()
     if not texto:
-        return "Mensagem vazia."
+        return "Mensagem vazia.", None
 
-    # Interpreta intenção, mas só trata o tipo 'conversa' na interface web.
+    memoria = chat_memory
     intencao = interpretar_intencao(texto)
 
+    # Edição de resposta anterior: usa memória, não pede reenvio
+    if intencao.get("tipo") == "editar_resposta":
+        pedido = intencao.get("dados", {}).get("pedido", texto)
+        resposta_txt, _ = editar_resposta_anterior(pedido, memoria)
+        msg_yui = memoria.add_message("yui", resposta_txt, "texto")
+        return resposta_txt, msg_yui.get("id")
+
     if intencao.get("tipo") != "conversa":
-        return "A interface web suporta apenas conversa de texto (sem automações) por enquanto."
+        return "A interface web suporta apenas conversa e edição de resposta (ex.: 'altera isso', 'melhora o código').", None
 
-    resposta = perguntar_yui(texto, intencao)
-    if not resposta:
-        return "Não entendi direito. Pode repetir?"
+    # Guarda mensagem do usuário
+    memoria.add_message("usuario", texto, "texto")
 
-    if isinstance(resposta, dict):
-        if resposta.get("status") == "ok":
-            data = resposta.get("data", "")
-            if isinstance(data, dict):
-                return data.get("resposta", "") or ""
-            return str(data)
-        return "Tive um problema ao pensar. Pode repetir?"
+    # Contexto de reply: anexa mensagem referenciada
+    texto_para_ia = texto
+    if reply_to_id:
+        ref = memoria.get_message_by_id(reply_to_id)
+        if ref and ref.get("conteudo"):
+            trecho = (ref.get("conteudo") or "")[:2000]
+            texto_para_ia = f"[Respondendo à mensagem anterior]:\n{trecho}\n\n[Pergunta/Comentário do usuário]: {texto}"
 
-    if isinstance(resposta, str):
-        return resposta
+    # Pedido de geração de código: rota direta para gerar_codigo (📦 🧠 💻 ⚙️)
+    if eh_pedido_de_codigo(texto):
+        ok_codigo, resposta_txt, err_codigo = gerar_codigo(texto)
+        if not ok_codigo:
+            resposta_txt = err_codigo or "Não consegui gerar o código. Tente de novo."
+    else:
+        resposta = perguntar_yui(texto_para_ia, intencao)
+        resposta_txt = ""
+        if not resposta:
+            resposta_txt = "Não entendi direito. Pode repetir?"
+        elif isinstance(resposta, dict):
+            if resposta.get("status") == "ok":
+                data = resposta.get("data", "")
+                if isinstance(data, dict):
+                    resposta_txt = data.get("resposta", "") or ""
+                else:
+                    resposta_txt = str(data)
+            else:
+                resposta_txt = "Tive um problema ao pensar. Pode repetir?"
+        elif isinstance(resposta, str):
+            resposta_txt = resposta
+        else:
+            resposta_txt = "Não consegui gerar uma resposta válida."
 
-    return "Não consegui gerar uma resposta válida."
+    msg_yui = memoria.add_message("yui", resposta_txt, "texto")
+    return resposta_txt, msg_yui.get("id")
 
 # =============================
 # LOOP PRINCIPAL (ENTRYPOINT)
