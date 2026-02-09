@@ -28,23 +28,13 @@
   function initSupabase() {
     var url = window.SUPABASE_URL;
     var key = window.SUPABASE_KEY;
-    var statusEl = document.getElementById("supabaseStatus");
-    function setStatus(conectado, texto) {
-      if (!statusEl) return;
-      statusEl.textContent = texto;
-      statusEl.className = "supabaseStatus " + (conectado ? "conectado" : "desconectado");
-    }
     if (url && key) {
       try {
         supabaseClient = window.supabase.createClient(url, key);
-        setStatus(true, "Conectado ao Supabase");
         return true;
       } catch (e) {
         console.warn("Supabase init error", e);
-        setStatus(false, "Supabase: erro ao conectar");
       }
-    } else {
-      setStatus(false, "Supabase não configurado");
     }
     return false;
   }
@@ -419,6 +409,38 @@
       enviar();
     }
   });
+
+  var fileInput = document.getElementById("fileInput");
+  if (fileInput) {
+    fileInput.addEventListener("change", function () {
+      var f = this.files && this.files[0];
+      if (!f || !chat) return;
+      var fileName = f.name || "arquivo";
+      var userBubble = document.createElement("div");
+      userBubble.className = "msgBubble user";
+      userBubble.textContent = "📎 Arquivo: " + fileName;
+      if (chat.querySelector(".chatVazio")) chat.innerHTML = "";
+      chat.appendChild(userBubble);
+      var assistantBubble = document.createElement("div");
+      assistantBubble.className = "msgBubble assistant";
+      assistantBubble.textContent = "Analisando...";
+      chat.appendChild(assistantBubble);
+      chat.scrollTop = chat.scrollHeight;
+      var formData = new FormData();
+      formData.append("file", f);
+      fetch("/upload", { method: "POST", body: formData })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          assistantBubble.textContent = data.response || data.error || "Erro ao analisar o arquivo.";
+          chat.scrollTop = chat.scrollHeight;
+        })
+        .catch(function () {
+          assistantBubble.textContent = "Erro de conexão ao enviar o arquivo.";
+          chat.scrollTop = chat.scrollHeight;
+        });
+      fileInput.value = "";
+    });
+  }
 
   initSupabase();
   handleAuth();

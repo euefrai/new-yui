@@ -37,13 +37,15 @@
     <main class="chatArea">
       <div id="chat" class="chatMessages"></div>
       <div class="inputArea">
+        <label class="btnAnexo" title="Enviar arquivo para análise">
+          <span class="btnAnexoIcon">&#128206;</span>
+          <input type="file" id="fileInput" hidden accept=".py,.js,.ts,.json,.txt,.md,.html,.css,.yml,.yaml,.java,.tsx,.jsx" />
+        </label>
         <input id="msg" type="text" placeholder="Digite sua mensagem..." autocomplete="off" />
         <button type="button" id="btnEnviar">Enviar</button>
       </div>
     </main>
   </div>
-
-  <div id="supabaseStatus" class="supabaseStatus" aria-live="polite"></div>
 
   <script>
     window.SUPABASE_URL = "{{ supabase_url or '' }}";
