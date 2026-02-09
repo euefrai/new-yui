@@ -28,13 +28,23 @@
   function initSupabase() {
     var url = window.SUPABASE_URL;
     var key = window.SUPABASE_KEY;
+    var statusEl = document.getElementById("supabaseStatus");
+    function setStatus(conectado, texto) {
+      if (!statusEl) return;
+      statusEl.textContent = texto;
+      statusEl.className = "supabaseStatus " + (conectado ? "conectado" : "desconectado");
+    }
     if (url && key) {
       try {
         supabaseClient = window.supabase.createClient(url, key);
+        setStatus(true, "Conectado ao Supabase");
         return true;
       } catch (e) {
         console.warn("Supabase init error", e);
+        setStatus(false, "Supabase: erro ao conectar");
       }
+    } else {
+      setStatus(false, "Supabase não configurado");
     }
     return false;
   }
