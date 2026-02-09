@@ -49,8 +49,8 @@ def api_chat():
         if not mensagem:
             return jsonify({"error": "Mensagem vazia."}), 400
 
-        resposta, message_id = processar_texto_web(mensagem, reply_to_id=reply_to)
-        return jsonify({"reply": resposta, "message_id": message_id})
+        resposta, message_id, api_key_missing = processar_texto_web(mensagem, reply_to_id=reply_to)
+        return jsonify({"reply": resposta, "message_id": message_id, "api_key_missing": api_key_missing})
     except Exception as e:
         return jsonify({"error": "Erro no servidor: " + str(e), "reply": None}), 500
 

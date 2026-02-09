@@ -18,6 +18,10 @@
         <header class="topbar">
           <h1>Yui — Assistente</h1>
         </header>
+        <div id="apiKeyBanner" class="api-key-banner" style="display: none;" role="alert">
+          <span class="api-key-banner-text">⚠️ Configuração necessária: a chave da OpenAI não foi detectada no servidor. Configure a variável OPENAI_API_KEY no ambiente de deploy.</span>
+          <button type="button" id="apiKeyBannerClose" class="api-key-banner-close" title="Fechar">×</button>
+        </div>
         <main id="chat"></main>
         <footer class="input-area">
           <div id="replyPreview" class="reply-preview" style="display: none;">

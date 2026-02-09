@@ -18,17 +18,21 @@ def _build_context_chat():
 # =============================================================
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.dirname(os.path.dirname(BASE_DIR))
-# Prioriza variáveis de ambiente, mas também suporta um ".env" no root do projeto.
-load_dotenv(os.path.join(PROJECT_ROOT, ".env"))
+# Local: carrega .env se existir. Render: não usa .env — variáveis vêm de os.environ.
+_env_path = os.path.join(PROJECT_ROOT, ".env")
+if os.path.isfile(_env_path):
+    load_dotenv(_env_path)
 
-# OpenAI é opcional: se não estiver instalado/configurado, a Yui continua funcionando (sem IA).
+# Chave sempre lida de os.environ (Render injeta aqui; local pode ter vindo do .env acima).
+OPENAI_API_KEY = (os.environ.get("OPENAI_API_KEY") or "").strip()
+
 try:
     from openai import OpenAI  # import tardio e opcional
 except Exception:  # noqa: BLE001
     OpenAI = None
 
-_api_key = os.getenv("OPENAI_API_KEY")
-client = OpenAI(api_key=_api_key) if (OpenAI and _api_key) else None
+# Cliente criado com a chave explícita; no Render não existe .env, só os.environ.
+client = OpenAI(api_key=OPENAI_API_KEY) if (OpenAI and OPENAI_API_KEY) else None
 
 CACHE_IA = {}
 
@@ -114,9 +118,10 @@ def perguntar_yui(mensagem, intencao=None):
 
     if client is None:
         return {
-            "status": "ok",
+            "status": "error",
+            "api_key_missing": True,
             "data": {
-                "resposta": "Eu consigo conversar melhor quando você configura a variável OPENAI_API_KEY (arquivo .env).",
+                "resposta": "⚠️ Configuração necessária\n\nA chave da OpenAI não foi detectada no servidor.\nConfigure a variável OPENAI_API_KEY no ambiente de deploy (ex.: Render → Environment).",
                 "acao": "nenhuma",
                 "dados": {},
                 "nivel": 0

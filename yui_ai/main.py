@@ -126,11 +126,11 @@ def responder_com_ia(texto, intencao=None, falar_fn=None):
 def processar_texto_web(texto: str, reply_to_id: str = None):
     """
     Processa mensagem para a interface web. Suporta conversa, reply e edição de resposta.
-    Retorna (resposta: str, message_id: Optional[str]).
+    Retorna (resposta: str, message_id: Optional[str], api_key_missing: bool).
     """
     texto = (texto or "").strip()
     if not texto:
-        return "Mensagem vazia.", None
+        return "Mensagem vazia.", None, False
 
     memoria = chat_memory
     intencao = interpretar_intencao(texto)
@@ -140,10 +140,10 @@ def processar_texto_web(texto: str, reply_to_id: str = None):
         pedido = intencao.get("dados", {}).get("pedido", texto)
         resposta_txt, _ = editar_resposta_anterior(pedido, memoria)
         msg_yui = memoria.add_message("yui", resposta_txt, "texto")
-        return resposta_txt, msg_yui.get("id")
+        return resposta_txt, msg_yui.get("id"), False
 
     if intencao.get("tipo") != "conversa":
-        return "A interface web suporta apenas conversa e edição de resposta (ex.: 'altera isso', 'melhora o código').", None
+        return "A interface web suporta apenas conversa e edição de resposta (ex.: 'altera isso', 'melhora o código').", None, False
 
     # Guarda mensagem do usuário
     memoria.add_message("usuario", texto, "texto")
@@ -156,18 +156,23 @@ def processar_texto_web(texto: str, reply_to_id: str = None):
             trecho = (ref.get("conteudo") or "")[:2000]
             texto_para_ia = f"[Respondendo à mensagem anterior]:\n{trecho}\n\n[Pergunta/Comentário do usuário]: {texto}"
 
+    api_key_missing = False
+
     # Pedido de geração de código: rota direta para gerar_codigo (📦 🧠 💻 ⚙️)
     if eh_pedido_de_codigo(texto):
         ok_codigo, resposta_txt, err_codigo = gerar_codigo(texto)
         if not ok_codigo:
             resposta_txt = err_codigo or "Não consegui gerar o código. Tente de novo."
+            if err_codigo and "OPENAI_API_KEY" in err_codigo:
+                api_key_missing = True
     else:
         resposta = perguntar_yui(texto_para_ia, intencao)
         resposta_txt = ""
         if not resposta:
             resposta_txt = "Não entendi direito. Pode repetir?"
         elif isinstance(resposta, dict):
-            if resposta.get("status") == "ok":
+            api_key_missing = bool(resposta.get("api_key_missing"))
+            if resposta.get("status") == "ok" or api_key_missing:
                 data = resposta.get("data", "")
                 if isinstance(data, dict):
                     resposta_txt = data.get("resposta", "") or ""
@@ -181,7 +186,7 @@ def processar_texto_web(texto: str, reply_to_id: str = None):
             resposta_txt = "Não consegui gerar uma resposta válida."
 
     msg_yui = memoria.add_message("yui", resposta_txt, "texto")
-    return resposta_txt, msg_yui.get("id")
+    return resposta_txt, msg_yui.get("id"), api_key_missing
 
 # =============================
 # LOOP PRINCIPAL (ENTRYPOINT)

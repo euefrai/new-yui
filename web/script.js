@@ -17,6 +17,15 @@
 
   let replyToId = null;
   let replyToSnippet = "";
+  var apiKeyMissingShown = false;
+
+  var apiKeyBanner = document.getElementById("apiKeyBanner");
+  var apiKeyBannerClose = document.getElementById("apiKeyBannerClose");
+  if (apiKeyBannerClose) {
+    apiKeyBannerClose.addEventListener("click", function () {
+      if (apiKeyBanner) apiKeyBanner.style.display = "none";
+    });
+  }
 
   var BLOCK_EMOJIS = /(🧠|⚠️|💡|🚀|✨|📦|📌|🛠|💻|⚙️)\s*([^\n]*)\n([\s\S]*?)(?=\n\s*(?:🧠|⚠️|💡|🚀|✨|📦|📌|🛠|💻|⚙️)\s*[^\n]*|$)/g;
   var EMOJI_CLASS = { "🧠": "brain", "⚠️": "warn", "💡": "tip", "🚀": "rocket", "✨": "title", "📦": "title", "📌": "problems", "🛠": "suggestions", "💻": "code", "⚙️": "improve" };
@@ -185,6 +194,18 @@
       .then(function (result) {
         removeMessage(loadingEl);
         var data = result.data;
+        var apiKeyMissing = !!(data && data.api_key_missing);
+
+        if (apiKeyMissing) {
+          if (apiKeyBanner) apiKeyBanner.style.display = "flex";
+          if (!apiKeyMissingShown) {
+            apiKeyMissingShown = true;
+            var msg = (data && data.reply) ? data.reply : "⚠️ Configure a variável OPENAI_API_KEY no ambiente de deploy.";
+            addMessage(msg, true, false, null);
+          }
+          return;
+        }
+
         var reply = (data && (data.reply != null ? data.reply : data.error)) || "Não consegui processar.";
         if (!result.ok && data && data.error) {
           reply = data.error;
