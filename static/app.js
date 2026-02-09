@@ -185,7 +185,7 @@
     showLogin();
   });
 
-  async function carregarChats() {
+  async function carregarChats(skipLoadMessages) {
     if (!user || !user.id) return;
     try {
       var res = await fetch("/get_chats", {
@@ -214,7 +214,7 @@
         };
         listaChats.appendChild(div);
       });
-      if (chatAtual) {
+      if (chatAtual && !skipLoadMessages) {
         carregarMensagens();
       }
     } catch (e) {
@@ -296,7 +296,7 @@
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ chat_id: chatId, first_message: firstMessage })
     }).then(function () {
-      carregarChats();
+      carregarChats(true);
     }).catch(function () {});
   }
 
