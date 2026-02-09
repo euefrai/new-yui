@@ -240,9 +240,14 @@ body {
   gap: 12px;
 }
 
-.msgBubble {
+.msgBubble,
+.chat-bubble {
   max-width: 85%;
   padding: 12px 16px;
+  border-radius: 18px;
+  margin: 8px;
+}
+.msgBubble {
   border-radius: 14px;
   font-size: 0.9rem;
   line-height: 1.5;

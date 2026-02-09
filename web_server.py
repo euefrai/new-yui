@@ -9,10 +9,9 @@ from yui_ai.main import processar_texto_web
 from yui_ai.analyzer.report_formatter import run_file_analysis, report_to_text
 from yui_ai.core.ai_engine import stream_resposta_yui, gerar_titulo_chat
 
-try:
-    from supabase_client import supabase
-except Exception:
-    supabase = None
+from core.supabase_client import supabase
+from core.memory import create_chat as memory_create_chat, get_chats as memory_get_chats, get_messages as memory_get_messages, save_message as memory_save_message, update_chat_title as memory_update_chat_title
+from core.engine import process_message as engine_process_message
 
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -72,8 +71,7 @@ def get_chats():
         user_id = data.get("user_id")
         if not user_id:
             return jsonify({"error": "user_id obrigatório"}), 400
-        res = supabase.table("chats").select("*").eq("user_id", user_id).order("created_at", desc=True).execute()
-        return jsonify(res.data or [])
+        return jsonify(memory_get_chats(user_id))
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -91,10 +89,10 @@ def create_chat():
         return jsonify(fake), 200
 
     try:
-        res = supabase.table("chats").insert({"user_id": user_id, "titulo": "Novo chat"}).execute()
-        if not res.data or len(res.data) == 0:
+        chat = memory_create_chat(user_id)
+        if not chat:
             return jsonify({"error": "Falha ao criar chat"}), 500
-        return jsonify(res.data[0])
+        return jsonify(chat)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -108,8 +106,7 @@ def get_messages():
         chat_id = data.get("chat_id")
         if not chat_id:
             return jsonify({"error": "chat_id obrigatório"}), 400
-        res = supabase.table("messages").select("*").eq("chat_id", chat_id).order("created_at", desc=False).execute()
-        return jsonify(res.data or [])
+        return jsonify(memory_get_messages(chat_id))
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -127,23 +124,13 @@ def chat():
         if not message:
             return jsonify({"error": "message obrigatória"}), 400
 
-        if supabase:
-            supabase.table("messages").insert({
-                "chat_id": chat_id,
-                "role": "user",
-                "content": message
-            }).execute()
+        memory_save_message(chat_id, "user", message)
 
         resposta, _message_id, api_key_missing = processar_texto_web(message, reply_to_id=None)
         if api_key_missing:
             resposta = "⚠️ Configure OPENAI_API_KEY no servidor para respostas da Yui."
 
-        if supabase:
-            supabase.table("messages").insert({
-                "chat_id": chat_id,
-                "role": "assistant",
-                "content": resposta
-            }).execute()
+        memory_save_message(chat_id, "assistant", resposta)
 
         return jsonify({"message": resposta})
     except Exception as e:
@@ -163,12 +150,7 @@ def chat_stream():
         if not message:
             return jsonify({"error": "message obrigatória"}), 400
 
-        if supabase:
-            supabase.table("messages").insert({
-                "chat_id": chat_id,
-                "role": "user",
-                "content": message
-            }).execute()
+        memory_save_message(chat_id, "user", message)
 
         full_content = []
 
@@ -177,13 +159,9 @@ def chat_stream():
                 full_content.append(chunk)
                 yield f"data: {json.dumps(chunk)}\n\n"
             content = "".join(full_content)
-            if supabase and content:
+            if content:
                 try:
-                    supabase.table("messages").insert({
-                        "chat_id": chat_id,
-                        "role": "assistant",
-                        "content": content
-                    }).execute()
+                    memory_save_message(chat_id, "assistant", content)
                 except Exception:
                     pass
 
@@ -207,10 +185,53 @@ def generate_chat_title():
         if not chat_id:
             return jsonify({"error": "chat_id obrigatório"}), 400
         titulo = gerar_titulo_chat(first_message)
-        supabase.table("chats").update({"titulo": titulo}).eq("id", chat_id).execute()
+        memory_update_chat_title(chat_id, titulo)
         return jsonify({"titulo": titulo})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+# ========== API nova (core engine) ==========
+@app.route("/api/chats/<user_id>")
+def api_get_chats(user_id):
+    return jsonify(memory_get_chats(user_id))
+
+
+@app.route("/api/chat/new", methods=["POST"])
+def api_new_chat():
+    data = request.get_json(silent=True) or {}
+    user_id = data.get("user_id")
+    if not user_id:
+        return jsonify({"error": "user_id obrigatório"}), 400
+    if not supabase:
+        fake = {"id": str(uuid.uuid4()), "titulo": "Novo chat", "user_id": user_id}
+        return jsonify(fake), 200
+    chat = memory_create_chat(user_id)
+    if not chat:
+        return jsonify({"error": "Falha ao criar chat"}), 500
+    return jsonify(chat)
+
+
+@app.route("/api/messages/<chat_id>")
+def api_messages(chat_id):
+    return jsonify(memory_get_messages(chat_id))
+
+
+@app.route("/api/send", methods=["POST"])
+def api_send():
+    data = request.get_json(silent=True) or {}
+    user_id = data.get("user_id")
+    chat_id = data.get("chat_id")
+    message = (data.get("message") or "").strip()
+    if not user_id or not chat_id:
+        return jsonify({"error": "user_id e chat_id obrigatórios"}), 400
+    if not message:
+        return jsonify({"error": "message obrigatória"}), 400
+    try:
+        reply = engine_process_message(user_id, chat_id, message)
+        return jsonify({"reply": reply})
+    except Exception as e:
+        return jsonify({"error": str(e), "reply": None}), 500
 
 
 # ========== API legada (compatibilidade) ==========

@@ -85,6 +85,10 @@
     if (loginScreen) loginScreen.style.display = "none";
     if (appScreen) appScreen.style.display = "flex";
     if (userName && user) userName.textContent = user.email || user.nome || "Usuário";
+    if (user && user.id) {
+      window.USER_ID = user.id;
+      if (window.YuiChat && window.YuiChat.setUserId) window.YuiChat.setUserId(user.id);
+    }
     setAvatar();
     carregarChats();
   }
@@ -95,6 +99,7 @@
       else localStorage.removeItem("yui_last_chat_id");
     } catch (e) {}
   }
+  window.saveLastChatId = saveLastChatId;
 
   function getLastChatId() {
     try {
