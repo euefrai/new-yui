@@ -1,5 +1,6 @@
 import os
 import json
+import uuid
 
 from flask import Flask, jsonify, request, send_from_directory, render_template, Response, stream_with_context
 from flask_cors import CORS
@@ -71,13 +72,17 @@ def get_chats():
 
 @app.route("/create_chat", methods=["POST"])
 def create_chat():
+    data = request.get_json(silent=True) or {}
+    user_id = data.get("user_id")
+    if not user_id:
+        return jsonify({"error": "user_id obrigatório"}), 400
+
     if not supabase:
-        return jsonify({"error": "Supabase não configurado"}), 503
+        # Sem Supabase: retorna um chat “local” para a sessão funcionar
+        fake = {"id": str(uuid.uuid4()), "titulo": "Novo chat", "user_id": user_id}
+        return jsonify(fake), 200
+
     try:
-        data = request.get_json(silent=True) or {}
-        user_id = data.get("user_id")
-        if not user_id:
-            return jsonify({"error": "user_id obrigatório"}), 400
         res = supabase.table("chats").insert({"user_id": user_id, "titulo": "Novo chat"}).execute()
         if not res.data or len(res.data) == 0:
             return jsonify({"error": "Falha ao criar chat"}), 500

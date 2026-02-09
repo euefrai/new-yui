@@ -176,7 +176,8 @@
     });
   }
 
-  document.getElementById("btnSair").addEventListener("click", function () {
+  var btnSair = document.getElementById("btnSair");
+  if (btnSair) btnSair.addEventListener("click", function () {
     if (supabaseClient) {
       supabaseClient.auth.signOut().catch(function () {});
     }
@@ -247,8 +248,16 @@
     }
   }
 
-  document.getElementById("novoChat").addEventListener("click", async function () {
-    if (!user || !user.id) return;
+  function gerarIdLocal() {
+    return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function (c) {
+      var r = (Math.random() * 16) | 0;
+      var v = c === "x" ? r : (r & 0x3) | 0x8;
+      return v.toString(16);
+    });
+  }
+
+  async function criarNovoChat() {
+    if (!user || !user.id) return null;
     try {
       var res = await fetch("/create_chat", {
         method: "POST",
@@ -257,14 +266,23 @@
       });
       var novo = await res.json();
       if (novo && novo.id) {
-        chatAtual = novo.id;
-        currentChatTitulo = "Novo chat";
-        saveLastChatId(chatAtual);
-        carregarChats();
-        chat.innerHTML = "<div class=\"chatVazio\">Novo chat. Envie uma mensagem.</div>";
+        return novo.id;
       }
-    } catch (e) {
-      chat.innerHTML = "<div class=\"chatVazio\">Erro ao criar chat.</div>";
+    } catch (e) {}
+    return gerarIdLocal();
+  }
+
+  document.getElementById("novoChat").addEventListener("click", async function () {
+    if (!user || !user.id) return;
+    var id = await criarNovoChat();
+    if (id) {
+      chatAtual = id;
+      currentChatTitulo = "Novo chat";
+      saveLastChatId(chatAtual);
+      carregarChats();
+      chat.innerHTML = "<div class=\"chatVazio\">Novo chat. Envie uma mensagem.</div>";
+    } else {
+      chat.innerHTML = "<div class=\"chatVazio\">Erro ao criar chat. Tente de novo.</div>";
     }
   });
 
@@ -285,12 +303,18 @@
   function enviar() {
     var texto = (msgInput.value || "").trim();
     if (!texto) return;
-    if (!chatAtual) {
-      chat.innerHTML = "<div class=\"chatVazio\">Crie ou selecione um chat primeiro.</div>";
+    if (!user || !user.id) {
+      chat.innerHTML = "<div class=\"chatVazio\">Faça login para enviar mensagens.</div>";
       return;
     }
 
-    var userBubble = document.createElement("div");
+    function fazerEnvio(chatId) {
+      chatAtual = chatId;
+      currentChatTitulo = "Novo chat";
+      saveLastChatId(chatAtual);
+      if (!listaChats.querySelector(".chatItem.ativo")) carregarChats();
+
+      var userBubble = document.createElement("div");
     userBubble.className = "msgBubble user";
     userBubble.textContent = texto;
     chat.appendChild(userBubble);
@@ -311,7 +335,7 @@
     fetch("/chat/stream", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ chat_id: chatAtual, message: texto })
+      body: JSON.stringify({ chat_id: chatId, message: texto })
     })
       .then(function (response) {
         if (!response.ok || !response.body) throw new Error("Stream failed");
@@ -326,7 +350,7 @@
               cursor.remove();
               if (btnEnviar) btnEnviar.disabled = false;
               if (isNovoChatTitulo(currentChatTitulo)) {
-                atualizarTituloChat(chatAtual, texto);
+                atualizarTituloChat(chatId, texto);
               }
               return;
             }
@@ -357,10 +381,24 @@
         if (btnEnviar) btnEnviar.disabled = false;
         chat.scrollTop = chat.scrollHeight;
       });
+    }
+
+    if (chatAtual) {
+      fazerEnvio(chatAtual);
+      return;
+    }
+    criarNovoChat().then(function (id) {
+      if (id) {
+        fazerEnvio(id);
+      } else {
+        chat.innerHTML = "<div class=\"chatVazio\">Erro ao criar chat. Tente clicar em «+ Novo chat» primeiro.</div>";
+      }
+    });
   }
 
-  document.getElementById("btnEnviar").addEventListener("click", enviar);
-  msgInput.addEventListener("keydown", function (e) {
+  var btnEnviarEl = document.getElementById("btnEnviar");
+  if (btnEnviarEl) btnEnviarEl.addEventListener("click", function (e) { e.preventDefault(); enviar(); });
+  if (msgInput) msgInput.addEventListener("keydown", function (e) {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       enviar();
