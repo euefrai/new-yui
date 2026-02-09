@@ -42,6 +42,14 @@ def _supabase_key():
     return (os.environ.get("SUPABASE_KEY") or "").strip()
 
 
+def _supabase_public_key():
+    """Chave pública (publishable/anon) para o frontend; nunca envie service_role ao browser."""
+    return (
+        (os.environ.get("SUPABASE_PUBLISHABLE_KEY") or "").strip()
+        or (os.environ.get("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY") or "").strip()
+    ) or _supabase_key()
+
+
 # ========== App principal (login + chats por usuário) ==========
 @app.route("/", methods=["GET", "OPTIONS"])
 def index():
@@ -50,7 +58,7 @@ def index():
     return render_template(
         "index.html",
         supabase_url=_supabase_url(),
-        supabase_key=_supabase_key(),
+        supabase_key=_supabase_public_key(),
     )
 
 
