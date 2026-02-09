@@ -24,6 +24,19 @@ Acesse: **http://127.0.0.1:5000**
 
 Configure `OPENAI_API_KEY` no arquivo `.env` (copie de `.env.example`) para usar a IA.
 
+## Login e chats por usuário (Supabase)
+
+A interface principal usa **Supabase** para login e para separar chats por usuário (sidebar estilo ChatGPT, nome no rodapé).
+
+1. Crie um projeto em [supabase.com](https://supabase.com).
+2. No SQL Editor do Supabase, execute o conteúdo de **`supabase_schema.sql`** (cria as tabelas `chats` e `messages` e opcionalmente `users_profile`).
+3. No `.env` (ou nas variáveis de ambiente do Render), defina:
+   - `SUPABASE_URL` = URL do projeto (ex.: `https://xxxx.supabase.co`)
+   - `SUPABASE_KEY` = chave **anon** (pública) para o frontend; para o backend escrever em nome dos usuários, use a chave **service_role** em `SUPABASE_KEY` (ou configure RLS no Supabase conforme o schema).
+4. Reinicie o servidor e acesse a raiz da aplicação: tela de login → após entrar, sidebar com chats e área de mensagens.
+
+Sem Supabase configurado, a rota `/` ainda carrega a interface, mas login e persistência de chats não funcionam (é necessário configurar as variáveis).
+
 ## Deploy no Render
 
 1. Faça push deste repositório para o GitHub.
@@ -34,6 +47,7 @@ Configure `OPENAI_API_KEY` no arquivo `.env` (copie de `.env.example`) para usar
    - **Start command:** `gunicorn --bind 0.0.0.0:$PORT web_server:app`
 5. Em **Environment** adicione:
    - `OPENAI_API_KEY` = sua chave da OpenAI (obrigatório para o chat com IA).
+   - `SUPABASE_URL` e `SUPABASE_KEY` = para login e chats por usuário (opcional).
 6. Clique em **Apply** e aguarde o deploy.
 
 O Render vai gerar uma URL como `https://yui-xxxx.onrender.com`. Use essa URL no navegador para o chat. Em plano gratuito o serviço pode “dormir” após inatividade; a primeira requisição pode demorar alguns segundos.

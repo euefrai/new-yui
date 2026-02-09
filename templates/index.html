@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Yui</title>
+  <link rel="stylesheet" href="/static/style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+  <div id="loginScreen" class="loginScreen">
+    <div class="loginCard">
+      <h1 class="loginLogo">YUI</h1>
+      <p class="loginSub">Entre para acessar seus chats</p>
+      <form id="loginForm">
+        <input type="email" id="loginEmail" placeholder="E-mail" required />
+        <input type="password" id="loginPassword" placeholder="Senha" required />
+        <button type="submit">Entrar</button>
+      </form>
+      <p class="loginHint">Não tem conta? <a href="#" id="toggleSignUp">Cadastrar</a></p>
+      <p id="loginError" class="loginError"></p>
+    </div>
+  </div>
+
+  <div id="appScreen" class="app" style="display: none;">
+    <aside class="sidebar">
+      <div class="logo">YUI</div>
+      <button type="button" id="novoChat" class="btnNovoChat">+ Novo chat</button>
+      <div id="listaChats" class="listaChats"></div>
+      <div class="userFooter">
+        <div class="userAvatar" id="userAvatar" title="Avatar"></div>
+        <span id="userName">Usuário</span>
+        <button type="button" id="btnSair" class="btnSair" title="Sair">Sair</button>
+      </div>
+    </aside>
+    <main class="chatArea">
+      <div id="chat" class="chatMessages"></div>
+      <div class="inputArea">
+        <input id="msg" type="text" placeholder="Digite sua mensagem..." autocomplete="off" />
+        <button type="button" id="btnEnviar">Enviar</button>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    window.SUPABASE_URL = "{{ supabase_url or '' }}";
+    window.SUPABASE_KEY = "{{ supabase_key or '' }}";
+  </script>
+  <script src="/static/app.js"></script>
+</body>
+</html>

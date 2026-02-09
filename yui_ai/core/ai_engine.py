@@ -239,3 +239,78 @@ def _gerar_resposta_codigo_ia(pedido: str, linguagem: str):
         return True, texto, None
     except Exception as e:
         return False, "", str(e)
+
+
+# =============================================================
+# STREAMING (para resposta tipo ChatGPT)
+# =============================================================
+def stream_resposta_yui(mensagem):
+    """
+    Gera chunks de texto da resposta da Yui (OpenAI stream=True).
+    Yield: str (cada pedaço de conteúdo).
+    Se não houver client ou der erro, yield da resposta completa de fallback.
+    """
+    if client is None:
+        yield "⚠️ Configure OPENAI_API_KEY no servidor para respostas da Yui."
+        return
+
+    from yui_ai.config.config import SYSTEM_PROMPT
+    modo_analise = detectar_codigo(mensagem)
+    system_prompt = SYSTEM_PROMPT_ANALISE_CODIGO if modo_analise else SYSTEM_PROMPT
+    user_content = mensagem
+    if modo_analise:
+        user_content = "Analise o código abaixo e responda no formato obrigatório (🧠 O que faz / ⚠️ Problemas / 💡 Como melhorar / 🚀 Versão melhorada).\n\n" + mensagem
+    else:
+        ctx_chat = _build_context_chat()
+        if ctx_chat:
+            user_content = ctx_chat + "Usuário: " + mensagem
+
+    mensagens = [{"role": "system", "content": system_prompt}]
+    ctx_vexx = montar_contexto_vexx()
+    ctx_mem = montar_contexto_memoria()
+    if ctx_vexx:
+        mensagens.append({"role": "system", "content": ctx_vexx})
+    if ctx_mem:
+        mensagens.append({"role": "system", "content": ctx_mem})
+    mensagens.append({"role": "user", "content": user_content})
+
+    try:
+        stream = client.chat.completions.create(
+            model=os.getenv("OPENAI_MODEL", "gpt-4o-mini"),
+            messages=mensagens,
+            temperature=0.6,
+            stream=True,
+        )
+        for chunk in stream:
+            if chunk.choices and len(chunk.choices) > 0:
+                delta = chunk.choices[0].delta
+                if hasattr(delta, "content") and delta.content:
+                    yield delta.content
+    except Exception as e:
+        yield "Tive um probleminha aqui 😕"
+
+
+def gerar_titulo_chat(primeira_mensagem: str) -> str:
+    """
+    Gera um título curto (máx ~40 caracteres) para o chat a partir da primeira mensagem.
+    Retorna string; se falhar ou não houver client, retorna truncamento da mensagem.
+    """
+    if not primeira_mensagem or not (primeira_mensagem or "").strip():
+        return "Novo chat"
+    texto = (primeira_mensagem or "").strip()[:500]
+    if client is None:
+        return (texto[:37] + "...") if len(texto) > 40 else texto
+    try:
+        r = client.chat.completions.create(
+            model=os.getenv("OPENAI_MODEL", "gpt-4o-mini"),
+            messages=[
+                {"role": "system", "content": "Gere apenas um título muito curto (máximo 40 caracteres, sem aspas) para um chat que começou com a mensagem do usuário. Responda só com o título, nada mais."},
+                {"role": "user", "content": texto},
+            ],
+            temperature=0.3,
+            max_tokens=60,
+        )
+        titulo = (r.choices[0].message.content or "").strip().strip('"')[:40]
+        return titulo or texto[:40]
+    except Exception:
+        return (texto[:37] + "...") if len(texto) > 40 else texto
