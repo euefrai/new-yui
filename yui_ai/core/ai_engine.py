@@ -132,7 +132,13 @@ def perguntar_yui(mensagem, intencao=None):
     system_prompt = SYSTEM_PROMPT_ANALISE_CODIGO if modo_analise else SYSTEM_PROMPT
     user_content = mensagem
     if modo_analise:
-        user_content = "Analise o código abaixo e responda no formato obrigatório (🧠 O que faz / ⚠️ Problemas / 💡 Como melhorar / 🚀 Versão melhorada).\n\n" + mensagem
+        user_content = (
+            "Analise o código abaixo e responda obrigatoriamente no formato:\n"
+            "🧠 Diagnóstico\n"
+            "⚠️ Problemas encontrados\n"
+            "🚀 Melhorias sugeridas\n"
+            "💡 Versão corrigida\n\n"
+        ) + mensagem
     else:
         # Contexto das últimas 8 mensagens do chat (memória persistente)
         ctx_chat = _build_context_chat()

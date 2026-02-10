@@ -35,6 +35,26 @@ CREATE INDEX IF NOT EXISTS idx_messages_created_at ON messages(created_at);
 ALTER TABLE chats ENABLE ROW LEVEL SECURITY;
 ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
 
+-- Memória contextual por usuário (eventos)
+CREATE TABLE IF NOT EXISTS memory_events (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  chat_id UUID REFERENCES chats(id) ON DELETE CASCADE,
+  tipo TEXT NOT NULL CHECK (tipo IN ('curta', 'longa', 'tecnica')),
+  conteudo TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_memory_events_user_id ON memory_events(user_id);
+CREATE INDEX IF NOT EXISTS idx_memory_events_chat_id ON memory_events(chat_id);
+CREATE INDEX IF NOT EXISTS idx_memory_events_created_at ON memory_events(created_at DESC);
+
+ALTER TABLE memory_events ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Usuário acessa só seus eventos de memória"
+  ON memory_events FOR ALL
+  USING (auth.uid() = user_id);
+
 CREATE POLICY "Usuário acessa só seus chats"
   ON chats FOR ALL
   USING (auth.uid() = user_id);

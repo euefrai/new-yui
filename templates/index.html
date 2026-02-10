@@ -11,7 +11,9 @@
 
   <div id="loginScreen" class="loginScreen">
     <div class="loginCard">
-      <h1 class="loginLogo">YUI</h1>
+      <h1 class="loginLogo">
+        <img src="/static/yui-icon.png" alt="Yui" class="yuiLogoImg" />
+      </h1>
       <p class="loginSub">Entre para acessar seus chats</p>
       <form id="loginForm">
         <input type="email" id="loginEmail" placeholder="E-mail" required />
@@ -25,7 +27,9 @@
 
   <div id="appScreen" class="app" style="display: none;">
     <aside class="sidebar">
-      <div class="logo">YUI</div>
+      <div class="logo">
+        <img src="/static/yui-icon.png" alt="Yui" class="yuiLogoImg" />
+      </div>
       <button type="button" id="novoChat" class="btnNovoChat">+ Novo chat</button>
       <div id="listaChats" class="listaChats"></div>
       <div class="userFooter">
@@ -45,6 +49,35 @@
         <button type="button" id="btnEnviar">Enviar</button>
       </div>
     </main>
+  </div>
+
+  <div id="userMenu" class="userMenu">
+    <div class="userMenuHeader">
+      <div class="userMenuName" id="userMenuName">Usuário</div>
+      <div class="userMenuEmail" id="userMenuEmail"></div>
+    </div>
+    <div class="userMenuSectionTitle">Tema</div>
+    <div class="userMenuRow">
+      <button type="button" id="themeDarkBtn" class="userMenuItem">Modo escuro</button>
+      <button type="button" id="themeLightBtn" class="userMenuItem">Modo claro</button>
+    </div>
+    <div class="userMenuSectionTitle">Preferências da Yui</div>
+    <label class="userMenuLabel" for="prefNivel">Nível técnico</label>
+    <select id="prefNivel" class="userMenuSelect">
+      <option value="desconhecido">Indefinido</option>
+      <option value="iniciante">Iniciante</option>
+      <option value="intermediario">Intermediário</option>
+      <option value="avancado">Avançado</option>
+    </select>
+    <label class="userMenuLabel" for="prefModo">Modo de resposta</label>
+    <select id="prefModo" class="userMenuSelect">
+      <option value="dev">Modo dev (direto e focado em código)</option>
+      <option value="explicativo">Explicativo (mais didático)</option>
+      <option value="resumido">Resumido</option>
+    </select>
+    <label class="userMenuLabel" for="prefLangs">Linguagens preferidas</label>
+    <input id="prefLangs" class="userMenuInput" type="text" placeholder="Ex: python, js, ts" />
+    <button type="button" id="saveProfileBtn" class="userMenuSave">Salvar preferências</button>
   </div>
 
   <script>

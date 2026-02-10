@@ -10,6 +10,53 @@ body {
   min-height: 100vh;
 }
 
+body.theme-light {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+body.theme-light .loginCard {
+  background: #ffffff;
+  border-color: #cbd5f5;
+}
+
+body.theme-light .app {
+  background: #e5e7eb;
+}
+
+body.theme-light .sidebar {
+  background: #ffffff;
+  border-color: #e5e7eb;
+}
+
+body.theme-light .chatArea {
+  background: #f9fafb;
+}
+
+body.theme-light .chatMessages {
+  background: #f9fafb;
+}
+
+body.theme-light .inputArea {
+  background: #e5e7eb;
+  border-color: #d1d5db;
+}
+
+body.theme-light .msgBubble.user {
+  background: #22c55e;
+}
+
+body.theme-light .msgBubble.assistant {
+  background: #e5e7eb;
+  color: #0f172a;
+}
+
+body.theme-light .userMenu {
+  background: #ffffff;
+  border-color: #e5e7eb;
+  color: #0f172a;
+}
+
 /* ========== Login ========== */
 .loginScreen {
   min-height: 100vh;
@@ -30,10 +77,13 @@ body {
 
 .loginLogo {
   margin: 0 0 8px;
-  font-size: 1.75rem;
-  font-weight: 700;
-  color: #22c55e;
-  letter-spacing: 0.05em;
+  text-align: center;
+}
+
+.yuiLogoImg {
+  width: 64px;
+  height: 64px;
+  image-rendering: pixelated;
 }
 
 .loginSub {
@@ -117,12 +167,11 @@ body {
 }
 
 .logo {
-  font-weight: 700;
-  font-size: 1.1rem;
-  color: #22c55e;
-  letter-spacing: 0.05em;
   margin-bottom: 12px;
   padding: 4px 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   transition: opacity 0.2s ease;
 }
 
@@ -159,10 +208,36 @@ body {
   cursor: pointer;
   font-size: 0.9rem;
   color: #94a3b8;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  transition: background 0.2s ease, color 0.2s ease, transform 0.15s ease;
+}
+
+.chatTitle {
+  flex: 1;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  transition: background 0.2s ease, color 0.2s ease, transform 0.15s ease;
+}
+
+.deleteChatBtn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  opacity: 0.4;
+  color: #64748b;
+  padding: 0 2px;
+  font-size: 0.9rem;
+}
+
+.chatItem:hover .deleteChatBtn {
+  opacity: 1;
+}
+
+.deleteChatBtn:hover {
+  color: #f97373;
 }
 
 .chatItem:hover {
@@ -223,6 +298,111 @@ body {
   color: #f87171;
 }
 
+.userMenu {
+  position: fixed;
+  left: 16px;
+  bottom: 72px;
+  width: 260px;
+  padding: 12px 12px 10px;
+  background: #020617;
+  border: 1px solid #1e293b;
+  border-radius: 12px;
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.8);
+  font-size: 0.8rem;
+  color: #e2e8f0;
+  display: none;
+  z-index: 50;
+}
+
+.userMenu.open {
+  display: block;
+}
+
+.userMenuHeader {
+  margin-bottom: 8px;
+}
+
+.userMenuName {
+  font-weight: 600;
+}
+
+.userMenuEmail {
+  font-size: 0.75rem;
+  color: #94a3b8;
+}
+
+.userMenuSectionTitle {
+  margin-top: 8px;
+  margin-bottom: 4px;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #64748b;
+}
+
+.userMenuRow {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.userMenuItem {
+  flex: 1;
+  padding: 6px 8px;
+  border-radius: 999px;
+  border: 1px solid #1e293b;
+  background: #020617;
+  color: #e2e8f0;
+  cursor: pointer;
+  font-size: 0.75rem;
+}
+
+.userMenuItem:hover {
+  background: #1e293b;
+}
+
+.userMenuLabel {
+  display: block;
+  margin-top: 6px;
+  margin-bottom: 2px;
+  color: #94a3b8;
+  font-size: 0.75rem;
+}
+
+.userMenuSelect,
+.userMenuInput {
+  width: 100%;
+  padding: 6px 8px;
+  border-radius: 8px;
+  border: 1px solid #1e293b;
+  background: #020617;
+  color: #e2e8f0;
+  font-size: 0.8rem;
+}
+
+.userMenuSelect:focus,
+.userMenuInput:focus {
+  outline: none;
+  border-color: #22c55e;
+}
+
+.userMenuSave {
+  width: 100%;
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: none;
+  background: #22c55e;
+  color: #0f172a;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.userMenuSave:hover {
+  background: #16a34a;
+}
+
 /* ========== Área do chat ========== */
 .chatArea {
   flex: 1;
@@ -253,6 +433,7 @@ body {
   line-height: 1.5;
   white-space: pre-wrap;
   word-break: break-word;
+  position: relative;
 }
 
 .msgBubble.user {
@@ -280,6 +461,79 @@ body {
   background: #22c55e;
   margin-left: 2px;
   animation: blink 0.8s ease-in-out infinite;
+}
+
+.assistantStatus {
+  font-size: 0.75rem;
+  color: #94a3b8;
+  margin-bottom: 4px;
+}
+
+.msgActions {
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.msgBubble:hover .msgActions {
+  opacity: 1;
+}
+
+.msgActionBtn {
+  background: transparent;
+  border: none;
+  color: #9ca3af;
+  cursor: pointer;
+  padding: 0;
+  font-size: 0.75rem;
+}
+
+.msgActionBtn:hover {
+  color: #e5e7eb;
+}
+
+.msgContent {
+  margin-top: 4px;
+}
+
+.msgEditArea {
+  width: 100%;
+  min-height: 80px;
+  padding: 8px;
+  border-radius: 8px;
+  border: 1px solid #1e293b;
+  background: #020617;
+  color: #e2e8f0;
+  font-family: inherit;
+  font-size: 0.9rem;
+}
+
+.msgEditActions {
+  margin-top: 6px;
+  display: flex;
+  gap: 6px;
+}
+
+.msgEditBtn {
+  padding: 4px 8px;
+  border-radius: 8px;
+  border: none;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.msgEditBtn.save {
+  background: #22c55e;
+  color: #0f172a;
+}
+
+.msgEditBtn.cancel {
+  background: #1e293b;
+  color: #e5e7eb;
 }
 
 @keyframes blink {
