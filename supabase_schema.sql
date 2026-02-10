@@ -1,5 +1,6 @@
 -- Execute no SQL Editor do Supabase (Dashboard do projeto -> SQL Editor)
--- Tabelas para login e chats por usuário
+-- Arquitetura: user (auth.users) → chats (sessões) → messages
+-- Cada usuário só acessa seus próprios chats e mensagens (RLS + validação no backend).
 
 -- Perfil do usuário (opcional; pode usar só auth.users do Supabase Auth)
 CREATE TABLE IF NOT EXISTS users_profile (

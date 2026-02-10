@@ -474,6 +474,10 @@
     }
     messagesAbortController = new AbortController();
     var loadingFor = chatAtual;
+    if (!user || !user.id) {
+      chat.innerHTML = "<div class=\"chatVazio\">Faça login para carregar mensagens.</div>";
+      return;
+    }
     var fromCache = messagesCache[loadingFor];
     if (fromCache && fromCache.length > 0) {
       renderMensagensNoChat(fromCache);
@@ -481,7 +485,8 @@
       chat.innerHTML = "<div class=\"chatVazio chatLoading\">Carregando mensagens...</div>";
     }
     try {
-      var res = await fetch("/api/messages/" + encodeURIComponent(loadingFor), {
+      var url = "/api/messages/" + encodeURIComponent(loadingFor) + "?user_id=" + encodeURIComponent(user.id);
+      var res = await fetch(url, {
         signal: messagesAbortController.signal
       });
       var msgs = await res.json();
@@ -552,6 +557,7 @@
   }
 
   function entrarEdicaoMensagem(bubble) {
+    if (!user || !user.id) return;
     if (!bubble || bubble.classList.contains("editing")) return;
     var messageId = bubble.dataset.messageId;
     if (!messageId) return;
@@ -587,7 +593,7 @@
       fetch("/api/message/edit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message_id: messageId, action: "edit", new_content: novo })
+        body: JSON.stringify({ message_id: messageId, user_id: user.id, action: "edit", new_content: novo })
       })
         .then(function (r) { return r.json(); })
         .then(function (data) {
@@ -611,6 +617,7 @@
   }
 
   function melhorarMensagem(bubble) {
+    if (!user || !user.id) return;
     var messageId = bubble && bubble.dataset ? bubble.dataset.messageId : null;
     if (!messageId) return;
     var content = bubble.querySelector(".msgContent");
@@ -621,7 +628,7 @@
     fetch("/api/message/edit", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message_id: messageId, action: "improve" })
+      body: JSON.stringify({ message_id: messageId, user_id: user.id, action: "improve" })
     })
       .then(function (r) { return r.json();     })
       .then(function (data) {
@@ -640,12 +647,13 @@
   }
 
   function excluirMensagem(bubble) {
+    if (!user || !user.id) return;
     var messageId = bubble && bubble.dataset ? bubble.dataset.messageId : null;
     if (!messageId) return;
     fetch("/api/message/delete", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message_id: messageId })
+      body: JSON.stringify({ message_id: messageId, user_id: user.id })
     })
       .then(function (r) { return r.json(); })
       .then(function (data) {
@@ -687,7 +695,7 @@
     fetch("/api/chat/title", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ chat_id: chatId, first_message: firstMessage })
+      body: JSON.stringify({ chat_id: chatId, user_id: user.id, first_message: firstMessage })
     }).then(function () {
       carregarChats(true);
     }).catch(function () {});
@@ -701,12 +709,27 @@
       !temArquivo &&
       (lower.includes("mini saas") ||
         lower.includes("mini-saas") ||
+        lower.includes("mini projeto") ||
         lower.includes("projeto") ||
         lower.includes("landing page") ||
+        lower.includes("landing") ||
         lower.includes("site completo") ||
+        lower.includes("site ") ||
         lower.includes("gerar projeto") ||
+        lower.includes("gera projeto") ||
         lower.includes("cria um saas") ||
-        lower.includes("criar um saas"));
+        lower.includes("criar um saas") ||
+        lower.includes("gerar ") && (lower.includes("arquivo") || lower.includes("projeto") || lower.includes("site") || lower.includes("app")) ||
+        lower.includes("criar ") && (lower.includes("arquivo") || lower.includes("projeto") || lower.includes("site") || lower.includes("app") || lower.includes("página")) ||
+        lower.includes("cria ") && (lower.includes("projeto") || lower.includes("site") || lower.includes("app")) ||
+        lower.includes("gera ") && (lower.includes("projeto") || lower.includes("site") || lower.includes("app")) ||
+        lower.includes("página web") ||
+        lower.includes("criar projeto") ||
+        lower.includes("gerar arquivos") ||
+        lower.includes("create project") ||
+        lower.includes("generate project") ||
+        lower.includes("build a ") ||
+        lower.includes("make a project"));
     if (!texto && !temArquivo) return;
     if (!user || !user.id) {
       chat.innerHTML = "<div class=\"chatVazio\">Faça login para enviar mensagens.</div>";
@@ -811,7 +834,7 @@
         fetch("/api/chat/stream", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ chat_id: chatId, message: texto })
+          body: JSON.stringify({ chat_id: chatId, user_id: user.id, message: texto })
         })
           .then(function (response) {
             if (!response.ok || !response.body) throw new Error("Stream failed");

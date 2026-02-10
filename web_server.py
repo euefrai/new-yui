@@ -11,9 +11,11 @@ from yui_ai.core.ai_engine import stream_resposta_yui, gerar_titulo_chat
 
 from core.supabase_client import supabase
 from core.memory import (
+    chat_belongs_to_user,
     create_chat as memory_create_chat,
     get_chats as memory_get_chats,
     get_messages as memory_get_messages,
+    message_belongs_to_user,
     save_message as memory_save_message,
     update_chat_title as memory_update_chat_title,
 )
@@ -94,7 +96,12 @@ def api_new_chat():
 
 @app.route("/api/messages/<chat_id>")
 def api_messages(chat_id):
-    return jsonify(memory_get_messages(chat_id))
+    user_id = request.args.get("user_id")
+    if not user_id:
+        return jsonify({"error": "user_id obrigatório (query: ?user_id=...)"}), 400
+    if not chat_belongs_to_user(chat_id, user_id):
+        return jsonify({"error": "Chat não encontrado ou não pertence ao usuário"}), 403
+    return jsonify(memory_get_messages(chat_id, user_id))
 
 
 @app.route("/api/send", methods=["POST"])
@@ -107,6 +114,8 @@ def api_send():
         return jsonify({"error": "user_id e chat_id obrigatórios"}), 400
     if not message:
         return jsonify({"error": "message obrigatória"}), 400
+    if not chat_belongs_to_user(chat_id, user_id):
+        return jsonify({"error": "Chat não encontrado ou não pertence ao usuário"}), 403
     try:
         reply = engine_process_message(user_id, chat_id, message)
         return jsonify({"reply": reply})
@@ -121,13 +130,18 @@ def api_chat_stream():
     try:
         data = request.get_json(silent=True) or {}
         chat_id = data.get("chat_id")
+        user_id = data.get("user_id")
         message = (data.get("message") or "").strip()
         if not chat_id:
             return jsonify({"error": "chat_id obrigatório"}), 400
+        if not user_id:
+            return jsonify({"error": "user_id obrigatório"}), 400
         if not message:
             return jsonify({"error": "message obrigatória"}), 400
+        if not chat_belongs_to_user(chat_id, user_id):
+            return jsonify({"error": "Chat não encontrado ou não pertence ao usuário"}), 403
 
-        memory_save_message(chat_id, "user", message)
+        memory_save_message(chat_id, "user", message, user_id)
 
         msg_lower = message.lower()
         if "```" in message or "analis" in msg_lower or "código" in msg_lower or "codigo" in msg_lower:
@@ -145,7 +159,7 @@ def api_chat_stream():
             content = "".join(full_content)
             if content:
                 try:
-                    memory_save_message(chat_id, "assistant", content)
+                    memory_save_message(chat_id, "assistant", content, user_id)
                 except Exception:
                     pass
             yield f"data: {json.dumps('__STATUS__:done')}\n\n"
@@ -166,11 +180,16 @@ def api_chat_title():
     try:
         data = request.get_json(silent=True) or {}
         chat_id = data.get("chat_id")
+        user_id = data.get("user_id")
         first_message = (data.get("first_message") or "").strip()
         if not chat_id:
             return jsonify({"error": "chat_id obrigatório"}), 400
+        if not user_id:
+            return jsonify({"error": "user_id obrigatório"}), 400
+        if not chat_belongs_to_user(chat_id, user_id):
+            return jsonify({"error": "Chat não encontrado ou não pertence ao usuário"}), 403
         titulo = gerar_titulo_chat(first_message)
-        memory_update_chat_title(chat_id, titulo)
+        memory_update_chat_title(chat_id, titulo, user_id)
         return jsonify({"titulo": titulo})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -186,6 +205,8 @@ def api_chat_delete():
         user_id = data.get("user_id")
         if not chat_id or not user_id:
             return jsonify({"error": "chat_id e user_id obrigatórios"}), 400
+        if not chat_belongs_to_user(chat_id, user_id):
+            return jsonify({"error": "Chat não encontrado ou não pertence ao usuário"}), 403
         supabase.table("chats").delete().eq("id", chat_id).eq("user_id", user_id).execute()
         return jsonify({"success": True})
     except Exception as e:
@@ -199,10 +220,15 @@ def api_message_edit():
     try:
         data = request.get_json(silent=True) or {}
         message_id = data.get("message_id")
+        user_id = data.get("user_id")
         action = (data.get("action") or "edit").strip()
         new_content = (data.get("new_content") or "").strip()
         if not message_id:
             return jsonify({"error": "message_id obrigatório"}), 400
+        if not user_id:
+            return jsonify({"error": "user_id obrigatório"}), 400
+        if not message_belongs_to_user(message_id, user_id):
+            return jsonify({"error": "Mensagem não encontrada ou não pertence ao usuário"}), 403
 
         res = supabase.table("messages").select("*").eq("id", message_id).limit(1).execute()
         if not res.data:
@@ -238,8 +264,13 @@ def api_message_delete():
     try:
         data = request.get_json(silent=True) or {}
         message_id = data.get("message_id")
+        user_id = data.get("user_id")
         if not message_id:
             return jsonify({"error": "message_id obrigatório"}), 400
+        if not user_id:
+            return jsonify({"error": "user_id obrigatório"}), 400
+        if not message_belongs_to_user(message_id, user_id):
+            return jsonify({"error": "Mensagem não encontrada ou não pertence ao usuário"}), 403
         supabase.table("messages").delete().eq("id", message_id).execute()
         return jsonify({"success": True})
     except Exception as e:

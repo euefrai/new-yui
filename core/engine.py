@@ -22,7 +22,7 @@ MODEL = os.environ.get("OPENAI_CHAT_MODEL", "gpt-4o-mini")
 
 def process_message(user_id, chat_id, message):
     # Persiste mensagem no histórico do chat
-    save_message(chat_id, "user", message)
+    save_message(chat_id, "user", message, user_id)
 
     # Histórico do chat
     history = get_messages(chat_id)
@@ -98,19 +98,63 @@ def process_message(user_id, chat_id, message):
         return "⚠️ Configure OPENAI_API_KEY no servidor para respostas da Yui."
 
     response = client.chat.completions.create(model=MODEL, messages=msgs)
-    raw_content = response.choices[0].message.content or ""
+    raw_content = (response.choices[0].message.content or "").strip()
 
     def _parse_json(text: str):
+        """Extrai e parseia um JSON de tools/answer mesmo com markdown ou texto ao redor."""
+        if not text:
+            return None
+        s = text.strip()
+        # Remove blocos markdown ```json ... ``` ou ``` ... ```
+        for marker in ("```json", "```"):
+            if marker in s:
+                i = s.find(marker)
+                s = s[i + len(marker) :].strip()
+                if s.endswith("```"):
+                    s = s[: s.rfind("```")].strip()
+                break
+        start = s.find("{")
+        if start == -1:
+            return None
+        # Encontra o par de chaves raiz (evita cortar em } dentro de strings)
+        depth = 0
+        in_string = None
+        escape = False
+        end = -1
+        for i in range(start, len(s)):
+            c = s[i]
+            if escape:
+                escape = False
+                continue
+            if c == "\\" and in_string:
+                escape = True
+                continue
+            if in_string:
+                if c == in_string:
+                    in_string = None
+                continue
+            if c in ('"', "'"):
+                in_string = c
+                continue
+            if c == "{":
+                depth += 1
+            elif c == "}":
+                depth -= 1
+                if depth == 0:
+                    end = i
+                    break
+        if end == -1:
+            end = s.rfind("}")
+        if end == -1 or end < start:
+            return None
         try:
-            start = text.find("{")
-            end = text.rfind("}")
-            if start == -1 or end == -1:
-                raise ValueError("JSON não encontrado")
-            return json.loads(text[start : end + 1])
+            return json.loads(s[start : end + 1])
         except Exception:
             return None
 
     data = _parse_json(raw_content)
+    if data is None and ('"mode"' in raw_content or "'mode'" in raw_content) and ("tools" in raw_content or "tool" in raw_content):
+        data = _parse_json(raw_content[raw_content.find("{"):] if "{" in raw_content else raw_content)
 
     def _maybe_summarize(reply_text: str) -> None:
         """
@@ -134,7 +178,7 @@ def process_message(user_id, chat_id, message):
     # Fallback: modelo não respeitou o contrato, trata como resposta normal
     if not isinstance(data, dict) or "mode" not in data:
         reply = raw_content.strip()
-        save_message(chat_id, "assistant", reply)
+        save_message(chat_id, "assistant", reply, user_id)
         add_event(user_id=user_id, chat_id=chat_id, tipo="curta", conteudo=message)
         add_event(user_id=user_id, chat_id=chat_id, tipo="curta", conteudo=reply)
         _maybe_summarize(reply)
@@ -147,7 +191,7 @@ def process_message(user_id, chat_id, message):
         reply = str(data.get("answer") or "").strip()
         if not reply:
             reply = raw_content.strip()
-        save_message(chat_id, "assistant", reply)
+        save_message(chat_id, "assistant", reply, user_id)
         add_event(user_id=user_id, chat_id=chat_id, tipo="curta", conteudo=message)
         add_event(user_id=user_id, chat_id=chat_id, tipo="curta", conteudo=reply)
         _maybe_summarize(reply)
@@ -172,7 +216,7 @@ def process_message(user_id, chat_id, message):
         if not steps:
             # Sem steps válidos, volta para resposta normal
             reply = raw_content.strip()
-            save_message(chat_id, "assistant", reply)
+            save_message(chat_id, "assistant", reply, user_id)
             add_event(user_id=user_id, chat_id=chat_id, tipo="curta", conteudo=message)
             add_event(user_id=user_id, chat_id=chat_id, tipo="curta", conteudo=reply)
             _maybe_summarize(reply)
@@ -279,7 +323,7 @@ def process_message(user_id, chat_id, message):
         if not reply:
             reply = "Execução das ferramentas concluída, mas não consegui gerar uma resposta textual útil."
 
-        save_message(chat_id, "assistant", reply)
+        save_message(chat_id, "assistant", reply, user_id)
         add_event(user_id=user_id, chat_id=chat_id, tipo="curta", conteudo=message)
         add_event(user_id=user_id, chat_id=chat_id, tipo="curta", conteudo=reply)
         _maybe_summarize(reply)
@@ -287,7 +331,7 @@ def process_message(user_id, chat_id, message):
 
     # Modo desconhecido: volta para texto cru
     reply = raw_content.strip()
-    save_message(chat_id, "assistant", reply)
+    save_message(chat_id, "assistant", reply, user_id)
     add_event(user_id=user_id, chat_id=chat_id, tipo="curta", conteudo=message)
     add_event(user_id=user_id, chat_id=chat_id, tipo="curta", conteudo=reply)
     _maybe_summarize(reply)
