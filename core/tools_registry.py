@@ -51,7 +51,13 @@ def get_tool(name: str) -> Optional[Dict[str, Any]]:
 
 def _init_default_tools() -> None:
     """Ponto central para registrar ferramentas padrão."""
-    from core.tools_runtime import tool_analisar_arquivo, tool_analisar_projeto, tool_observar_ambiente
+    from core.tools_runtime import (
+        tool_analisar_arquivo,
+        tool_analisar_projeto,
+        tool_observar_ambiente,
+        tool_criar_projeto_arquivos,
+        tool_criar_zip_projeto,
+    )
     from core.plugins_loader import load_plugins
 
     register_tool(
@@ -79,6 +85,26 @@ def _init_default_tools() -> None:
         description="Observa rapidamente a estrutura do projeto e sugere próximos passos (ex.: analisar arquitetura).",
         schema={
             "raiz": "Caminho raiz do projeto (opcional). Se omitido, usa o diretório padrão.",
+        },
+    )
+
+    register_tool(
+        name="criar_projeto_arquivos",
+        fn=tool_criar_projeto_arquivos,
+        description="Cria fisicamente um mini-projeto (pastas e arquivos) a partir de uma lista de arquivos.",
+        schema={
+            "root_dir": "Nome/base da pasta do projeto (relativa a generated_projects).",
+            "files": "Lista de arquivos { path, content } a serem criados.",
+        },
+    )
+
+    register_tool(
+        name="criar_zip_projeto",
+        fn=tool_criar_zip_projeto,
+        description="Gera um script Python para compactar uma pasta de projeto em ZIP, ignorando arquivos sensíveis.",
+        schema={
+            "root_dir": "Pasta do projeto (ex: generated_projects/meu_saas).",
+            "zip_name": "Nome opcional do zip (sem extensão).",
         },
     )
 

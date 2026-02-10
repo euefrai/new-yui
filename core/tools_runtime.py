@@ -4,11 +4,19 @@ Implementações das ferramentas (tools) executáveis pela Yui.
 Estas funções são registradas em core.tools_registry.
 """
 
-from typing import Any, Dict, Optional, Tuple
+import os
+import zipfile
+from pathlib import Path
+from typing import Any, Dict, Optional
 
 from yui_ai.analyzer.report_formatter import run_file_analysis, report_to_text
 from yui_ai.project_analysis.analysis_report import executar_analise_completa
 from yui_ai.project_analysis.project_scanner import escanear_estrutura
+
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+GENERATED_ROOT = PROJECT_ROOT / "generated_projects"
+SCRIPTS_ROOT = PROJECT_ROOT / "scripts"
 
 
 def tool_analisar_arquivo(filename: str, content: str) -> Dict[str, Any]:
@@ -108,4 +116,148 @@ def tool_observar_ambiente(raiz: Optional[str] = None) -> Dict[str, Any]:
         }
     except Exception as e:  # noqa: BLE001
         return {"ok": False, "resumo": "", "frameworks": [], "linguagens": [], "sugestao": "", "error": str(e)}
+
+
+def _sanitize_code(path: str, content: str) -> str:
+    """Remove usos diretos de eval() comentando as linhas, por segurança."""
+    if not content:
+        return ""
+    ext = Path(path).suffix.lower()
+    is_js = ext in {".js", ".ts", ".tsx", ".jsx"}
+    comment_prefix = "//" if is_js else "#"
+    linhas = []
+    for linha in content.splitlines():
+        if "eval(" in linha:
+            linhas.append(f"{comment_prefix} [Yui] eval removido por segurança; linha original comentada:")
+            linhas.append(f"{comment_prefix} {linha}")
+        else:
+            linhas.append(linha)
+    return "\n".join(linhas)
+
+
+def tool_criar_projeto_arquivos(root_dir: str, files: Any) -> Dict[str, Any]:
+    """
+    Cria fisicamente um mini-projeto a partir de uma lista de arquivos.
+
+    Args:
+        root_dir: nome/base da pasta do projeto (relativa a generated_projects).
+        files: lista de dicts { "path": "subpasta/arquivo.ext", "content": "..." }.
+    """
+    if not root_dir:
+        root_dir = "projeto-yui"
+    slug = "".join(c if c.isalnum() or c in ("-", "_") else "-" for c in root_dir).strip("-") or "projeto-yui"
+    base = GENERATED_ROOT / slug
+    created: list[str] = []
+    try:
+        base.mkdir(parents=True, exist_ok=True)
+        if not isinstance(files, list):
+            return {"ok": False, "root": str(base), "files": [], "error": "Parametro 'files' deve ser lista."}
+        for item in files:
+            if not isinstance(item, dict):
+                continue
+            rel_path = (item.get("path") or "").strip()
+            content = item.get("content") or ""
+            if not rel_path:
+                continue
+            # Proteção contra paths maliciosos
+            destino = (base / rel_path).resolve()
+            try:
+                destino.relative_to(base)
+            except Exception:
+                continue
+            destino.parent.mkdir(parents=True, exist_ok=True)
+            safe_content = _sanitize_code(rel_path, content)
+            with open(destino, "w", encoding="utf-8") as f:
+                f.write(safe_content)
+            created.append(str(destino.relative_to(PROJECT_ROOT)))
+        return {"ok": True, "root": str(base), "files": created, "error": None}
+    except Exception as e:  # noqa: BLE001
+        return {"ok": False, "root": str(base), "files": created, "error": str(e)}
+
+
+def tool_criar_zip_projeto(root_dir: str, zip_name: Optional[str] = None) -> Dict[str, Any]:
+    """
+    Gera um script Python para compactar um projeto em ZIP.
+
+    Args:
+        root_dir: pasta do projeto (relativa ao PROJECT_ROOT ou generated_projects).
+        zip_name: nome opcional do zip (sem extensão).
+    """
+    if not root_dir:
+        return {"ok": False, "script_path": "", "zip_output": "", "command": "", "error": "root_dir obrigatório"}
+    root_path = (PROJECT_ROOT / root_dir).resolve()
+    if not root_path.is_dir():
+        alt = (GENERATED_ROOT / root_dir).resolve()
+        if alt.is_dir():
+            root_path = alt
+        else:
+            return {"ok": False, "script_path": "", "zip_output": "", "command": "", "error": "Pasta do projeto não encontrada."}
+
+    try:
+        root_path.relative_to(PROJECT_ROOT)
+    except Exception:
+        return {"ok": False, "script_path": "", "zip_output": "", "command": "", "error": "Pasta fora da raiz do projeto."}
+
+    slug = "".join(c if c.isalnum() or c in ("-", "_") else "-" for c in (zip_name or root_path.name)).strip("-") or "projeto-yui"
+    SCRIPTS_ROOT.mkdir(parents=True, exist_ok=True)
+    script_path = SCRIPTS_ROOT / f"make_zip_{slug}.py"
+    zip_output = root_path.parent / f"{slug}.zip"
+
+    ignore_names = {".env", ".env.example", "venv", ".venv", "__pycache__", "node_modules"}
+    ignore_suffixes = {".key", ".pem", ".pfx"}
+
+    script_code = f"""import os
+import zipfile
+from pathlib import Path
+
+ROOT = Path({repr(str(root_path))}).resolve()
+ZIP_PATH = Path({repr(str(zip_output))}).resolve()
+
+IGNORE_NAMES = {sorted(ignore_names)!r}
+IGNORE_SUFFIXES = {sorted(ignore_suffixes)!r}
+
+
+def _should_skip(path: Path) -> bool:
+    name = path.name
+    if name in IGNORE_NAMES:
+        return True
+    if path.suffix in IGNORE_SUFFIXES:
+        return True
+    return False
+
+
+def make_zip() -> None:
+    if ZIP_PATH.exists():
+        ZIP_PATH.unlink()
+    with zipfile.ZipFile(ZIP_PATH, "w", zipfile.ZIP_DEFLATED) as z:
+        for p in ROOT.rglob("*"):
+            rel = p.relative_to(ROOT)
+            if any(part in IGNORE_NAMES for part in rel.parts):
+                continue
+            if _should_skip(p):
+                continue
+            if p.is_file():
+                z.write(p, rel)
+
+
+if __name__ == "__main__":
+    print(f"Criando zip em {{ZIP_PATH}} a partir de {{ROOT}}...")
+    make_zip()
+    print("OK.")
+"""
+
+    try:
+        with open(script_path, "w", encoding="utf-8") as f:
+            f.write(script_code)
+        command = f"python {script_path.relative_to(PROJECT_ROOT)}"
+        return {
+            "ok": True,
+            "script_path": str(script_path),
+            "zip_output": str(zip_output),
+            "command": command,
+            "error": None,
+        }
+    except Exception as e:  # noqa: BLE001
+        return {"ok": False, "script_path": "", "zip_output": "", "command": "", "error": str(e)}
+
 

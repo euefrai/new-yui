@@ -25,6 +25,7 @@ from core.user_profile import get_user_profile, upsert_user_profile
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 WEB_DIR = os.path.join(BASE_DIR, "web")
+GENERATED_DIR = os.path.join(BASE_DIR, "generated_projects")
 
 app = Flask(
     __name__,
@@ -159,6 +160,22 @@ def edit_message():
 
         supabase.table("messages").update({"content": new_content}).eq("id", message_id).execute()
         return jsonify({"content": new_content})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/delete_message", methods=["POST"])
+def delete_message():
+    """Exclui uma mensagem específica do histórico."""
+    if not supabase:
+        return jsonify({"error": "Supabase não configurado"}), 503
+    try:
+        data = request.get_json(silent=True) or {}
+        message_id = data.get("message_id")
+        if not message_id:
+            return jsonify({"error": "message_id obrigatório"}), 400
+        supabase.table("messages").delete().eq("id", message_id).execute()
+        return jsonify({"success": True})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -388,6 +405,12 @@ def api_run_tool():
 @app.get("/web/<path:path>")
 def web_static(path: str):
     return send_from_directory(WEB_DIR, path)
+
+
+@app.route("/generated/<path:path>")
+def generated_static(path: str):
+    """Serve arquivos dos projetos gerados automaticamente (preview)."""
+    return send_from_directory(GENERATED_DIR, path)
 
 
 @app.route("/api/chat", methods=["POST", "OPTIONS"])
