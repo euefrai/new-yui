@@ -57,6 +57,7 @@ def _init_default_tools() -> None:
         tool_observar_ambiente,
         tool_criar_projeto_arquivos,
         tool_criar_zip_projeto,
+        tool_consultar_indice_projeto,
     )
     from core.plugins_loader import load_plugins
 
@@ -105,6 +106,15 @@ def _init_default_tools() -> None:
         schema={
             "root_dir": "Pasta do projeto (ex: generated_projects/meu_saas).",
             "zip_name": "Nome opcional do zip (sem extensão).",
+        },
+    )
+
+    register_tool(
+        name="consultar_indice_projeto",
+        fn=tool_consultar_indice_projeto,
+        description="Consulta o índice de análise de projeto em cache (visão geral, pontos fortes/fracos, riscos, roadmap).",
+        schema={
+            "raiz": "Caminho raiz do projeto (opcional). Se omitido, usa o diretório padrão.",
         },
     )
 

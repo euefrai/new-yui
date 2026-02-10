@@ -12,6 +12,7 @@ from typing import Any, Dict, Optional
 from yui_ai.analyzer.report_formatter import run_file_analysis, report_to_text
 from yui_ai.project_analysis.analysis_report import executar_analise_completa
 from yui_ai.project_analysis.project_scanner import escanear_estrutura
+from yui_ai.project_analysis.project_index import get_or_compute
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -56,7 +57,7 @@ def tool_analisar_projeto(raiz: Optional[str] = None) -> Dict[str, Any]:
         dict com { ok: bool, dados: dict|None, texto: str, error: str|None }
     """
     try:
-        ok, dados, err = executar_analise_completa(raiz)
+        ok, dados, err = get_or_compute(raiz)
         if not ok or not dados:
             return {"ok": False, "dados": None, "texto": "", "error": err or "Falha na análise do projeto."}
         texto = dados.get("texto_formatado") or ""
@@ -259,5 +260,25 @@ if __name__ == "__main__":
         }
     except Exception as e:  # noqa: BLE001
         return {"ok": False, "script_path": "", "zip_output": "", "command": "", "error": str(e)}
+
+
+def tool_consultar_indice_projeto(raiz: Optional[str] = None) -> Dict[str, Any]:
+    """
+    Consulta o índice de análise de projeto (se existir), sem reprocessar tudo.
+    Retorna um resumo enxuto: visão geral, pontos fortes/fracos, riscos e roadmap curto.
+    """
+    ok, dados, err = get_or_compute(raiz)
+    if not ok or not dados:
+        return {"ok": False, "resumo": "", "error": err or "Falha ao consultar índice do projeto."}
+    resumo = {
+        "visao_geral": dados.get("visao_geral", ""),
+        "pontos_fortes": dados.get("pontos_fortes", []),
+        "pontos_fracos": dados.get("pontos_fracos", []),
+        "riscos_tecnicos": dados.get("riscos_tecnicos", []),
+        "sugestoes_melhoria": dados.get("sugestoes_melhoria", []),
+        "roadmap_curto_prazo": (dados.get("roadmap") or {}).get("curto_prazo", []),
+        "score_qualidade": dados.get("score_qualidade", {}),
+    }
+    return {"ok": True, "dados": resumo, "error": None}
 
 

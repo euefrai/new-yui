@@ -636,6 +636,15 @@ body.theme-light .previewFrame {
   font-size: 0.95rem;
 }
 
+.chatVazio.chatLoading {
+  color: #94a3b8;
+  animation: pulseOpacity 1.2s ease-in-out infinite;
+}
+
+@keyframes pulseOpacity {
+  50% { opacity: 0.6; }
+}
+
 .inputArea {
   flex-shrink: 0;
   display: flex;

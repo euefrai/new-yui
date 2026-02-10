@@ -71,225 +71,7 @@ def index():
     )
 
 
-# ========== Rotas Supabase (chats e mensagens) ==========
-@app.route("/get_chats", methods=["POST"])
-def get_chats():
-    if not supabase:
-        return jsonify([]), 200
-    try:
-        data = request.get_json(silent=True) or {}
-        user_id = data.get("user_id")
-        if not user_id:
-            return jsonify({"error": "user_id obrigatório"}), 400
-        return jsonify(memory_get_chats(user_id))
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-
-@app.route("/create_chat", methods=["POST"])
-def create_chat():
-    data = request.get_json(silent=True) or {}
-    user_id = data.get("user_id")
-    if not user_id:
-        return jsonify({"error": "user_id obrigatório"}), 400
-
-    if not supabase:
-        # Sem Supabase: retorna um chat “local” para a sessão funcionar
-        fake = {"id": str(uuid.uuid4()), "titulo": "Novo chat", "user_id": user_id}
-        return jsonify(fake), 200
-
-    try:
-        chat = memory_create_chat(user_id)
-        if not chat:
-            return jsonify({"error": "Falha ao criar chat"}), 500
-        return jsonify(chat)
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-
-@app.route("/get_messages", methods=["POST"])
-def get_messages():
-    if not supabase:
-        return jsonify([]), 200
-    try:
-        data = request.get_json(silent=True) or {}
-        chat_id = data.get("chat_id")
-        if not chat_id:
-            return jsonify({"error": "chat_id obrigatório"}), 400
-        return jsonify(memory_get_messages(chat_id))
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-
-@app.route("/edit_message", methods=["POST"])
-def edit_message():
-    """Edita ou melhora uma mensagem existente no histórico."""
-    if not supabase:
-        return jsonify({"error": "Supabase não configurado"}), 503
-    try:
-        data = request.get_json(silent=True) or {}
-        message_id = data.get("message_id")
-        action = (data.get("action") or "edit").strip()
-        new_content = (data.get("new_content") or "").strip()
-        if not message_id:
-            return jsonify({"error": "message_id obrigatório"}), 400
-
-        # Busca mensagem atual
-        res = supabase.table("messages").select("*").eq("id", message_id).limit(1).execute()
-        if not res.data:
-            return jsonify({"error": "Mensagem não encontrada"}), 404
-        msg = res.data[0]
-
-        if action == "improve":
-            from yui_ai.main import processar_texto_web
-
-            base_text = msg.get("content") or ""
-            if not base_text.strip():
-                return jsonify({"error": "Mensagem vazia para melhorar"}), 400
-            prompt = (
-                "Melhore a clareza, organização e qualidade da resposta abaixo, "
-                "mantendo o mesmo significado geral. Se houver código, mantenha a mesma funcionalidade.\n\n"
-                + base_text
-            )
-            resposta, _message_id, api_key_missing = processar_texto_web(prompt, reply_to_id=None)
-            if api_key_missing:
-                return jsonify({"error": "OPENAI_API_KEY não configurada no servidor."}), 503
-            new_content = (resposta or "").strip()
-        elif not new_content:
-            return jsonify({"error": "new_content obrigatório para ação 'edit'"}), 400
-
-        supabase.table("messages").update({"content": new_content}).eq("id", message_id).execute()
-        return jsonify({"content": new_content})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-
-@app.route("/delete_message", methods=["POST"])
-def delete_message():
-    """Exclui uma mensagem específica do histórico."""
-    if not supabase:
-        return jsonify({"error": "Supabase não configurado"}), 503
-    try:
-        data = request.get_json(silent=True) or {}
-        message_id = data.get("message_id")
-        if not message_id:
-            return jsonify({"error": "message_id obrigatório"}), 400
-        supabase.table("messages").delete().eq("id", message_id).execute()
-        return jsonify({"success": True})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-
-@app.route("/delete_chat", methods=["POST"])
-def delete_chat():
-    """Exclui um chat (e, por FK, suas mensagens) garantindo o usuário dono."""
-    if not supabase:
-        return jsonify({"error": "Supabase não configurado"}), 503
-    try:
-        data = request.get_json(silent=True) or {}
-        chat_id = data.get("chat_id")
-        user_id = data.get("user_id")
-        if not chat_id or not user_id:
-            return jsonify({"error": "chat_id e user_id obrigatórios"}), 400
-        # Deleta apenas se pertencer ao usuário informado
-        supabase.table("chats").delete().eq("id", chat_id).eq("user_id", user_id).execute()
-        return jsonify({"success": True})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-
-@app.route("/chat", methods=["POST", "OPTIONS"])
-def chat():
-    if request.method == "OPTIONS":
-        return "", 204
-    try:
-        data = request.get_json(silent=True) or {}
-        chat_id = data.get("chat_id")
-        message = (data.get("message") or "").strip()
-        if not chat_id:
-            return jsonify({"error": "chat_id obrigatório"}), 400
-        if not message:
-            return jsonify({"error": "message obrigatória"}), 400
-
-        memory_save_message(chat_id, "user", message)
-
-        resposta, _message_id, api_key_missing = processar_texto_web(message, reply_to_id=None)
-        if api_key_missing:
-            resposta = "⚠️ Configure OPENAI_API_KEY no servidor para respostas da Yui."
-
-        memory_save_message(chat_id, "assistant", resposta)
-
-        return jsonify({"message": resposta})
-    except Exception as e:
-        return jsonify({"error": str(e), "message": None}), 500
-
-
-@app.route("/chat/stream", methods=["POST", "OPTIONS"])
-def chat_stream():
-    if request.method == "OPTIONS":
-        return "", 204
-    try:
-        data = request.get_json(silent=True) or {}
-        chat_id = data.get("chat_id")
-        message = (data.get("message") or "").strip()
-        if not chat_id:
-            return jsonify({"error": "chat_id obrigatório"}), 400
-        if not message:
-            return jsonify({"error": "message obrigatória"}), 400
-
-        memory_save_message(chat_id, "user", message)
-
-        # Heurística simples para estado inicial
-        msg_lower = message.lower()
-        if "```" in message or "analis" in msg_lower or "código" in msg_lower or "codigo" in msg_lower:
-            initial_state = "analyzing_code"
-        else:
-            initial_state = "thinking"
-
-        full_content = []
-
-        def generate():
-            # Estado inicial
-            yield f"data: {json.dumps('__STATUS__:' + initial_state)}\n\n"
-            for chunk in stream_resposta_yui(message):
-                full_content.append(chunk)
-                yield f"data: {json.dumps(chunk)}\n\n"
-            content = "".join(full_content)
-            if content:
-                try:
-                    memory_save_message(chat_id, "assistant", content)
-                except Exception:
-                    pass
-            # Estado final: terminou
-            yield f"data: {json.dumps('__STATUS__:done')}\n\n"
-
-        return Response(
-            stream_with_context(generate()),
-            mimetype="text/event-stream",
-            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"}
-        )
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-
-@app.route("/generate_chat_title", methods=["POST"])
-def generate_chat_title():
-    if not supabase:
-        return jsonify({"error": "Supabase não configurado"}), 503
-    try:
-        data = request.get_json(silent=True) or {}
-        chat_id = data.get("chat_id")
-        first_message = (data.get("first_message") or "").strip()
-        if not chat_id:
-            return jsonify({"error": "chat_id obrigatório"}), 400
-        titulo = gerar_titulo_chat(first_message)
-        memory_update_chat_title(chat_id, titulo)
-        return jsonify({"titulo": titulo})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-
-# ========== API nova (core engine) ==========
+# ========== API chat unificada (/api/chats, /api/chat/*, /api/messages, /api/send, etc.) ==========
 @app.route("/api/chats/<user_id>")
 def api_get_chats(user_id):
     return jsonify(memory_get_chats(user_id))
@@ -330,6 +112,167 @@ def api_send():
         return jsonify({"reply": reply})
     except Exception as e:
         return jsonify({"error": str(e), "reply": None}), 500
+
+
+@app.route("/api/chat/stream", methods=["POST", "OPTIONS"])
+def api_chat_stream():
+    if request.method == "OPTIONS":
+        return "", 204
+    try:
+        data = request.get_json(silent=True) or {}
+        chat_id = data.get("chat_id")
+        message = (data.get("message") or "").strip()
+        if not chat_id:
+            return jsonify({"error": "chat_id obrigatório"}), 400
+        if not message:
+            return jsonify({"error": "message obrigatória"}), 400
+
+        memory_save_message(chat_id, "user", message)
+
+        msg_lower = message.lower()
+        if "```" in message or "analis" in msg_lower or "código" in msg_lower or "codigo" in msg_lower:
+            initial_state = "analyzing_code"
+        else:
+            initial_state = "thinking"
+
+        full_content = []
+
+        def generate():
+            yield f"data: {json.dumps('__STATUS__:' + initial_state)}\n\n"
+            for chunk in stream_resposta_yui(message):
+                full_content.append(chunk)
+                yield f"data: {json.dumps(chunk)}\n\n"
+            content = "".join(full_content)
+            if content:
+                try:
+                    memory_save_message(chat_id, "assistant", content)
+                except Exception:
+                    pass
+            yield f"data: {json.dumps('__STATUS__:done')}\n\n"
+
+        return Response(
+            stream_with_context(generate()),
+            mimetype="text/event-stream",
+            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"}
+        )
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/chat/title", methods=["POST"])
+def api_chat_title():
+    if not supabase:
+        return jsonify({"error": "Supabase não configurado"}), 503
+    try:
+        data = request.get_json(silent=True) or {}
+        chat_id = data.get("chat_id")
+        first_message = (data.get("first_message") or "").strip()
+        if not chat_id:
+            return jsonify({"error": "chat_id obrigatório"}), 400
+        titulo = gerar_titulo_chat(first_message)
+        memory_update_chat_title(chat_id, titulo)
+        return jsonify({"titulo": titulo})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/chat/delete", methods=["POST"])
+def api_chat_delete():
+    if not supabase:
+        return jsonify({"error": "Supabase não configurado"}), 503
+    try:
+        data = request.get_json(silent=True) or {}
+        chat_id = data.get("chat_id")
+        user_id = data.get("user_id")
+        if not chat_id or not user_id:
+            return jsonify({"error": "chat_id e user_id obrigatórios"}), 400
+        supabase.table("chats").delete().eq("id", chat_id).eq("user_id", user_id).execute()
+        return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/message/edit", methods=["POST"])
+def api_message_edit():
+    if not supabase:
+        return jsonify({"error": "Supabase não configurado"}), 503
+    try:
+        data = request.get_json(silent=True) or {}
+        message_id = data.get("message_id")
+        action = (data.get("action") or "edit").strip()
+        new_content = (data.get("new_content") or "").strip()
+        if not message_id:
+            return jsonify({"error": "message_id obrigatório"}), 400
+
+        res = supabase.table("messages").select("*").eq("id", message_id).limit(1).execute()
+        if not res.data:
+            return jsonify({"error": "Mensagem não encontrada"}), 404
+        msg = res.data[0]
+
+        if action == "improve":
+            base_text = msg.get("content") or ""
+            if not base_text.strip():
+                return jsonify({"error": "Mensagem vazia para melhorar"}), 400
+            prompt = (
+                "Melhore a clareza, organização e qualidade da resposta abaixo, "
+                "mantendo o mesmo significado geral. Se houver código, mantenha a mesma funcionalidade.\n\n"
+                + base_text
+            )
+            resposta, _message_id, api_key_missing = processar_texto_web(prompt, reply_to_id=None)
+            if api_key_missing:
+                return jsonify({"error": "OPENAI_API_KEY não configurada no servidor."}), 503
+            new_content = (resposta or "").strip()
+        elif not new_content:
+            return jsonify({"error": "new_content obrigatório para ação 'edit'"}), 400
+
+        supabase.table("messages").update({"content": new_content}).eq("id", message_id).execute()
+        return jsonify({"content": new_content})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/message/delete", methods=["POST"])
+def api_message_delete():
+    if not supabase:
+        return jsonify({"error": "Supabase não configurado"}), 503
+    try:
+        data = request.get_json(silent=True) or {}
+        message_id = data.get("message_id")
+        if not message_id:
+            return jsonify({"error": "message_id obrigatório"}), 400
+        supabase.table("messages").delete().eq("id", message_id).execute()
+        return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/upload", methods=["POST", "OPTIONS"])
+def api_upload():
+    if request.method == "OPTIONS":
+        return "", 204
+    try:
+        if "file" not in request.files:
+            return jsonify({"error": "Nenhum arquivo enviado."}), 400
+        f = request.files["file"]
+        if not f or not f.filename:
+            return jsonify({"error": "Arquivo inválido."}), 400
+        try:
+            content = f.read()
+        except Exception as e:
+            return jsonify({"error": str(e)}), 400
+
+        result = run_tool(
+            "analisar_arquivo",
+            {"filename": f.filename, "content": content.decode("utf-8", errors="ignore")},
+        )
+        if not result.get("ok"):
+            return jsonify({"error": result.get("error") or "Erro na análise."}), 400
+        text = (result.get("result") or {}).get("text") or ""
+        if not text:
+            return jsonify({"error": "Relatório vazio."}), 400
+        return jsonify({"response": text})
+    except Exception as e:
+        return jsonify({"error": str(e), "response": None}), 500
 
 
 @app.route("/api/user/profile", methods=["POST"])
@@ -413,22 +356,6 @@ def generated_static(path: str):
     return send_from_directory(GENERATED_DIR, path)
 
 
-@app.route("/api/chat", methods=["POST", "OPTIONS"])
-def api_chat():
-    if request.method == "OPTIONS":
-        return "", 204
-    try:
-        data = request.get_json(silent=True) or {}
-        mensagem = str(data.get("message", "") or "").strip()
-        reply_to = data.get("reply_to")
-        if not mensagem:
-            return jsonify({"error": "Mensagem vazia."}), 400
-        resposta, message_id, api_key_missing = processar_texto_web(mensagem, reply_to_id=reply_to)
-        return jsonify({"reply": resposta, "message_id": message_id, "api_key_missing": api_key_missing})
-    except Exception as e:
-        return jsonify({"error": "Erro no servidor: " + str(e), "reply": None}), 500
-
-
 @app.post("/api/analyze-file")
 def api_analyze_file():
     if "file" not in request.files:
@@ -454,38 +381,6 @@ def api_analyze_file():
     if not report:
         return jsonify({"success": False, "error": "Relatório vazio."}), 400
     return jsonify({"success": True, "report": report})
-
-
-@app.route("/upload", methods=["POST", "OPTIONS"])
-def upload():
-    if request.method == "OPTIONS":
-        return "", 204
-    try:
-        if "file" not in request.files:
-            return jsonify({"error": "Nenhum arquivo enviado."}), 400
-        f = request.files["file"]
-        if not f or not f.filename:
-            return jsonify({"error": "Arquivo inválido."}), 400
-        try:
-            content = f.read()
-        except Exception as e:
-            return jsonify({"error": str(e)}), 400
-
-        # Usa a mesma ferramenta registrada no sistema de tools
-        from core.tool_runner import run_tool
-
-        result = run_tool(
-            "analisar_arquivo",
-            {"filename": f.filename, "content": content.decode("utf-8", errors="ignore")},
-        )
-        if not result.get("ok"):
-            return jsonify({"error": result.get("error") or "Erro na análise."}), 400
-        text = (result.get("result") or {}).get("text") or ""
-        if not text:
-            return jsonify({"error": "Relatório vazio."}), 400
-        return jsonify({"response": text})
-    except Exception as e:
-        return jsonify({"error": "Erro no servidor: " + str(e), "response": None}), 500
 
 
 if __name__ == "__main__":

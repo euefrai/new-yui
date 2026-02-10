@@ -34,6 +34,8 @@
   var pendingFile = null;
   var pendingFileName = "";
   var fileBadge = null;
+  var messagesAbortController = null;
+  var messagesCache = {};
 
   function escapeHtml(s) {
     var div = document.createElement("div");
@@ -148,6 +150,13 @@
       return localStorage.getItem("yui_last_chat_id");
     } catch (e) {}
     return null;
+  }
+
+  /** Atualiza chatAtual + título, persiste em localStorage. Não carrega mensagens. */
+  function setChatAtual(id, titulo) {
+    chatAtual = id;
+    currentChatTitulo = (titulo != null && titulo !== undefined) ? titulo : (id ? "Novo chat" : null);
+    saveLastChatId(chatAtual);
   }
 
   function setError(text) {
@@ -312,16 +321,13 @@
   async function carregarChats(skipLoadMessages) {
     if (!user || !user.id) return;
     try {
-      var res = await fetch("/get_chats", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ user_id: user.id })
-      });
+      var res = await fetch("/api/chats/" + encodeURIComponent(user.id));
       var chats = await res.json();
       if (!Array.isArray(chats)) chats = [];
       var lastId = getLastChatId();
       if (lastId && chats.some(function (c) { return c.id === lastId; }) && !chatAtual) {
-        chatAtual = lastId;
+        var found = chats.find(function (x) { return x.id === lastId; });
+        setChatAtual(lastId, found ? found.titulo : null);
       }
       listaChats.innerHTML = "";
       chats.forEach(function (c) {
@@ -343,10 +349,8 @@
         });
 
         div.onclick = function () {
-          chatAtual = c.id;
-          currentChatTitulo = c.titulo || "";
-          saveLastChatId(chatAtual);
-          carregarChats();
+          setChatAtual(c.id, c.titulo);
+          carregarChats(true);
           carregarMensagens();
         };
 
@@ -362,101 +366,138 @@
     }
   }
 
+  function renderMensagensNoChat(msgs) {
+    if (!chat) return;
+    chat.innerHTML = "";
+    if (!Array.isArray(msgs) || msgs.length === 0) {
+      chat.scrollTop = 0;
+      return;
+    }
+    msgs.forEach(function (m) {
+      var div = document.createElement("div");
+      div.className = "msgBubble " + (m.role === "user" ? "user" : "assistant");
+      if (m.id) div.dataset.messageId = m.id;
+
+      if (m.id) {
+        var actions = document.createElement("div");
+        actions.className = "msgActions";
+
+        var btnReply = document.createElement("button");
+        btnReply.className = "msgActionBtn";
+        btnReply.type = "button";
+        btnReply.textContent = "↩";
+        btnReply.title = "Responder";
+        btnReply.addEventListener("click", function (e) {
+          e.stopPropagation();
+          responderMensagem(div);
+        });
+
+        var btnImprove = document.createElement("button");
+        btnImprove.className = "msgActionBtn";
+        btnImprove.type = "button";
+        btnImprove.textContent = "✨";
+        btnImprove.title = "Melhorar mensagem";
+        btnImprove.addEventListener("click", function (e) {
+          e.stopPropagation();
+          melhorarMensagem(div);
+        });
+
+        var btnDelete = document.createElement("button");
+        btnDelete.className = "msgActionBtn";
+        btnDelete.type = "button";
+        btnDelete.textContent = "🗑";
+        btnDelete.title = "Excluir mensagem";
+        btnDelete.addEventListener("click", function (e) {
+          e.stopPropagation();
+          excluirMensagem(div);
+        });
+
+        actions.appendChild(btnReply);
+        actions.appendChild(btnImprove);
+        actions.appendChild(btnDelete);
+        div.appendChild(actions);
+      }
+
+      var content = document.createElement("div");
+      content.className = "msgContent";
+      var raw = m.content || "";
+      var previewUrl = null;
+      if (m.role === "assistant" && raw.indexOf("[PREVIEW_URL]:") !== -1) {
+        var linhas = raw.split("\n");
+        var filtradas = [];
+        linhas.forEach(function (ln) {
+          if (ln.indexOf("[PREVIEW_URL]:") === 0) {
+            previewUrl = ln.replace("[PREVIEW_URL]:", "").trim();
+          } else {
+            filtradas.push(ln);
+          }
+        });
+        raw = filtradas.join("\n");
+      }
+      content.textContent = raw;
+      div.appendChild(content);
+
+      if (previewUrl) {
+        var btnPrev = document.createElement("button");
+        btnPrev.type = "button";
+        btnPrev.className = "msgActionBtn";
+        btnPrev.style.marginTop = "4px";
+        btnPrev.textContent = "▶ Ver resultado";
+        btnPrev.addEventListener("click", function (e) {
+          e.stopPropagation();
+          openPreview(previewUrl, "Preview do projeto");
+        });
+        div.appendChild(btnPrev);
+      }
+      chat.appendChild(div);
+    });
+    chat.scrollTop = chat.scrollHeight;
+  }
+
+  function showErroMensagensComRetry() {
+    if (!chat) return;
+    chat.innerHTML = "<div class=\"chatVazio\">" +
+      "Erro ao carregar mensagens. " +
+      "<button type=\"button\" class=\"msgEditBtn save\" id=\"retryMessagesBtn\" style=\"margin-top:8px;\">Tentar novamente</button>" +
+      "</div>";
+    var btn = document.getElementById("retryMessagesBtn");
+    if (btn) btn.addEventListener("click", function () { carregarMensagens(); });
+  }
+
   async function carregarMensagens() {
     if (!chatAtual) {
       chat.innerHTML = "<div class=\"chatVazio\">Selecione um chat ou crie um novo.</div>";
       return;
     }
+    if (messagesAbortController) {
+      messagesAbortController.abort();
+    }
+    messagesAbortController = new AbortController();
+    var loadingFor = chatAtual;
+    var fromCache = messagesCache[loadingFor];
+    if (fromCache && fromCache.length > 0) {
+      renderMensagensNoChat(fromCache);
+    } else {
+      chat.innerHTML = "<div class=\"chatVazio chatLoading\">Carregando mensagens...</div>";
+    }
     try {
-      var res = await fetch("/get_messages", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ chat_id: chatAtual })
+      var res = await fetch("/api/messages/" + encodeURIComponent(loadingFor), {
+        signal: messagesAbortController.signal
       });
       var msgs = await res.json();
+      if (loadingFor !== chatAtual) return;
       if (!Array.isArray(msgs)) msgs = [];
-      chat.innerHTML = "";
-      msgs.forEach(function (m) {
-        var div = document.createElement("div");
-        div.className = "msgBubble " + (m.role === "user" ? "user" : "assistant");
-        if (m.id) div.dataset.messageId = m.id;
-
-        if (m.id) {
-          var actions = document.createElement("div");
-          actions.className = "msgActions";
-
-          var btnReply = document.createElement("button");
-          btnReply.className = "msgActionBtn";
-          btnReply.type = "button";
-          btnReply.textContent = "↩";
-          btnReply.title = "Responder";
-          btnReply.addEventListener("click", function (e) {
-            e.stopPropagation();
-            responderMensagem(div);
-          });
-
-          var btnImprove = document.createElement("button");
-          btnImprove.className = "msgActionBtn";
-          btnImprove.type = "button";
-          btnImprove.textContent = "✨";
-          btnImprove.title = "Melhorar mensagem";
-          btnImprove.addEventListener("click", function (e) {
-            e.stopPropagation();
-            melhorarMensagem(div);
-          });
-
-          var btnDelete = document.createElement("button");
-          btnDelete.className = "msgActionBtn";
-          btnDelete.type = "button";
-          btnDelete.textContent = "🗑";
-          btnDelete.title = "Excluir mensagem";
-          btnDelete.addEventListener("click", function (e) {
-            e.stopPropagation();
-            excluirMensagem(div);
-          });
-
-          actions.appendChild(btnReply);
-          actions.appendChild(btnImprove);
-          actions.appendChild(btnDelete);
-          div.appendChild(actions);
-        }
-
-        var content = document.createElement("div");
-        content.className = "msgContent";
-        var raw = m.content || "";
-        var previewUrl = null;
-        if (m.role === "assistant" && raw.indexOf("[PREVIEW_URL]:") !== -1) {
-          var linhas = raw.split("\n");
-          var filtradas = [];
-          linhas.forEach(function (ln) {
-            if (ln.indexOf("[PREVIEW_URL]:") === 0) {
-              previewUrl = ln.replace("[PREVIEW_URL]:", "").trim();
-            } else {
-              filtradas.push(ln);
-            }
-          });
-          raw = filtradas.join("\n");
-        }
-        content.textContent = raw;
-        div.appendChild(content);
-
-        if (previewUrl) {
-          var btnPrev = document.createElement("button");
-          btnPrev.type = "button";
-          btnPrev.className = "msgActionBtn";
-          btnPrev.style.marginTop = "4px";
-          btnPrev.textContent = "▶ Ver resultado";
-          btnPrev.addEventListener("click", function (e) {
-            e.stopPropagation();
-            openPreview(previewUrl, "Preview do projeto");
-          });
-          div.appendChild(btnPrev);
-        }
-        chat.appendChild(div);
-      });
-      chat.scrollTop = chat.scrollHeight;
+      messagesCache[loadingFor] = msgs;
+      renderMensagensNoChat(msgs);
     } catch (e) {
-      chat.innerHTML = "<div class=\"chatVazio\">Erro ao carregar mensagens.</div>";
+      if (e.name === "AbortError") return;
+      if (loadingFor === chatAtual) {
+        showErroMensagensComRetry();
+      }
+    } finally {
+      if (messagesAbortController && messagesAbortController.signal.aborted === false) {
+        messagesAbortController = null;
+      }
     }
   }
 
@@ -471,7 +512,7 @@
   async function criarNovoChat() {
     if (!user || !user.id) return null;
     try {
-      var res = await fetch("/create_chat", {
+      var res = await fetch("/api/chat/new", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ user_id: user.id })
@@ -487,7 +528,7 @@
   async function excluirChat(chatId) {
     if (!user || !user.id) return;
     try {
-      var res = await fetch("/delete_chat", {
+      var res = await fetch("/api/chat/delete", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ user_id: user.id, chat_id: chatId })
@@ -498,9 +539,8 @@
         return;
       }
       if (chatAtual === chatId) {
-        chatAtual = null;
-        currentChatTitulo = null;
-        saveLastChatId(null);
+        setChatAtual(null);
+        delete messagesCache[chatId];
         if (chat) {
           chat.innerHTML = "<div class=\"chatVazio\">Selecione um chat ou crie um novo.</div>";
         }
@@ -544,7 +584,7 @@
     btnSave.addEventListener("click", function () {
       var novo = textarea.value.trim();
       if (!novo) return;
-      fetch("/edit_message", {
+      fetch("/api/message/edit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message_id: messageId, action: "edit", new_content: novo })
@@ -556,6 +596,7 @@
             content.textContent = data.content;
             bubble.classList.remove("editing");
             bubble.__originalText = null;
+            if (chatAtual) delete messagesCache[chatAtual];
           }
         })
         .catch(function () {});
@@ -577,15 +618,16 @@
     var original = content.textContent || "";
 
     content.textContent = "✨ Melhorando resposta...";
-    fetch("/edit_message", {
+    fetch("/api/message/edit", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ message_id: messageId, action: "improve" })
     })
-      .then(function (r) { return r.json(); })
+      .then(function (r) { return r.json();     })
       .then(function (data) {
         if (data && data.content) {
           content.textContent = data.content;
+          if (chatAtual) delete messagesCache[chatAtual];
         } else if (data && data.error) {
           content.textContent = original + "\n\n(Erro ao melhorar: " + data.error + ")";
         } else {
@@ -600,7 +642,7 @@
   function excluirMensagem(bubble) {
     var messageId = bubble && bubble.dataset ? bubble.dataset.messageId : null;
     if (!messageId) return;
-    fetch("/delete_message", {
+    fetch("/api/message/delete", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ message_id: messageId })
@@ -609,6 +651,7 @@
       .then(function (data) {
         if (data && data.success) {
           bubble.remove();
+          if (chatAtual) delete messagesCache[chatAtual];
         }
       })
       .catch(function () {});
@@ -628,10 +671,8 @@
     if (!user || !user.id) return;
     var id = await criarNovoChat();
     if (id) {
-      chatAtual = id;
-      currentChatTitulo = "Novo chat";
-      saveLastChatId(chatAtual);
-      carregarChats();
+      setChatAtual(id, "Novo chat");
+      carregarChats(true);
       chat.innerHTML = "<div class=\"chatVazio\">Novo chat. Envie uma mensagem.</div>";
     } else {
       chat.innerHTML = "<div class=\"chatVazio\">Erro ao criar chat. Tente de novo.</div>";
@@ -643,7 +684,7 @@
   }
 
   function atualizarTituloChat(chatId, firstMessage) {
-    fetch("/generate_chat_title", {
+    fetch("/api/chat/title", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ chat_id: chatId, first_message: firstMessage })
@@ -673,10 +714,9 @@
     }
 
     function fazerEnvio(chatId) {
-      chatAtual = chatId;
-      currentChatTitulo = "Novo chat";
-      saveLastChatId(chatAtual);
-      if (!listaChats.querySelector(".chatItem.ativo")) carregarChats();
+      setChatAtual(chatId, currentChatTitulo || "Novo chat");
+      delete messagesCache[chatId];
+      if (!listaChats.querySelector(".chatItem.ativo")) carregarChats(true);
 
       var userBubble = document.createElement("div");
       userBubble.className = "msgBubble user";
@@ -703,7 +743,7 @@
 
         var formData = new FormData();
         formData.append("file", pendingFile);
-        fetch("/upload", { method: "POST", body: formData })
+        fetch("/api/upload", { method: "POST", body: formData })
           .then(function (r) { return r.json(); })
           .then(function (data) {
             assistantBubble.textContent = data.response || data.error || "Erro ao analisar o arquivo.";
@@ -768,7 +808,7 @@
 
         if (btnEnviar) btnEnviar.disabled = true;
 
-        fetch("/chat/stream", {
+        fetch("/api/chat/stream", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ chat_id: chatId, message: texto })
