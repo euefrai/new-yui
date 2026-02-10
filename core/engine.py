@@ -30,7 +30,7 @@ def process_message(user_id, chat_id, message):
     # Perfil do usuário (personalidade adaptativa)
     profile = get_user_profile(user_id)
 
-    # Protocolo de tool calling via JSON (em português).
+    # Protocolo de tool calling via JSON (em português) com PLANNER.
     # Ferramentas disponíveis:
     # - analisar_arquivo(filename, content): analisar um código/arquivo que o usuário colou na mensagem.
     # - listar_arquivos(pasta, padrao, limite): listar arquivos de uma pasta do projeto.
@@ -50,17 +50,20 @@ def process_message(user_id, chat_id, message):
         "- observar_ambiente(raiz?): quando quiser ter uma visão rápida do tipo de projeto aberto e sugestões iniciais.\n"
         "- criar_projeto_arquivos(root_dir, files): quando o usuário pedir para CRIAR um projeto/mini SaaS, você define os arquivos e caminhos e pede para gravar tudo no workspace.\n"
         "- criar_zip_projeto(root_dir, zip_name?): quando o usuário pedir um ZIP do projeto, gere o script de compactação.\n\n"
-        "QUANDO quiser usar uma ferramenta, responda SOMENTE um JSON, sem nenhum texto extra, exatamente neste formato:\n"
-        '{"mode":"tool","tool":"NOME_DA_FERRAMENTA","args":{...}}.\n'
-        "Exemplos:\n"
-        '{"mode":"tool","tool":"analisar_arquivo","args":{"filename":"main.py","content":"<código aqui>"}}.\n'
-        '{"mode":"tool","tool":"listar_arquivos","args":{"pasta":"yui_ai","padrao":"*.py","limite":20}}.\n'
-        '{"mode":"tool","tool":"ler_arquivo_texto","args":{"caminho":"yui_ai/main.py","max_chars":2000}}.\n'
-        '{"mode":"tool","tool":"analisar_projeto","args":{}}.\n'
-        '{"mode":"tool","tool":"observar_ambiente","args":{}}.\n'
-        '{"mode":"tool","tool":"criar_projeto_arquivos","args":{"root_dir":"mini-saas-blog","files":[{"path":"index.html","content":"...html..."},{"path":"static/styles.css","content":"...css..."}]}}.\n'
-        '{"mode":"tool","tool":"criar_zip_projeto","args":{"root_dir":"generated_projects/mini-saas-blog","zip_name":"mini-saas-blog"}}.\n\n'
-        "Quando quiser responder normalmente SEM usar ferramenta, responda SOMENTE um JSON neste formato:\n"
+        "Planejamento:\n"
+        "- Se resolver com texto direto, use:\n"
+        '  {"mode":"answer","answer":"sua resposta em português aqui"}\n'
+        "- Se precisar de UMA OU MAIS ferramentas, responda SOMENTE um JSON neste formato:\n"
+        '  {"mode":"tools","steps":[{"tool":"NOME_DA_FERRAMENTA","args":{...}}, ...], "final_answer":"(opcional) conclusão em texto"}\n'
+        "Exemplos de steps:\n"
+        '{"tool":"analisar_arquivo","args":{"filename":"main.py","content":"<código aqui>"}}.\n'
+        '{"tool":"listar_arquivos","args":{"pasta":"yui_ai","padrao":"*.py","limite":20}}.\n'
+        '{"tool":"ler_arquivo_texto","args":{"caminho":"yui_ai/main.py","max_chars":2000}}.\n'
+        '{"tool":"analisar_projeto","args":{}}.\n'
+        '{"tool":"observar_ambiente","args":{}}.\n'
+        '{"tool":"criar_projeto_arquivos","args":{"root_dir":"mini-saas-blog","files":[{"path":"index.html","content":"...html..."},{"path":"static/styles.css","content":"...css..."}]}}.\n'
+        '{"tool":"criar_zip_projeto","args":{"root_dir":"generated_projects/mini-saas-blog","zip_name":"mini-saas-blog"}}.\n\n'
+        "Quando quiser responder normalmente SEM usar ferramenta, responda SOMENTE um JSON neste formato (sem texto extra fora do JSON):\n"
         '{"mode":"answer","answer":"sua resposta em português aqui"}.\n'
         "NUNCA misture explicações fora do JSON. O JSON deve ser o único conteúdo da resposta."
     )
@@ -129,55 +132,83 @@ def process_message(user_id, chat_id, message):
         registrar_evento(user_id=user_id, chat_id=chat_id, tipo="curta", conteudo=reply)
         return reply
 
-    # Chamada de ferramenta
-    if mode == "tool":
-        tool_name = str(data.get("tool") or "").strip()
-        args = data.get("args") or {}
-        if not tool_name:
-            # Sem ferramenta válida, volta para resposta normal
+    # Planner escolheu usar ferramentas (uma ou mais)
+    if mode in ("tool", "tools"):
+        # Compatibilidade com formato antigo: mode == "tool"
+        if mode == "tool":
+            steps = [{"tool": str(data.get("tool") or "").strip(), "args": data.get("args") or {}}]
+        else:
+            raw_steps = data.get("steps") or []
+            steps = []
+            for s in raw_steps:
+                if not isinstance(s, dict):
+                    continue
+                name = str(s.get("tool") or "").strip()
+                if not name:
+                    continue
+                steps.append({"tool": name, "args": s.get("args") or {}})
+
+        if not steps:
+            # Sem steps válidos, volta para resposta normal
             reply = raw_content.strip()
             save_message(chat_id, "assistant", reply)
             registrar_evento(user_id=user_id, chat_id=chat_id, tipo="curta", conteudo=message)
             registrar_evento(user_id=user_id, chat_id=chat_id, tipo="curta", conteudo=reply)
             return reply
 
-        result = run_tool(tool_name, args)
-        if not result.get("ok"):
-            reply = f"Não consegui executar a ferramenta '{tool_name}': {result.get('error') or 'erro desconhecido.'}"
-        else:
+        partes: list[str] = []
+
+        for step in steps:
+            tool_name = step["tool"]
+            args = step.get("args") or {}
+            result = run_tool(tool_name, args)
+            if not result.get("ok"):
+                partes.append(
+                    f"Não consegui executar a ferramenta '{tool_name}': {result.get('error') or 'erro desconhecido.'}"
+                )
+                continue
+
             payload = result.get("result") or {}
             # Respostas específicas por ferramenta
             if tool_name == "analisar_arquivo":
-                reply = payload.get("text") or "Análise concluída, mas não foi possível obter o texto do relatório."
+                partes.append(
+                    payload.get("text")
+                    or "Análise concluída, mas não foi possível obter o texto do relatório."
+                )
             elif tool_name == "analisar_projeto":
-                reply = payload.get("texto") or "Análise de projeto concluída, mas não foi possível obter o texto formatado."
+                partes.append(
+                    payload.get("texto")
+                    or "Análise de projeto concluída, mas não foi possível obter o texto formatado."
+                )
             elif tool_name == "listar_arquivos":
                 arquivos = payload.get("arquivos") or []
                 if not arquivos:
-                    reply = "Não encontrei arquivos para os critérios informados."
+                    partes.append("Não encontrei arquivos para os critérios informados.")
                 else:
                     linhas = ["Arquivos encontrados:"]
                     linhas.extend(f"- {a}" for a in arquivos)
-                    reply = "\n".join(linhas)
+                    partes.append("\n".join(linhas))
             elif tool_name == "ler_arquivo_texto":
                 conteudo = payload.get("conteudo") or ""
                 caminho = args.get("caminho") or "arquivo"
                 if not conteudo:
-                    reply = f"O arquivo {caminho} está vazio ou não pôde ser lido."
+                    partes.append(f"O arquivo {caminho} está vazio ou não pôde ser lido.")
                 else:
-                    reply = f"Conteúdo de {caminho} (parcial se muito grande):\n\n{conteudo}"
+                    partes.append(f"Conteúdo de {caminho} (parcial se muito grande):\n\n{conteudo}")
             elif tool_name == "observar_ambiente":
                 resumo = payload.get("resumo") or ""
                 sugestao = payload.get("sugestao") or ""
                 if sugestao:
-                    reply = resumo + "\n\n" + sugestao
+                    partes.append(resumo + "\n\n" + sugestao)
                 else:
-                    reply = resumo or "Observei o projeto, mas não consegui gerar um resumo útil."
+                    partes.append(resumo or "Observei o projeto, mas não consegui gerar um resumo útil.")
             elif tool_name == "criar_projeto_arquivos":
                 root = payload.get("root") or ""
                 files = payload.get("files") or []
                 if not payload.get("ok"):
-                    reply = f"Não consegui criar o projeto: {payload.get('error') or 'erro desconhecido.'}"
+                    partes.append(
+                        f"Não consegui criar o projeto: {payload.get('error') or 'erro desconhecido.'}"
+                    )
                 else:
                     linhas = [
                         "Projeto criado com sucesso.",
@@ -186,7 +217,6 @@ def process_message(user_id, chat_id, message):
                     if files:
                         linhas.append("Arquivos criados:")
                         linhas.extend(f"- {p}" for p in files)
-                    # Se tivermos uma pasta raiz válida, sugere URL de preview
                     slug = ""
                     if root:
                         try:
@@ -196,10 +226,12 @@ def process_message(user_id, chat_id, message):
                     if slug:
                         linhas.append("")
                         linhas.append(f"[PREVIEW_URL]: /generated/{slug}/index.html")
-                    reply = "\n".join(linhas)
+                    partes.append("\n".join(linhas))
             elif tool_name == "criar_zip_projeto":
                 if not payload.get("ok"):
-                    reply = f"Não consegui preparar o ZIP do projeto: {payload.get('error') or 'erro desconhecido.'}"
+                    partes.append(
+                        f"Não consegui preparar o ZIP do projeto: {payload.get('error') or 'erro desconhecido.'}"
+                    )
                 else:
                     script_path = payload.get("script_path") or ""
                     zip_output = payload.get("zip_output") or ""
@@ -211,10 +243,19 @@ def process_message(user_id, chat_id, message):
                     ]
                     if command:
                         linhas.append(f"Para gerar o ZIP, execute no terminal:\n{command}")
-                    reply = "\n".join(linhas)
+                    partes.append("\n".join(linhas))
             else:
                 # Fallback genérico: serializa o payload em JSON legível
-                reply = json.dumps(payload, ensure_ascii=False, indent=2)
+                partes.append(json.dumps(payload, ensure_ascii=False, indent=2))
+
+        final_answer = str(data.get("final_answer") or "").strip()
+        if final_answer:
+            partes.append("")
+            partes.append(final_answer)
+
+        reply = "\n\n".join(p for p in partes if p)
+        if not reply:
+            reply = "Execução das ferramentas concluída, mas não consegui gerar uma resposta textual útil."
 
         save_message(chat_id, "assistant", reply)
         registrar_evento(user_id=user_id, chat_id=chat_id, tipo="curta", conteudo=message)
