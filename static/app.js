@@ -655,6 +655,17 @@
   function enviar() {
     var texto = (msgInput.value || "").trim();
     var temArquivo = !!pendingFile;
+    var lower = texto.toLowerCase();
+    var isProjeto =
+      !temArquivo &&
+      (lower.includes("mini saas") ||
+        lower.includes("mini-saas") ||
+        lower.includes("projeto") ||
+        lower.includes("landing page") ||
+        lower.includes("site completo") ||
+        lower.includes("gerar projeto") ||
+        lower.includes("cria um saas") ||
+        lower.includes("criar um saas"));
     if (!texto && !temArquivo) return;
     if (!user || !user.id) {
       chat.innerHTML = "<div class=\"chatVazio\">Faça login para enviar mensagens.</div>";
@@ -708,6 +719,38 @@
             if (fileBadge) fileBadge.remove();
             fileBadge = null;
             if (fileInput) fileInput.value = "";
+            if (btnEnviar) btnEnviar.disabled = false;
+          });
+      } else if (isProjeto) {
+        var assistantBubble2 = document.createElement("div");
+        assistantBubble2.className = "msgBubble assistant";
+        assistantBubble2.textContent = "🧱 Criando estrutura do projeto...";
+        chat.appendChild(assistantBubble2);
+        chat.scrollTop = chat.scrollHeight;
+
+        if (btnEnviar) btnEnviar.disabled = true;
+
+        fetch("/api/send", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ user_id: user.id, chat_id: chatId, message: texto })
+        })
+          .then(function (r) { return r.json(); })
+          .then(function (data) {
+            var reply = (data && data.reply) || (data && data.error) || "Erro ao gerar o projeto.";
+            assistantBubble2.textContent = reply;
+            chat.scrollTop = chat.scrollHeight;
+            if (isNovoChatTitulo(currentChatTitulo)) {
+              atualizarTituloChat(chatId, texto);
+            }
+            // recarrega mensagens para aplicar botão de preview, se houver
+            carregarMensagens();
+          })
+          .catch(function () {
+            assistantBubble2.textContent = "Erro de rede ao gerar o projeto.";
+            chat.scrollTop = chat.scrollHeight;
+          })
+          .finally(function () {
             if (btnEnviar) btnEnviar.disabled = false;
           });
       } else {
@@ -816,31 +859,30 @@
   if (fileInput) {
     fileInput.addEventListener("change", function () {
       var f = this.files && this.files[0];
-      if (!f || !chat) return;
-      var fileName = f.name || "arquivo";
-      var userBubble = document.createElement("div");
-      userBubble.className = "msgBubble user";
-      userBubble.textContent = "📎 Arquivo: " + fileName;
-      if (chat.querySelector(".chatVazio")) chat.innerHTML = "";
-      chat.appendChild(userBubble);
-      var assistantBubble = document.createElement("div");
-      assistantBubble.className = "msgBubble assistant";
-      assistantBubble.textContent = "Analisando...";
-      chat.appendChild(assistantBubble);
-      chat.scrollTop = chat.scrollHeight;
-      var formData = new FormData();
-      formData.append("file", f);
-      fetch("/upload", { method: "POST", body: formData })
-        .then(function (r) { return r.json(); })
-        .then(function (data) {
-          assistantBubble.textContent = data.response || data.error || "Erro ao analisar o arquivo.";
-          chat.scrollTop = chat.scrollHeight;
-        })
-        .catch(function () {
-          assistantBubble.textContent = "Erro de conexão ao enviar o arquivo.";
-          chat.scrollTop = chat.scrollHeight;
-        });
-      fileInput.value = "";
+      if (!f) return;
+      pendingFile = f;
+      pendingFileName = f.name || "arquivo";
+      if (!fileBadge) {
+        fileBadge = document.createElement("div");
+        fileBadge.className = "fileAttached";
+        var icon = document.createElement("span");
+        icon.textContent = "📎";
+        var nameSpan = document.createElement("span");
+        nameSpan.id = "fileAttachedName";
+        fileBadge.appendChild(icon);
+        fileBadge.appendChild(nameSpan);
+        var app = document.getElementById("appScreen");
+        if (app) app.appendChild(fileBadge);
+      }
+      var nameSpanEl = document.getElementById("fileAttachedName");
+      if (nameSpanEl) nameSpanEl.textContent = pendingFileName;
+      fileBadge.onclick = function () {
+        pendingFile = null;
+        pendingFileName = "";
+        if (fileBadge) fileBadge.remove();
+        fileBadge = null;
+        fileInput.value = "";
+      };
     });
   }
 
