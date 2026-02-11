@@ -87,6 +87,21 @@ def test_attention_manager():
     assert "criar_projeto_arquivos" in tools
 
 
+def test_metacognition():
+    from core.metacognition import MetaCognition, MetaState, get_metacognition, record_action
+    meta = MetaCognition()
+    state = MetaState(energy=50, context_size=10, steps_planned=5)
+    signals = meta.analyze(state)
+    assert "low_energy" in signals
+    assert "meta_score" in signals
+    assert "simplified_mode" in signals
+    record_action("test_tool")
+    record_action("test_tool")
+    record_action("test_tool")
+    signals2 = meta.analyze(MetaState(energy=50))
+    assert signals2.get("loop_detected") is True
+
+
 def test_identity_core():
     from core.identity_core import IdentityCore, get_identity_core
     identity = IdentityCore()

@@ -40,6 +40,12 @@ try:
 except ImportError:
     get_identity_core = None
 try:
+    from core.metacognition import get_metacognition, MetaState, _build_state
+except ImportError:
+    get_metacognition = None
+    MetaState = None
+    _build_state = None
+try:
     from core.energy_manager import (
         get_energy_manager,
         COST_RESPONDER_IA,
@@ -310,8 +316,21 @@ def agent_controller(
 
         # ---------- 1) Context Engine: histórico + contexto do projeto + memórias ----------
         ctx = montar_contexto_ia(user_id, chat_id, user_message, raiz_projeto=".", max_mensagens=MAX_HISTORY)
+
+        # ---------- 0.5) Meta-Cognition: observador interno (antes de planner) ----------
+        meta_signals = {}
+        if get_metacognition and _build_state:
+            context_size = sum(1 for k in ("historico", "contexto_projeto", "memoria_vetorial", "contexto_chat_anterior", "memoria_eventos") if ctx.get(k))
+            state = _build_state(context_size=context_size)
+            meta_signals = get_metacognition().analyze(state)
+            if meta_signals.get("loop_detected"):
+                for c in _yield_in_chunks("⚠️ Detectei repetição nas ações. Simplificando a resposta."):
+                    yield c
+                return
+
         if filter_context_blocks:
-            ctx = filter_context_blocks(ctx, user_message=user_message)
+            top = 2 if (meta_signals.get("context_overload") or meta_signals.get("simplified_mode")) else None
+            ctx = filter_context_blocks(ctx, user_message=user_message, top=top)
         msgs: List[Dict[str, str]] = list(ctx.get("historico") or [])
 
         if ctx.get("contexto_projeto"):
@@ -376,8 +395,11 @@ def agent_controller(
                 plan_steps = get_planned_steps_for_prompt(task_graph)
                 if plan_steps:
                     msgs.insert(0, {"role": "system", "content": plan_steps})
-                # Planner estruturado (memory aware, tool reasoning, goals aware)
-                plan = criar_plano_estruturado(user_message, user_id, chat_id, max_steps=LIMIT_MAX_STEPS, goals_ativos=goals_ativos or None)
+                # Planner estruturado (memory aware, tool reasoning, goals aware, meta-aware)
+                max_steps = LIMIT_MAX_STEPS
+                if meta_signals.get("simplified_mode") or meta_signals.get("too_many_steps"):
+                    max_steps = min(max_steps, 2)
+                plan = criar_plano_estruturado(user_message, user_id, chat_id, max_steps=max_steps, goals_ativos=goals_ativos or None)
                 if plan:
                     msgs.insert(0, {"role": "system", "content": plan_to_prompt(plan, goals_ativos or None)})
             except Exception:
@@ -397,7 +419,7 @@ def agent_controller(
             identity = get_identity_core()
             identity.apply_energy_context(energy)
             depth = identity.get_effective_response_depth(energy)
-            if depth == "short":
+            if depth == "short" or meta_signals.get("simplified_mode"):
                 msgs.insert(-1, {"role": "system", "content": "Responda de forma resumida (máx 2-3 frases)."})
         elif get_energy_manager and get_energy_manager().is_critical():
             msgs.insert(-1, {"role": "system", "content": "Energia baixa: responda de forma MUITO resumida (máx 2-3 frases)."})
@@ -439,6 +461,9 @@ def agent_controller(
             last_step_ok = True  # para goal update
             for i, step in enumerate(steps):
                 if i >= LIMIT_MAX_STEPS:
+                    break
+                if get_metacognition and get_metacognition().analyze(steps_executed=i).get("loop_detected"):
+                    partes.append("Detectei repetição. Interrompendo execução.")
                     break
                 if get_energy_manager and not get_energy_manager().can_execute():
                     partes.append("Energia esgotada. Interrompendo execução.")

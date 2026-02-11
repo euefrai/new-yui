@@ -15,6 +15,10 @@ try:
     from core.identity_core import get_identity_core
 except ImportError:
     get_identity_core = None
+try:
+    from core.metacognition import record_action
+except ImportError:
+    record_action = lambda _: None
 
 
 def run_tool(name: str, args: Dict[str, Any]) -> Dict[str, Any]:
@@ -43,6 +47,7 @@ def run_tool(name: str, args: Dict[str, Any]) -> Dict[str, Any]:
 
     try:
         result = fn(**(args or {}))
+        record_action(name)
         return {"ok": True, "result": result, "error": None}
     except TypeError as e:
         # Erro comum: parâmetros faltando ou nomes errados
