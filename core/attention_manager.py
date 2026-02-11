@@ -132,7 +132,13 @@ def filter_tools_by_intention(tool_names: List[str], intention: str) -> List[str
 
     code_tools = {"analisar_arquivo", "criar_projeto_arquivos", "criar_zip_projeto", "ler_arquivo_texto", "listar_arquivos"}
     project_tools = {"analisar_projeto", "observar_ambiente", "consultar_indice_projeto"}
+    time_tools = {"get_current_time"}
+    search_tools = {"buscar_web"}
 
+    if any(x in t for x in ("horas", "hora", "data", "dia", "bom dia", "boa tarde", "boa noite", "agora", "timestamp")):
+        return [n for n in tool_names if n in time_tools] or list(tool_names)
+    if any(x in t for x in ("buscar", "pesquisar", "verificar", "informação", "notícia", "clima")):
+        return [n for n in tool_names if n in search_tools] or list(tool_names)
     if any(x in t for x in ("criar", "gerar", "projeto", "calculadora", "login", "código")):
         return [n for n in tool_names if n in code_tools or n in project_tools]
     if any(x in t for x in ("analis", "analise")):

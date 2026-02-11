@@ -102,6 +102,8 @@ def _init_default_tools() -> None:
         tool_criar_projeto_arquivos,
         tool_criar_zip_projeto,
         tool_consultar_indice_projeto,
+        tool_get_current_time,
+        tool_buscar_web,
     )
     from core.plugins_loader import load_plugins
 
@@ -159,6 +161,23 @@ def _init_default_tools() -> None:
         description="Consulta o índice de análise de projeto em cache (visão geral, pontos fortes/fracos, riscos, roadmap).",
         schema={
             "raiz": "Caminho raiz do projeto (opcional). Se omitido, usa o diretório padrão.",
+        },
+    )
+
+    register_tool(
+        name="get_current_time",
+        fn=tool_get_current_time,
+        description="Retorna o horário e data atuais em Brasília/São Paulo. Use quando o usuário perguntar as horas, data ou saudação (Bom dia/Boa tarde).",
+        schema={},
+    )
+
+    register_tool(
+        name="buscar_web",
+        fn=tool_buscar_web,
+        description="Busca informações na web (DuckDuckGo). Use para verificar dados externos, notícias ou informações que você não tem certeza.",
+        schema={
+            "query": "Termo de busca (ex: clima São Paulo hoje).",
+            "limite": "Máximo de resultados (opcional, padrão 5).",
         },
     )
 

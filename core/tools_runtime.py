@@ -7,8 +7,14 @@ import os
 import subprocess
 import sys
 import zipfile
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Optional
+
+try:
+    from zoneinfo import ZoneInfo
+except ImportError:
+    ZoneInfo = None  # Python < 3.9
 
 from yui_ai.analyzer.report_formatter import run_file_analysis, report_to_text
 from yui_ai.project_analysis.analysis_report import executar_analise_completa
@@ -23,6 +29,64 @@ except Exception:
     PROJECT_ROOT = Path(__file__).resolve().parents[1]
     GENERATED_ROOT = PROJECT_ROOT / "generated_projects"
 SCRIPTS_ROOT = PROJECT_ROOT / "scripts"
+
+
+def get_current_time() -> Dict[str, Any]:
+    """
+    Retorna o horário atual em Brasília/São Paulo.
+    Chamada leve, sem I/O pesado — otimizada para tempo real.
+    """
+    try:
+        tz = ZoneInfo("America/Sao_Paulo") if ZoneInfo else None
+        if tz:
+            now = datetime.now(tz)
+        else:
+            import time
+            now = datetime.fromtimestamp(time.time())
+        return {
+            "ok": True,
+            "datetime_brasilia": now.strftime("%d/%m/%Y %H:%M:%S"),
+            "iso": now.isoformat(),
+            "date": now.strftime("%d/%m/%Y"),
+            "time": now.strftime("%H:%M:%S"),
+            "timezone": "America/Sao_Paulo",
+        }
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+
+def tool_get_current_time() -> Dict[str, Any]:
+    """Wrapper para a ferramenta get_current_time (sem args)."""
+    return get_current_time()
+
+
+def tool_buscar_web(query: str, limite: int = 5) -> Dict[str, Any]:
+    """
+    Busca informações na web via DuckDuckGo.
+    Use quando precisar verificar dados externos ou informações recentes.
+    """
+    if not query or not str(query).strip():
+        return {"ok": False, "resultados": [], "error": "query obrigatória"}
+    try:
+        from duckduckgo_search import DDGS
+
+        with DDGS() as ddgs:
+            results = list(ddgs.text(str(query).strip(), max_results=min(limite, 10)))
+        return {
+            "ok": True,
+            "resultados": [
+                {"titulo": r.get("title", ""), "snippet": r.get("body", ""), "url": r.get("href", "")}
+                for r in (results or [])
+            ],
+        }
+    except ImportError:
+        return {
+            "ok": False,
+            "resultados": [],
+            "error": "Instale duckduckgo-search: pip install duckduckgo-search",
+        }
+    except Exception as e:
+        return {"ok": False, "resultados": [], "error": str(e)}
 
 
 def tool_analisar_arquivo(filename: str, content: str) -> Dict[str, Any]:

@@ -236,7 +236,8 @@
       logToConsole("$ Nenhum código para executar.", true);
       return;
     }
-    logToConsole("$ Executando...", false);
+    var ts = new Date().toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "medium" });
+    logToConsole("[" + ts + "] $ Executando...", false);
     fetch("/api/sandbox/execute", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -244,13 +245,15 @@
     })
       .then(function (r) { return r.json(); })
       .then(function (data) {
+        var executedAt = data.executed_at || "";
         var out = [];
         if (data.stdout) out.push(data.stdout.trim());
         if (data.stderr) out.push(data.stderr.trim());
         if (data.feedback) out.push("\n--- " + data.feedback + " ---");
         var text = out.join("\n") || "(nenhuma saída)";
         if (!data.ok) text = "ERRO (exit " + (data.exit_code || -1) + "):\n" + text;
-        logToConsole("$ " + text, !data.ok);
+        var prefix = executedAt ? "[" + executedAt + "] " : "";
+        logToConsole(prefix + "$ " + text, !data.ok);
       })
       .catch(function (e) {
         logToConsole("$ Erro de rede: " + (e.message || String(e)), true);

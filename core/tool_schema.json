@@ -62,5 +62,21 @@
     "outputs": ["texto", "resumo"],
     "cost": "low",
     "risk": "low"
+  },
+  {
+    "name": "get_current_time",
+    "description": "Retorna horário e data atuais em Brasília.",
+    "inputs": [],
+    "outputs": ["datetime_brasilia", "date", "time"],
+    "cost": "low",
+    "risk": "low"
+  },
+  {
+    "name": "buscar_web",
+    "description": "Busca informações na web.",
+    "inputs": ["query", "limite"],
+    "outputs": ["resultados"],
+    "cost": "low",
+    "risk": "low"
   }
 ]

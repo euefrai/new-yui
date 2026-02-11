@@ -224,14 +224,21 @@ def api_sandbox_save():
 def api_sandbox_execute():
     """Executa código no sandbox de forma segura (timeout, captura stdout/stderr)."""
     import subprocess
+    from datetime import datetime
     data = request.get_json(silent=True) or {}
+    try:
+        from zoneinfo import ZoneInfo
+        tz = ZoneInfo("America/Sao_Paulo")
+        executed_at = datetime.now(tz).strftime("%d/%m/%Y %H:%M:%S")
+    except Exception:
+        executed_at = datetime.utcnow().strftime("%d/%m/%Y %H:%M:%S")
     code = data.get("code") or ""
     lang = (data.get("lang") or "python").lower()
     timeout = int(data.get("timeout") or 15)
     if timeout > 30:
         timeout = 30
     if not code.strip():
-        return jsonify({"ok": False, "stdout": "", "stderr": "Código vazio", "exit_code": -1, "feedback": ""}), 400
+        return jsonify({"ok": False, "stdout": "", "stderr": "Código vazio", "exit_code": -1, "feedback": "", "executed_at": executed_at}), 400
 
     sandbox = Path(settings.SANDBOX_DIR)
     sandbox.mkdir(parents=True, exist_ok=True)
@@ -276,6 +283,7 @@ def api_sandbox_execute():
             "stderr": result.stderr or "",
             "exit_code": result.returncode,
             "feedback": feedback,
+            "executed_at": executed_at,
         })
     except subprocess.TimeoutExpired:
         try:
@@ -284,11 +292,11 @@ def api_sandbox_execute():
             feedback = f"Timeout ({timeout}s). Servidor: CPU {snap.cpu_percent:.0f}%, RAM {snap.ram_percent:.0f}%."
         except Exception:
             feedback = f"Timeout ({timeout}s). Considere simplificar o código."
-        return jsonify({"ok": False, "stdout": "", "stderr": "Timeout na execução", "exit_code": -1, "feedback": feedback}), 400
+        return jsonify({"ok": False, "stdout": "", "stderr": "Timeout na execução", "exit_code": -1, "feedback": feedback, "executed_at": executed_at}), 400
     except FileNotFoundError:
-        return jsonify({"ok": False, "stdout": "", "stderr": "Python/Node não encontrado no servidor", "exit_code": -1, "feedback": ""}), 400
+        return jsonify({"ok": False, "stdout": "", "stderr": "Python/Node não encontrado no servidor", "exit_code": -1, "feedback": "", "executed_at": executed_at}), 400
     except Exception as e:
-        return jsonify({"ok": False, "stdout": "", "stderr": str(e), "exit_code": -1, "feedback": ""}), 500
+        return jsonify({"ok": False, "stdout": "", "stderr": str(e), "exit_code": -1, "feedback": "", "executed_at": executed_at}), 500
 
 
 # --- Goals (objetivos persistentes) ---

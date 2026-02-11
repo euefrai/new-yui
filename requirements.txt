@@ -6,3 +6,4 @@ gunicorn
 supabase
 chromadb
 psutil>=5.9.0
+duckduckgo-search>=4.0.0

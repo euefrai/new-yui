@@ -102,6 +102,8 @@ TOOL_DESCRIPTIONS = {
     "criar_projeto_arquivos": "- criar_projeto_arquivos(root_dir, files): criar projeto. files = lista [{path, content}], ex: [{\"path\":\"index.html\",\"content\":\"<html>...</html>\"}].\n",
     "criar_zip_projeto": "- criar_zip_projeto(root_dir, zip_name?): gerar script para compactar o projeto em ZIP.\n",
     "consultar_indice_projeto": "- consultar_indice_projeto(raiz?): consultar índice de arquitetura em cache.\n",
+    "get_current_time": "- get_current_time(): quando o usuário perguntar as horas, data, ou para saudação (Bom dia/Boa tarde). Sempre use para horário real.\n",
+    "buscar_web": "- buscar_web(query, limite?): buscar informações na web quando precisar verificar dados externos.\n",
 }
 
 TOOL_SYSTEM_HEADER = (
@@ -298,6 +300,24 @@ def _format_tool_reply(tool_name: str, args: Dict, payload: Dict) -> str:
             linhas.append("")
             linhas.append(f"[DOWNLOAD]:/download/{zip_basename}")
         return "\n".join(linhas)
+    if tool_name == "get_current_time":
+        if not payload.get("ok"):
+            return f"Não foi possível obter o horário: {payload.get('error') or 'erro desconhecido.'}"
+        dt = payload.get("datetime_brasilia", "")
+        date = payload.get("date", "")
+        time = payload.get("time", "")
+        return f"Horário atual (Brasília/São Paulo): {dt} — Data: {date}, Hora: {time}"
+    if tool_name == "buscar_web":
+        if not payload.get("ok"):
+            return f"Busca não disponível: {payload.get('error') or 'erro desconhecido.'}"
+        resultados = payload.get("resultados") or []
+        if not resultados:
+            return "Nenhum resultado encontrado para a busca."
+        linhas = ["Resultados da busca:"] + [
+            f"- **{r.get('titulo', '')}**: {r.get('snippet', '')[:200]}..."
+            for r in resultados[:5]
+        ]
+        return "\n".join(linhas)
     return json.dumps(payload, ensure_ascii=False, indent=2)
 
 
@@ -321,7 +341,9 @@ REGRAS OBRIGATÓRIAS:
 4. Utilize o Workspace ao MÁXIMO: proponha arquivos completos, estrutura de pastas clara, convenções consistentes.
 5. Prefira soluções escaláveis e bem documentadas.
 6. Ao criar projetos, use criar_projeto_arquivos e criar_zip_projeto para gerar o ZIP. Inclua sempre [DOWNLOAD]:/download/nome.zip na resposta final.
-7. Responda em português do Brasil.
+7. Use get_current_time() quando precisar de horário real (logs, timestamps, agendamento, saudações).
+8. Use buscar_web(query) quando precisar verificar informações externas.
+9. Responda em português do Brasil.
 """
 
 
