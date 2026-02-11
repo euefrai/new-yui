@@ -5,7 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Yui</title>
   <link rel="stylesheet" href="/static/style.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/styles/github-dark.min.css" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0"></script>
 </head>
 <body>
 
@@ -91,6 +93,7 @@
             <button type="button" id="workspaceExport" class="workspaceBtn" title="Exportar ZIP">Exportar ZIP</button>
             <button type="button" id="workspaceFeedYui" class="workspaceBtn workspaceBtnHighlight" title="Enviar arquivo para o chat">Alimentar Yui</button>
             <button type="button" id="workspaceCopy" class="workspaceBtn" title="Copiar">Copiar</button>
+            <button type="button" id="workspaceDiff" class="workspaceBtn" title="Ver diferenças do arquivo">Ver Diff</button>
             <button type="button" id="workspaceDownload" class="workspaceBtn" title="Baixar arquivo">Baixar</button>
           </div>
         </div>
@@ -104,6 +107,9 @@
             <div class="workspaceConsole" id="workspaceConsole">
               <div class="workspaceConsoleHeader">Console</div>
               <pre class="workspaceConsoleOutput" id="workspaceConsoleOutput">$ Aguardando execução...</pre>
+              <div class="workspaceConsoleActions" id="workspaceConsoleActions" style="display:none">
+                <button type="button" id="workspaceSuggestFix" class="workspaceConsoleBtn">Sugerir correção ao Heathcliff</button>
+              </div>
             </div>
           </div>
         </div>

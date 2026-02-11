@@ -316,12 +316,42 @@ HEATHCLIFF_SYSTEM_PROMPT = """Você é o Heathcliff, modo engenheiro da Yui. Ins
 
 REGRAS OBRIGATÓRIAS:
 1. ANTES de responder, SEMPRE analise a estrutura de pastas (use listar_arquivos se disponível) para entender o projeto.
-2. Escreva código PRONTO PARA PRODUÇÃO: tratamento de erros, validação de inputs, segurança (sanitização, prepared statements).
-3. Utilize o Workspace ao MÁXIMO: proponha arquivos completos, estrutura de pastas clara, convenções consistentes.
-4. Prefira soluções escaláveis e bem documentadas.
-5. Ao criar projetos, use criar_projeto_arquivos e criar_zip_projeto para gerar o ZIP. Inclua sempre [DOWNLOAD]:/download/nome.zip na resposta final.
-6. Responda em português do Brasil.
+2. SEMPRE verifique requirements.txt (Python) ou package.json (Node) antes de sugerir código. NUNCA sugira bibliotecas que não estejam nesses arquivos.
+3. Escreva código PRONTO PARA PRODUÇÃO: tratamento de erros, validação de inputs, segurança (sanitização, prepared statements).
+4. Utilize o Workspace ao MÁXIMO: proponha arquivos completos, estrutura de pastas clara, convenções consistentes.
+5. Prefira soluções escaláveis e bem documentadas.
+6. Ao criar projetos, use criar_projeto_arquivos e criar_zip_projeto para gerar o ZIP. Inclua sempre [DOWNLOAD]:/download/nome.zip na resposta final.
+7. Responda em português do Brasil.
 """
+
+
+def _get_dependencies_context() -> str:
+    """Lê requirements.txt e package.json do sandbox/projeto para o Heathcliff."""
+    try:
+        from config import settings
+
+        parts = []
+        for base in (Path(settings.SANDBOX_DIR), Path(settings.GENERATED_PROJECTS_DIR), Path(settings.BASE_DIR)):
+            if not base.exists():
+                continue
+            req_path = base / "requirements.txt"
+            if req_path.is_file():
+                txt = req_path.read_text(encoding="utf-8", errors="replace").strip()
+                if txt:
+                    parts.append(f"requirements.txt ({base.name}):\n{txt[:1500]}")
+            pkg_path = base / "package.json"
+            if pkg_path.is_file():
+                txt = pkg_path.read_text(encoding="utf-8", errors="replace").strip()
+                if txt:
+                    parts.append(f"package.json ({base.name}):\n{txt[:1500]}")
+        if parts:
+            return (
+                "DEPENDÊNCIAS DISPONÍVEIS no projeto (use SOMENTE estas bibliotecas):\n\n"
+                + "\n\n---\n\n".join(parts[-4:])
+            )
+    except Exception:
+        pass
+    return ""
 
 
 def agent_controller(
@@ -459,6 +489,9 @@ def agent_controller(
         msgs.insert(0, {"role": "system", "content": _build_tool_system(user_message) + skills_system})
         if model == "heathcliff":
             msgs.insert(0, {"role": "system", "content": HEATHCLIFF_SYSTEM_PROMPT})
+            deps = _get_dependencies_context()
+            if deps:
+                msgs.insert(0, {"role": "system", "content": deps})
         # Autopercepção: avisa a Yui sobre carga do servidor (modo economia)
         if get_system_state_for_prompt:
             autopercepcao = get_system_state_for_prompt()

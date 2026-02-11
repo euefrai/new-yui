@@ -91,6 +91,40 @@
     return parts.join("");
   }
 
+  function initDownloadButtons(container, rawText) {
+    if (!container) return;
+    var text = rawText || (container.textContent || "").replace(/\s+/g, " ");
+    var match = text.match(/\[DOWNLOAD\]:(\S+)/);
+    if (!match) return;
+    var url = match[1];
+    var existing = container.querySelector(".download-btn, .btn-download");
+    if (existing) return;
+    var link = document.createElement("a");
+    link.href = url;
+    link.innerText = "⬇️ Baixar Projeto";
+    link.className = "download-btn btn-download";
+    link.target = "_blank";
+    link.rel = "noopener";
+    var filename = url.split("/").pop() || "projeto.zip";
+    if (filename) link.setAttribute("download", filename);
+    container.appendChild(link);
+  }
+
+  function finalizeAssistantBubble(bubble) {
+    if (!bubble) return;
+    var fullText = bubble.textContent || "";
+    var cleaned = fullText.replace(/\n?\[DOWNLOAD\]:\S+/, "").trim();
+    bubble.innerHTML = formatMarkdownToHtml(cleaned);
+    attachCodeBlockCopyButtons(bubble);
+    initDownloadButtons(bubble, fullText);
+    if (typeof window.hljs !== "undefined") {
+      bubble.querySelectorAll("pre code").forEach(function (el) {
+        try { window.hljs.highlightElement(el); } catch (e) {}
+      });
+    }
+    applyModelVisual(getCurrentModel());
+  }
+
   function attachCodeBlockCopyButtons(container) {
     if (!container) return;
     container.querySelectorAll(".codeBlockCopy").forEach(function (btn) {
@@ -609,6 +643,12 @@
       }
       chat.appendChild(div);
     });
+    if (typeof window.hljs !== "undefined") {
+      chat.querySelectorAll("pre code").forEach(function (el) {
+        try { window.hljs.highlightElement(el); } catch (e) {}
+      });
+    }
+    applyModelVisual(getCurrentModel());
     chat.scrollTop = chat.scrollHeight;
   }
 
@@ -1008,22 +1048,7 @@
                 if (result.done) {
                   cursor.remove();
                   assistantBubble.setAttribute("data-status", "sent");
-                  var fullText = assistantBubble.textContent || "";
-                  var downloadMatch = fullText.match(/\[DOWNLOAD\]:(\S+)/);
-                  var cleaned = fullText.replace(/\n?\[DOWNLOAD\]:\S+/, "").trim();
-                  assistantBubble.innerHTML = formatMarkdownToHtml(cleaned);
-                  attachCodeBlockCopyButtons(assistantBubble);
-                  if (downloadMatch) {
-                    var link = document.createElement("a");
-                    link.href = downloadMatch[1];
-                    link.innerText = "⬇️ Baixar Projeto";
-                    link.className = "download-btn btn-download";
-                    link.target = "_blank";
-                    link.rel = "noopener";
-                    var filename = downloadMatch[1].split("/").pop() || "projeto.zip";
-                    if (filename) link.setAttribute("download", filename);
-                    assistantBubble.appendChild(link);
-                  }
+                  finalizeAssistantBubble(assistantBubble);
                   if (btnEnviar) btnEnviar.disabled = false;
                   if (isNovoChatTitulo(currentChatTitulo)) {
                     atualizarTituloChat(chatId, texto);
@@ -1055,22 +1080,7 @@
                           statusLine = null;
                           assistantBubble.setAttribute("data-status", "sent");
                           if (cursor && cursor.parentNode) cursor.remove();
-                          var fullText = assistantBubble.textContent || "";
-                          var downloadMatch = fullText.match(/\[DOWNLOAD\]:(\S+)/);
-                          var cleaned = fullText.replace(/\n?\[DOWNLOAD\]:\S+/, "").trim();
-                          assistantBubble.innerHTML = formatMarkdownToHtml(cleaned);
-                          attachCodeBlockCopyButtons(assistantBubble);
-                          if (downloadMatch) {
-                            var link = document.createElement("a");
-                            link.href = downloadMatch[1];
-                            link.innerText = "⬇️ Baixar Projeto";
-                            link.className = "download-btn btn-download";
-                            link.target = "_blank";
-                            link.rel = "noopener";
-                            var filename = downloadMatch[1].split("/").pop() || "projeto.zip";
-                            if (filename) link.setAttribute("download", filename);
-                            assistantBubble.appendChild(link);
-                          }
+                          finalizeAssistantBubble(assistantBubble);
                         }
                         return;
                       }

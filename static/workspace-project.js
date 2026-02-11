@@ -6,9 +6,11 @@
   "use strict";
 
   var projectFiles = {};
+  var originalFileContents = {};
   var projectTree = [];
   var currentFilePath = null;
   var projectName = "projeto";
+  var lastConsoleError = null;
 
   var ICON_FOLDER = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>';
   var ICON_FILE = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>';
@@ -99,6 +101,7 @@
     saveCurrentToCache();
     currentFilePath = path;
     var content = projectFiles[path];
+    if (!originalFileContents[path]) originalFileContents[path] = content;
     var lang = window.getLangFromPath ? window.getLangFromPath(path) : "plaintext";
     if (window.updateEditor) window.updateEditor(content, lang);
     var list = document.getElementById("fileTreeList");
@@ -140,6 +143,7 @@
       var files = input.files;
       if (!files || files.length === 0) return;
       projectFiles = {};
+      originalFileContents = {};
       var paths = [];
       var basePath = "";
       if (files[0].webkitRelativePath) {
@@ -159,7 +163,9 @@
       fileArray.forEach(function (item) {
         var r = new FileReader();
         r.onload = function () {
-          projectFiles[item.path] = r.result || "";
+          var content = r.result || "";
+          projectFiles[item.path] = content;
+          originalFileContents[item.path] = content;
           loaded++;
           if (loaded === fileArray.length) {
             projectTree = buildTreeFromPaths(paths);
@@ -200,11 +206,19 @@
 
   function logToConsole(text, isError) {
     var el = document.getElementById("workspaceConsoleOutput");
+    var actions = document.getElementById("workspaceConsoleActions");
     if (!el) return;
     el.textContent = text || "$ Aguardando execução...";
     el.classList.toggle("error", !!isError);
     el.classList.remove("success");
     if (!isError && text && text.indexOf("$ Salvos:") === 0) el.classList.add("success");
+    if (isError) {
+      lastConsoleError = text;
+      if (actions) actions.style.display = "flex";
+    } else {
+      lastConsoleError = null;
+      if (actions) actions.style.display = "none";
+    }
   }
 
   function executeCode() {
@@ -297,17 +311,67 @@
     msg.focus();
   }
 
+  function showDiffView() {
+    saveCurrentToCache();
+    var path = currentFilePath;
+    if (!path) {
+      alert("Selecione um arquivo na árvore para ver o diff.");
+      return;
+    }
+    var original = originalFileContents[path] || "";
+    var current = projectFiles[path] || "";
+    if (original === current) {
+      alert("Nenhuma alteração neste arquivo.");
+      return;
+    }
+    var overlay = document.getElementById("workspaceDiffOverlay");
+    if (!overlay) {
+      overlay = document.createElement("div");
+      overlay.id = "workspaceDiffOverlay";
+      overlay.className = "workspaceDiffOverlay";
+      overlay.innerHTML = '<div class="workspaceDiffModal"><div class="workspaceDiffHeader"><span>Diff: ' + escapeHtml(path) + '</span><button type="button" class="workspaceDiffClose">×</button></div><div class="workspaceDiffBody"><div class="workspaceDiffCol"><h4>Original</h4><pre class="workspaceDiffPre" id="workspaceDiffOriginal"></pre></div><div class="workspaceDiffCol"><h4>Atual</h4><pre class="workspaceDiffPre" id="workspaceDiffCurrent"></pre></div></div></div>';
+      overlay.querySelector(".workspaceDiffClose").onclick = function () { overlay.style.display = "none"; };
+      overlay.onclick = function (e) { if (e.target === overlay) overlay.style.display = "none"; };
+      document.body.appendChild(overlay);
+    }
+    overlay.querySelector("#workspaceDiffOriginal").textContent = original;
+    overlay.querySelector("#workspaceDiffCurrent").textContent = current;
+    overlay.querySelector(".workspaceDiffHeader span").textContent = "Diff: " + path;
+    overlay.style.display = "flex";
+  }
+
   function initWorkspaceProject() {
     var importBtn = document.getElementById("workspaceImport");
     var exportBtn = document.getElementById("workspaceExport");
     var feedBtn = document.getElementById("workspaceFeedYui");
     var runBtn = document.getElementById("workspaceRun");
     var syncBtn = document.getElementById("workspaceSyncSandbox");
+    var diffBtn = document.getElementById("workspaceDiff");
+    var suggestBtn = document.getElementById("workspaceSuggestFix");
     if (importBtn) importBtn.addEventListener("click", importProject);
     if (exportBtn) exportBtn.addEventListener("click", exportZip);
     if (feedBtn) feedBtn.addEventListener("click", feedToYui);
     if (runBtn) runBtn.addEventListener("click", executeCode);
     if (syncBtn) syncBtn.addEventListener("click", syncToSandbox);
+    if (diffBtn) diffBtn.addEventListener("click", showDiffView);
+    if (suggestBtn) {
+      suggestBtn.addEventListener("click", function () {
+        var msg = document.getElementById("msg");
+        if (!msg) return;
+        var code = "";
+        var ed = window.getMonacoEditor && window.getMonacoEditor();
+        if (ed) code = ed.getValue();
+        var err = lastConsoleError || "erro desconhecido";
+        var prompt = "O código que você gerou deu erro. Por favor corrija.\n\nErro:\n" + err + (code ? "\n\nCódigo atual:\n```\n" + code.slice(0, 1000) + "\n```" : "");
+        msg.value = prompt;
+        msg.focus();
+        var switcher = document.getElementById("modelSwitcher");
+        if (switcher) {
+          switcher.value = "heathcliff";
+          switcher.dispatchEvent(new Event("change"));
+        }
+      });
+    }
     document.addEventListener("keydown", function (e) {
       if (e.ctrlKey && e.key === "Enter") {
         var mainSplit = document.querySelector(".mainSplit");
