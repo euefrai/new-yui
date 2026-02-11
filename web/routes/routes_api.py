@@ -133,3 +133,40 @@ def api_run_tool():
     result = run_tool(name, args)
     status = 200 if result.get("ok") else 400
     return jsonify(result), status
+
+
+# --- Goals (objetivos persistentes) ---
+goals_bp = Blueprint("goals", __name__, url_prefix="/api/goals")
+
+
+@goals_bp.get("/")
+def api_list_goals():
+    """Lista objetivos ativos."""
+    try:
+        from core.goals.goal_manager import get_active_goals
+        goals = get_active_goals()
+        return jsonify({"goals": [g.to_dict() for g in goals]})
+    except Exception as e:
+        return jsonify({"error": str(e), "goals": []}), 500
+
+
+@goals_bp.post("/")
+def api_add_goal():
+    """Adiciona objetivo. Body: {name, priority?, type?}."""
+    data = request.get_json(silent=True) or {}
+    name = (data.get("name") or "").strip()
+    if not name:
+        return jsonify({"error": "name obrigatório"}), 400
+    try:
+        from core.goals.goal_manager import add_goal, GoalType
+        priority = float(data.get("priority", 1.0))
+        t = (data.get("type") or "user").lower()
+        goal_type = GoalType.USER_GOAL
+        if t == "system":
+            goal_type = GoalType.SYSTEM_GOAL
+        elif t == "self":
+            goal_type = GoalType.SELF_IMPROVEMENT
+        goal = add_goal(name=name, priority=priority, goal_type=goal_type)
+        return jsonify({"ok": True, "goal": goal.to_dict()})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500

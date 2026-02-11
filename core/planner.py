@@ -1,15 +1,18 @@
 # ==========================================================
 # YUI PLANNER CORE (v2)
 # A IA não responde direto: primeiro cria um plano estruturado.
-# Usuário fala → IA planeja → cria etapas → executa → valida → responde.
+# Com Goal System: planner(input, goals_ativos) — objetivos mudam a tomada de decisão.
 # ==========================================================
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, TYPE_CHECKING
 
 from core.capabilities import is_enabled
 from core.limits import MAX_STEPS as LIMIT_MAX_STEPS
 from core.tool_schema import TOOL_SCHEMAS, get_schema
+
+if TYPE_CHECKING:
+    from core.goals.goal_manager import Goal
 
 # Fail safe: limites para evitar travamento
 MAX_STEPS = 5
@@ -60,11 +63,13 @@ def criar_plano_estruturado(
     user_id: str = "",
     chat_id: str = "",
     max_steps: Optional[int] = None,
+    goals_ativos: Optional[List["Goal"]] = None,
 ) -> List[PlanStep]:
     """
     Cria planos estruturados multi-etapas.
     Memory aware: usa histórico se falhou antes (ex: zip).
     Tool reasoning: escolhe tools baseado na intenção.
+    Goals aware: objetivos ativos influenciam priorização.
     Fail safe: respeita max_steps.
     """
     if not is_enabled("planner"):
@@ -109,14 +114,24 @@ def criar_plano_estruturado(
     return steps[:min(max_steps, MAX_PLAN_LENGTH)]
 
 
-def plan_to_prompt(plan: List[PlanStep]) -> str:
-    """Converte plano em texto para injetar no prompt da IA."""
-    if not plan:
-        return ""
-    lines = ["Plano de execução (etapas em ordem):"]
-    for i, s in enumerate(plan, 1):
-        t = f"  {i}. {s.goal} -> {s.action}"
-        if s.tool:
-            t += f" (tool: {s.tool})"
-        lines.append(t)
-    return "\n".join(lines)
+def plan_to_prompt(plan: List[PlanStep], goals_ativos: Optional[List["Goal"]] = None) -> str:
+    """Converte plano em texto para injetar no prompt da IA. Inclui goals se houver."""
+    parts = []
+    if goals_ativos:
+        try:
+            from core.goals.goal_manager import goals_to_context
+            ctx = goals_to_context(goals_ativos)
+            if ctx:
+                parts.append(ctx)
+                parts.append("")
+        except Exception:
+            pass
+    if plan:
+        lines = ["Plano de execução (etapas em ordem):"]
+        for i, s in enumerate(plan, 1):
+            t = f"  {i}. {s.goal} -> {s.action}"
+            if s.tool:
+                t += f" (tool: {s.tool})"
+            lines.append(t)
+        parts.append("\n".join(lines))
+    return "\n".join(parts) if parts else ""

@@ -43,6 +43,46 @@
     return div.innerHTML;
   }
 
+  function formatMarkdownToHtml(text) {
+    if (!text || typeof text !== "string") return "";
+    var parts = [];
+    var rest = text;
+    var codeBlockRe = /```(\w*)\n([\s\S]*?)```/g;
+    var lastIndex = 0;
+    var match;
+    while ((match = codeBlockRe.exec(rest)) !== null) {
+      var before = rest.slice(lastIndex, match.index);
+      if (before) parts.push(escapeHtml(before).replace(/\n/g, "<br>"));
+      var lang = match[1] || "text";
+      var code = escapeHtml(match[2].replace(/\r\n/g, "\n").trim());
+      parts.push('<div class="codeBlockWrap"><div class="codeBlockHeader"><span class="codeBlockLang">' + escapeHtml(lang) + '</span><button type="button" class="codeBlockCopy" title="Copiar código">Copiar código</button></div><pre><code class="language-' + escapeHtml(lang) + '">' + code + '</code></pre></div>');
+      lastIndex = match.index + match[0].length;
+    }
+    if (lastIndex < rest.length) parts.push(escapeHtml(rest.slice(lastIndex)).replace(/\n/g, "<br>"));
+    if (parts.length === 0) return escapeHtml(rest).replace(/\n/g, "<br>");
+    return parts.join("");
+  }
+
+  function attachCodeBlockCopyButtons(container) {
+    if (!container) return;
+    container.querySelectorAll(".codeBlockCopy").forEach(function (btn) {
+      if (btn._copyAttached) return;
+      btn._copyAttached = true;
+      btn.addEventListener("click", function () {
+        var pre = btn.closest(".codeBlockWrap");
+        if (!pre) return;
+        var code = pre.querySelector("code");
+        if (!code) return;
+        try {
+          navigator.clipboard.writeText(code.textContent);
+          var orig = btn.textContent;
+          btn.textContent = "Copiado!";
+          setTimeout(function () { btn.textContent = orig; }, 1500);
+        } catch (e) {}
+      });
+    });
+  }
+
   function openPreview(url, title) {
     if (!previewPanel || !previewFrame) return;
     previewFrame.src = url || "about:blank";
@@ -453,7 +493,12 @@
         });
         raw = filtradas.join("\n");
       }
-      content.textContent = raw;
+      if (m.role === "assistant" && raw) {
+        content.innerHTML = formatMarkdownToHtml(raw);
+        attachCodeBlockCopyButtons(content);
+      } else {
+        content.textContent = raw;
+      }
       div.appendChild(content);
 
       if (downloadUrl) {
@@ -877,6 +922,20 @@
                 if (result.done) {
                   cursor.remove();
                   assistantBubble.setAttribute("data-status", "sent");
+                  var fullText = assistantBubble.textContent || "";
+                  var downloadMatch = fullText.match(/\[DOWNLOAD\]:(\S+)/);
+                  var cleaned = fullText.replace(/\n?\[DOWNLOAD\]:\S+/, "").trim();
+                  assistantBubble.innerHTML = formatMarkdownToHtml(cleaned);
+                  attachCodeBlockCopyButtons(assistantBubble);
+                  if (downloadMatch) {
+                    var link = document.createElement("a");
+                    link.href = downloadMatch[1];
+                    link.innerText = "⬇️ Baixar Projeto";
+                    link.className = "download-btn";
+                    link.target = "_blank";
+                    link.rel = "noopener";
+                    assistantBubble.appendChild(link);
+                  }
                   if (btnEnviar) btnEnviar.disabled = false;
                   if (isNovoChatTitulo(currentChatTitulo)) {
                     atualizarTituloChat(chatId, texto);
@@ -909,9 +968,10 @@
                           if (cursor && cursor.parentNode) cursor.remove();
                           var fullText = assistantBubble.textContent || "";
                           var downloadMatch = fullText.match(/\[DOWNLOAD\]:(\S+)/);
+                          var cleaned = fullText.replace(/\n?\[DOWNLOAD\]:\S+/, "").trim();
+                          assistantBubble.innerHTML = formatMarkdownToHtml(cleaned);
+                          attachCodeBlockCopyButtons(assistantBubble);
                           if (downloadMatch) {
-                            var cleaned = fullText.replace(/\n?\[DOWNLOAD\]:\S+/, "").trim();
-                            assistantBubble.textContent = cleaned;
                             var link = document.createElement("a");
                             link.href = downloadMatch[1];
                             link.innerText = "⬇️ Baixar Projeto";

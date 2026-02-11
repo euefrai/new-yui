@@ -582,6 +582,78 @@ body.theme-light .previewFrame {
 
 .msgContent {
   margin-top: 4px;
+  line-height: 1.55;
+}
+
+.msgContent .codeBlockWrap {
+  margin: 12px 0;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #0f172a;
+  border: 1px solid #1e293b;
+}
+
+.msgContent .codeBlockHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: #1e293b;
+  font-size: 0.75rem;
+  color: #94a3b8;
+}
+
+.msgContent .codeBlockLang {
+  text-transform: uppercase;
+  font-weight: 500;
+}
+
+.msgContent .codeBlockCopy {
+  padding: 4px 10px;
+  background: #334155;
+  border: none;
+  border-radius: 6px;
+  color: #e2e8f0;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.msgContent .codeBlockCopy:hover {
+  background: #475569;
+}
+
+.msgContent pre {
+  margin: 0;
+  padding: 14px 16px;
+  overflow-x: auto;
+  font-size: 0.88rem;
+  font-family: "Fira Code", "JetBrains Mono", "Consolas", monospace;
+  line-height: 1.5;
+}
+
+.msgContent code {
+  font-family: inherit;
+  font-size: inherit;
+}
+
+body.theme-light .msgContent .codeBlockWrap {
+  background: #f8fafc;
+  border-color: #e2e8f0;
+}
+
+body.theme-light .msgContent .codeBlockHeader {
+  background: #e2e8f0;
+  color: #64748b;
+}
+
+body.theme-light .msgContent .codeBlockCopy {
+  background: #cbd5e1;
+  color: #0f172a;
+}
+
+body.theme-light .msgContent .codeBlockCopy:hover {
+  background: #94a3b8;
 }
 
 .download-btn {

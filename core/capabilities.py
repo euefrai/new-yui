@@ -16,6 +16,7 @@ CAPABILITIES: Dict[str, bool] = {
     "auto_debug": True,
     "vector_memory": True,
     "skills": True,
+    "goals": True,
 }
 
 EXECUTION_MODES = ("lite", "full", "autonomous")
@@ -27,6 +28,7 @@ MODE_LITE = {
     "self_reflection": False,
     "auto_debug": False,
     "vector_memory": False,
+    "goals": False,
 }
 
 MODE_FULL = {
@@ -34,6 +36,7 @@ MODE_FULL = {
     "self_reflection": True,
     "auto_debug": True,
     "vector_memory": True,
+    "goals": True,
 }
 
 

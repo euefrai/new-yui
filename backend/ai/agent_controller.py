@@ -28,6 +28,7 @@ from backend.ai.skill_manager import executar_skill, listar_skills
 from backend.ai.task_planner import criar_plano
 from backend.ai.tool_router import processar_resposta_ai
 from core.limits import MAX_STEPS as LIMIT_MAX_STEPS
+from core.goals.goal_manager import get_active_goals, update_progress
 from core.planner import criar_plano_estruturado, plan_to_prompt
 from core.reflection import refletir
 from core.state_machine import AgentState, transition
@@ -76,6 +77,49 @@ def _build_skills_system() -> str:
         '{"usar_skill": "nome_da_skill", "dados": { ... }}\n'
         "Os dados dependem da skill (ex: calculadora usa a, b, op)."
     )
+
+
+def _extract_answer_from_raw(raw: str) -> str | None:
+    """Fallback: extrai 'answer' quando JSON contém mode:answer mas o parse falhou."""
+    if not raw or '"answer"' not in raw:
+        return None
+    idx = raw.find('"answer"')
+    if idx == -1:
+        return None
+    colon = raw.find(":", idx)
+    if colon == -1:
+        return None
+    rest = raw[colon + 1 :].lstrip()
+    if not rest.startswith('"'):
+        return None
+    out = []
+    i = 1
+    while i < len(rest):
+        c = rest[i]
+        if c == "\\":
+            if i + 1 < len(rest):
+                n = rest[i + 1]
+                out.append("\n" if n == "n" else ("\t" if n == "t" else n))
+                i += 2
+                continue
+        if c == '"':
+            break
+        out.append(c)
+        i += 1
+    return "".join(out) if out else None
+
+
+def _strip_json_wrapper(text: str) -> str:
+    """Remove wrapper JSON da resposta quando a IA coloca JSON no answer."""
+    if not text or not text.strip().startswith("{"):
+        return text
+    data = _parse_json(text)
+    if data and data.get("mode") == "answer":
+        return str(data.get("answer") or "").strip()
+    extracted = _extract_answer_from_raw(text)
+    if extracted:
+        return extracted
+    return text
 
 
 def _parse_json(text: str) -> Dict[str, Any] | None:
@@ -264,6 +308,12 @@ def agent_controller(
 
         # ---------- Planner Core (v2): planeja antes de responder ----------
         transition(AgentState.PLANNING)
+        goals_ativos = []
+        if is_enabled("goals"):
+            try:
+                goals_ativos = get_active_goals(user_id, chat_id)
+            except Exception:
+                pass
         if is_enabled("planner"):
             try:
                 plano_execucao = criar_plano(user_message)
@@ -274,10 +324,10 @@ def agent_controller(
                 plan_steps = get_planned_steps_for_prompt(task_graph)
                 if plan_steps:
                     msgs.insert(0, {"role": "system", "content": plan_steps})
-                # Planner estruturado (memory aware, tool reasoning)
-                plan = criar_plano_estruturado(user_message, user_id, chat_id, max_steps=LIMIT_MAX_STEPS)
+                # Planner estruturado (memory aware, tool reasoning, goals aware)
+                plan = criar_plano_estruturado(user_message, user_id, chat_id, max_steps=LIMIT_MAX_STEPS, goals_ativos=goals_ativos or None)
                 if plan:
-                    msgs.insert(0, {"role": "system", "content": plan_to_prompt(plan)})
+                    msgs.insert(0, {"role": "system", "content": plan_to_prompt(plan, goals_ativos or None)})
             except Exception:
                 pass
 
@@ -320,6 +370,7 @@ def agent_controller(
                         steps.append({"tool": str(s["tool"]).strip(), "args": s.get("args") or {}})
 
             partes: List[str] = []
+            last_step_ok = True  # para goal update
             for i, step in enumerate(steps):
                 if i >= LIMIT_MAX_STEPS:
                     break
@@ -328,6 +379,7 @@ def agent_controller(
                 result = run_tool(tool_name, args)
                 emit("tool_executed", tool_name=tool_name, args=args, result=result)
                 if not result.get("ok"):
+                    last_step_ok = False
                     err = result.get("error") or "erro desconhecido."
                     set_last_error(err)
                     partes.append(f"Não consegui executar '{tool_name}': {err}")
@@ -337,6 +389,7 @@ def agent_controller(
                     if refl.get("ajustar") and refl.get("motivo"):
                         partes.append(f"(Ajuste: {refl['motivo']})")
                     continue
+                last_step_ok = True
                 set_last_action(f"tool:{tool_name}")
                 payload = result.get("result") or {}
                 msg = _format_tool_reply(tool_name, args, payload)
@@ -359,6 +412,12 @@ def agent_controller(
                 partes.append("")
                 partes.append(final_answer)
             reply = "\n\n".join(p for p in partes if p) if partes else "Execução das ferramentas concluída."
+            # Goal update: micro reflexão após execução de tools
+            if goals_ativos and is_enabled("goals"):
+                try:
+                    update_progress(goals_ativos[0].name, last_step_ok)
+                except Exception:
+                    pass
 
         elif isinstance(data, dict) and data.get("mode") in ("tool", "tools") and not is_enabled("tools"):
             set_last_action("answer")
@@ -375,7 +434,8 @@ def agent_controller(
                 if not reply or reply == raw_content.strip():
                     reply = "Projeto criado. Se pediu download, use o botão «Baixar Projeto» abaixo."
             else:
-                reply = raw_content.strip()
+                # Fallback: extrai answer quando parse falhou (evita mostrar JSON bruto)
+                reply = _strip_json_wrapper(raw_content.strip())
 
         # Normaliza link de download: sandbox://xxx.zip -> /download/xxx.zip
         if reply and "sandbox://" in reply:
@@ -406,6 +466,7 @@ def agent_controller(
         # ---------- 4) Responder ----------
         transition(AgentState.RESPONDING)
         reply = processar_resposta_ai(reply)
+        reply = _strip_json_wrapper(reply)  # garante que nunca mostre JSON bruto
 
         # ---------- 4b) Salva resposta na memória contextual do chat ----------
         try:
