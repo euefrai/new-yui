@@ -447,9 +447,49 @@
     });
   }
 
+  function removeFileFromWorkspace(path) {
+    delete projectFiles[path];
+    delete originalFileContents[path];
+    var paths = Object.keys(projectFiles);
+    projectTree = buildTreeFromPaths(paths);
+    var list = document.getElementById("fileTreeList");
+    var empty = document.getElementById("fileTreeEmpty");
+    if (list) {
+      if (paths.length === 0) {
+        list.style.display = "none";
+        if (empty) empty.style.display = "block";
+      } else {
+        renderFileTree(projectTree, list);
+      }
+    }
+    if (currentFilePath === path) {
+      currentFilePath = paths[0] || null;
+      if (currentFilePath) loadFile(currentFilePath);
+      else if (window.updateEditor) window.updateEditor("", "plaintext");
+    }
+  }
+
+  function addFileToWorkspace(path, content) {
+    projectFiles[path] = content || "";
+    if (!originalFileContents[path]) originalFileContents[path] = content || "";
+    var paths = Object.keys(projectFiles);
+    projectTree = buildTreeFromPaths(paths);
+    var list = document.getElementById("fileTreeList");
+    var empty = document.getElementById("fileTreeEmpty");
+    if (list) {
+      list.style.display = "block";
+      renderFileTree(projectTree, list);
+    }
+    if (empty) empty.style.display = "none";
+    loadFile(path);
+    document.dispatchEvent(new CustomEvent("workspaceFileAdded", { detail: { path: path } }));
+  }
+
   window.initWorkspaceProject = initWorkspaceProject;
   window.loadWorkspaceFile = loadFile;
   window.updateWorkspacePreview = updateWorkspacePreview;
+  window.addFileToWorkspace = addFileToWorkspace;
+  window.removeFileFromWorkspace = removeFileFromWorkspace;
 
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", initWorkspaceProject);

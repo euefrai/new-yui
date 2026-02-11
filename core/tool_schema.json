@@ -78,5 +78,29 @@
     "outputs": ["resultados"],
     "cost": "low",
     "risk": "low"
+  },
+  {
+    "name": "fs_create_file",
+    "description": "Cria ou sobrescreve arquivo no sandbox (workspace).",
+    "inputs": ["path", "content"],
+    "outputs": ["ok", "path", "action"],
+    "cost": "low",
+    "risk": "medium"
+  },
+  {
+    "name": "fs_create_folder",
+    "description": "Cria pasta no sandbox do projeto.",
+    "inputs": ["path"],
+    "outputs": ["ok", "path", "action"],
+    "cost": "low",
+    "risk": "low"
+  },
+  {
+    "name": "fs_delete_file",
+    "description": "Deleta arquivo ou pasta no sandbox.",
+    "inputs": ["path"],
+    "outputs": ["ok", "path", "action"],
+    "cost": "low",
+    "risk": "medium"
   }
 ]

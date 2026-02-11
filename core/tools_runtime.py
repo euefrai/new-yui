@@ -25,9 +25,11 @@ try:
     from config import settings
     PROJECT_ROOT = Path(settings.BASE_DIR).resolve()
     GENERATED_ROOT = Path(settings.GENERATED_PROJECTS_DIR).resolve()
+    SANDBOX_ROOT = Path(settings.SANDBOX_DIR).resolve()
 except Exception:
     PROJECT_ROOT = Path(__file__).resolve().parents[1]
     GENERATED_ROOT = PROJECT_ROOT / "generated_projects"
+    SANDBOX_ROOT = PROJECT_ROOT / "sandbox"
 SCRIPTS_ROOT = PROJECT_ROOT / "scripts"
 
 
@@ -415,5 +417,95 @@ def tool_consultar_indice_projeto(raiz: Optional[str] = None) -> Dict[str, Any]:
         "score_qualidade": dados.get("score_qualidade", {}),
     }
     return {"ok": True, "dados": resumo, "error": None}
+
+
+def _safe_sandbox_path(path: str) -> Path:
+    """Resolve path dentro do sandbox, bloqueando path traversal."""
+    path = (path or "").strip()
+    if not path or ".." in path or path.startswith("/"):
+        raise ValueError("path inválido")
+    target = (SANDBOX_ROOT / path).resolve()
+    if not str(target).startswith(str(SANDBOX_ROOT)):
+        raise ValueError("path fora do sandbox")
+    return target
+
+
+def tool_fs_create_file(path: str, content: str = "") -> Dict[str, Any]:
+    """
+    File System Bridge: cria arquivo no sandbox do projeto.
+    Use quando precisar criar ou sobrescrever um arquivo.
+    """
+    try:
+        target = _safe_sandbox_path(path)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(content or "", encoding="utf-8", errors="replace")
+        try:
+            from core.usage_tracker import record_disk_write
+            record_disk_write()
+        except Exception:
+            pass
+        return {"ok": True, "path": path, "action": "create_file"}
+    except ValueError as e:
+        return {"ok": False, "error": str(e)}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+
+def tool_fs_create_folder(path: str) -> Dict[str, Any]:
+    """
+    File System Bridge: cria pasta no sandbox do projeto.
+    """
+    try:
+        target = _safe_sandbox_path(path)
+        target.mkdir(parents=True, exist_ok=True)
+        try:
+            from core.usage_tracker import record_disk_write
+            record_disk_write()
+        except Exception:
+            pass
+        return {"ok": True, "path": path, "action": "create_folder"}
+    except ValueError as e:
+        return {"ok": False, "error": str(e)}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+
+def tool_generate_project_map(root: Optional[str] = None) -> Dict[str, Any]:
+    """
+    Project Mapper: gera .yui_map.json com estrutura e dependências do projeto.
+    Leitura sob demanda para evitar >2GB RAM.
+    """
+    try:
+        from core.project_mapper import generate_yui_map
+        r = Path(root).resolve() if root else SANDBOX_ROOT
+        result = generate_yui_map(r)
+        return result
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+
+def tool_fs_delete_file(path: str) -> Dict[str, Any]:
+    """
+    File System Bridge: deleta arquivo ou pasta no sandbox do projeto.
+    """
+    try:
+        import shutil
+        target = _safe_sandbox_path(path)
+        if not target.exists():
+            return {"ok": False, "error": "arquivo ou pasta não existe"}
+        if target.is_file():
+            target.unlink()
+        else:
+            shutil.rmtree(target)
+        try:
+            from core.usage_tracker import record_disk_write
+            record_disk_write()
+        except Exception:
+            pass
+        return {"ok": True, "path": path, "action": "delete"}
+    except ValueError as e:
+        return {"ok": False, "error": str(e)}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
 
 

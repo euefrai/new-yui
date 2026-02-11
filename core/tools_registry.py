@@ -104,6 +104,10 @@ def _init_default_tools() -> None:
         tool_consultar_indice_projeto,
         tool_get_current_time,
         tool_buscar_web,
+        tool_fs_create_file,
+        tool_fs_create_folder,
+        tool_fs_delete_file,
+        tool_generate_project_map,
     )
     from core.plugins_loader import load_plugins
 
@@ -178,6 +182,43 @@ def _init_default_tools() -> None:
         schema={
             "query": "Termo de busca (ex: clima São Paulo hoje).",
             "limite": "Máximo de resultados (opcional, padrão 5).",
+        },
+    )
+
+    register_tool(
+        name="fs_create_file",
+        fn=tool_fs_create_file,
+        description="File System Bridge: cria ou sobrescreve arquivo no sandbox do projeto (workspace).",
+        schema={
+            "path": "Caminho relativo do arquivo (ex: src/main.py, index.html).",
+            "content": "Conteúdo do arquivo em texto.",
+        },
+    )
+
+    register_tool(
+        name="fs_create_folder",
+        fn=tool_fs_create_folder,
+        description="File System Bridge: cria pasta no sandbox do projeto.",
+        schema={
+            "path": "Caminho relativo da pasta (ex: src/components).",
+        },
+    )
+
+    register_tool(
+        name="fs_delete_file",
+        fn=tool_fs_delete_file,
+        description="File System Bridge: deleta arquivo ou pasta no sandbox do projeto.",
+        schema={
+            "path": "Caminho relativo do arquivo ou pasta a deletar.",
+        },
+    )
+
+    register_tool(
+        name="generate_project_map",
+        fn=tool_generate_project_map,
+        description="Project Mapper: gera .yui_map.json com estrutura e dependências do projeto (leitura sob demanda).",
+        schema={
+            "root": "Caminho raiz (opcional). Se omitido, usa sandbox.",
         },
     )
 

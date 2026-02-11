@@ -83,7 +83,7 @@
       var lang = match[1] || "text";
       var rawCode = match[2].replace(/\r\n/g, "\n").trim();
       var code = escapeHtml(rawCode);
-      parts.push('<div class="codeBlockWrap" data-lang="' + escapeHtml(lang) + '"><div class="codeBlockHeader"><span class="codeBlockLang">' + escapeHtml(lang) + '</span><button type="button" class="codeBlockCopy" title="Copiar código">Copiar código</button><button type="button" class="codeBlockToWorkspace" title="Enviar para o Workspace">Enviar para o Workspace</button></div><pre><code class="language-' + escapeHtml(lang) + '">' + code + '</code></pre></div>');
+      parts.push('<div class="codeBlockWrap" data-lang="' + escapeHtml(lang) + '"><div class="codeBlockHeader"><span class="codeBlockLang">' + escapeHtml(lang) + '</span><button type="button" class="codeBlockCopy" title="Copiar código">Copiar código</button><button type="button" class="codeBlockToWorkspace" title="Enviar para o Workspace">Enviar para o Workspace</button><button type="button" class="codeBlockSaveProject" title="Salvar no projeto (sandbox) e atualizar árvore">Salvar no Projeto</button></div><pre><code class="language-' + escapeHtml(lang) + '">' + code + '</code></pre></div>');
       lastIndex = match.index + match[0].length;
     }
     if (lastIndex < rest.length) parts.push(escapeHtml(rest.slice(lastIndex)).replace(/\n/g, "<br>"));
@@ -115,6 +115,65 @@
       }).catch(function () { window.open(url, "_blank"); });
     });
     container.appendChild(link);
+  }
+
+  function parseMultiWriteActions(text) {
+    if (!text || typeof text !== "string") return [];
+    var actions = [];
+    var re = /\[(CREATE_FILE|UPDATE_FILE|DELETE_FILE):\s*([^\]]+)\]\s*(?:\n```\w*\n([\s\S]*?)```)?/g;
+    var m;
+    while ((m = re.exec(text)) !== null) {
+      var action = m[1].toLowerCase().replace("_file", "");
+      var path = m[2].trim().replace(/^\/+/, "").replace(/\\/g, "/");
+      var content = (m[3] || "").trim();
+      if (path && path.indexOf("..") < 0) {
+        actions.push({ action: action, path: path, content: content });
+      }
+    }
+    return actions;
+  }
+
+  function showWorkspaceProgress(show, percent, label) {
+    var bar = document.getElementById("workspaceProgressBar");
+    var fill = document.getElementById("workspaceProgressFill");
+    var lbl = document.getElementById("workspaceProgressLabel");
+    if (!bar) return;
+    bar.style.display = show ? "block" : "none";
+    if (fill) fill.style.width = (percent || 0) + "%";
+    if (lbl) lbl.textContent = label || "Sincronizando Projeto...";
+  }
+
+  function applyMultiWriteActions(actions, msgDiv) {
+    if (!actions || actions.length === 0) return;
+    showWorkspaceProgress(true, 0, "Sincronizando Projeto...");
+    var payload = { actions: actions.map(function (a) { return { action: a.action, path: a.path, content: a.content || "" }; }) };
+    fetch("/api/sandbox/multi-save", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        showWorkspaceProgress(true, 100, "Concluído!");
+        setTimeout(function () { showWorkspaceProgress(false); }, 800);
+        if (data.ok && window.addFileToWorkspace) {
+          (data.saved || []).forEach(function (path) {
+            var act = actions.find(function (a) { return a.path === path; });
+            if (act && act.content) window.addFileToWorkspace(path, act.content);
+          });
+          (data.deleted || []).forEach(function (path) {
+            if (window.removeFileFromWorkspace) window.removeFileFromWorkspace(path);
+          });
+        }
+        if (msgDiv) {
+          var btn = msgDiv.querySelector(".msgMultiWriteApply");
+          if (btn) { btn.textContent = "✓ Aplicado"; btn.disabled = true; }
+        }
+      })
+      .catch(function (e) {
+        showWorkspaceProgress(false);
+        alert("Erro ao sincronizar: " + (e.message || "Erro de rede"));
+      });
   }
 
   function addTaskFromText(text) {
@@ -245,6 +304,45 @@
         if (!codeEl) return;
         var code = codeEl.textContent || "";
         if (window.updateEditor) window.updateEditor(code, lang);
+      });
+    });
+    container.querySelectorAll(".codeBlockSaveProject").forEach(function (btn) {
+      if (btn._saveProjectAttached) return;
+      btn._saveProjectAttached = true;
+      btn.addEventListener("click", function () {
+        var wrap = btn.closest(".codeBlockWrap");
+        if (!wrap) return;
+        var codeEl = wrap.querySelector("code");
+        var lang = wrap.getAttribute("data-lang") || "text";
+        if (!codeEl) return;
+        var code = codeEl.textContent || "";
+        var extMap = { py: "py", python: "py", js: "js", javascript: "js", ts: "ts", typescript: "ts", html: "html", css: "css", json: "json", md: "md", markdown: "md" };
+        var ext = extMap[(lang || "text").toLowerCase()] || "txt";
+        var defaultName = (ext === "py" ? "main" : ext === "js" ? "index" : "file") + "." + ext;
+        var path = prompt("Caminho do arquivo no projeto:", defaultName);
+        if (!path || !path.trim()) return;
+        path = path.replace(/^\/+/, "").replace(/\\/g, "/").trim();
+        if (path.indexOf("..") >= 0) { alert("Caminho inválido."); return; }
+        var orig = btn.textContent;
+        btn.textContent = "Salvando...";
+        btn.disabled = true;
+        fetch("/api/sandbox/save", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ files: [{ path: path, content: code }] }),
+        })
+          .then(function (r) { return r.json(); })
+          .then(function (data) {
+            if (data.ok && window.addFileToWorkspace) {
+              window.addFileToWorkspace(path, code);
+              if (window.updateEditor) window.updateEditor(code, window.getLangFromPath ? window.getLangFromPath(path) : lang);
+            }
+          })
+          .catch(function () {})
+          .finally(function () {
+            btn.textContent = orig;
+            btn.disabled = false;
+          });
       });
     });
   }
@@ -499,6 +597,31 @@
     showLogin();
   });
 
+  var deployYuiBtn = document.getElementById("btnDeployYui");
+  if (deployYuiBtn) {
+    deployYuiBtn.addEventListener("click", function () {
+      var msg = prompt("Mensagem do commit:", "Deploy via Yui");
+      if (msg === null) return;
+      deployYuiBtn.disabled = true;
+      deployYuiBtn.textContent = "Enviando...";
+      fetch("/api/sandbox/deploy", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: msg || "Deploy via Yui" }),
+      })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          if (data.ok) alert(data.message || "Deploy concluído!");
+          else alert("Erro: " + (data.error || "desconhecido"));
+        })
+        .catch(function (e) { alert("Erro de rede: " + (e.message || "")); })
+        .finally(function () {
+          deployYuiBtn.disabled = false;
+          deployYuiBtn.textContent = "Deploy via Yui";
+        });
+    });
+  }
+
   var clearChatBtn = document.getElementById("clearChat");
   if (clearChatBtn) {
     clearChatBtn.addEventListener("click", async function () {
@@ -707,6 +830,17 @@
       if (m.role === "assistant" && raw) {
         content.innerHTML = formatMarkdownToHtml(raw);
         attachCodeBlockCopyButtons(content);
+        var multiWriteActions = parseMultiWriteActions(m.content || raw);
+        if (multiWriteActions.length > 0) {
+          var btnApply = document.createElement("button");
+          btnApply.type = "button";
+          btnApply.className = "msgMultiWriteApply";
+          btnApply.textContent = "Aplicar alterações (" + multiWriteActions.length + " arquivos)";
+          btnApply.addEventListener("click", function () {
+            applyMultiWriteActions(multiWriteActions, div);
+          });
+          content.appendChild(btnApply);
+        }
       } else {
         content.textContent = raw;
       }
@@ -1344,6 +1478,7 @@
         var reqEl = document.getElementById("telemetryRequests");
         var lastEl = document.getElementById("telemetryLastResponse");
         var tokensEl = document.getElementById("telemetryTokens");
+        var diskEl = document.getElementById("telemetryDiskWrites");
         if (costEl) costEl.textContent = (data.cost_estimate != null ? "R$ " + data.cost_estimate.toFixed(2) : "—");
         if (reqEl) reqEl.textContent = (data.requests != null ? data.requests : "—");
         if (lastEl) lastEl.textContent = (data.last_response_cost != null && data.last_response_cost > 0 ? "R$ " + data.last_response_cost.toFixed(4) : "—");
@@ -1351,16 +1486,19 @@
           var t = data.last_response_tokens;
           tokensEl.textContent = (t && (t.prompt != null || t.completion != null)) ? (t.prompt || 0) + " / " + (t.completion || 0) : "—";
         }
+        if (diskEl) diskEl.textContent = (data.disk_writes != null && data.disk_writes > 0) ? (data.disk_writes + " (R$ " + (data.disk_write_cost_brl || 0).toFixed(4) + ")") : "—";
       })
       .catch(function () {
         var costEl = document.getElementById("telemetryCost");
         var reqEl = document.getElementById("telemetryRequests");
         var lastEl = document.getElementById("telemetryLastResponse");
         var tokensEl = document.getElementById("telemetryTokens");
+        var diskEl = document.getElementById("telemetryDiskWrites");
         if (costEl) costEl.textContent = "—";
         if (reqEl) reqEl.textContent = "—";
         if (lastEl) lastEl.textContent = "—";
         if (tokensEl) tokensEl.textContent = "—";
+        if (diskEl) diskEl.textContent = "—";
       });
   }
 

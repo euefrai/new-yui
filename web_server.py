@@ -10,6 +10,7 @@ from flask_cors import CORS
 
 from config import settings
 from web.routes import register_routes
+from web.routes.routes_terminal import sock, register_terminal_sock
 
 app = Flask(
     __name__,
@@ -18,6 +19,8 @@ app = Flask(
 )
 app.secret_key = settings.SECRET_KEY
 CORS(app)
+sock.init_app(app)
+register_terminal_sock(app, sock)
 
 
 @app.after_request

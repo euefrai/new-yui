@@ -39,6 +39,7 @@
         <span class="btnToggleLabel">Editor</span>
       </button>
       <button type="button" id="clearChat" class="btnClearChat" title="Limpar memória da sessão">Excluir Chat</button>
+      <button type="button" id="btnDeployYui" class="btnDeployYui" title="Commit e push no repositório Zeabur">Deploy via Yui</button>
       <div id="listaChats" class="listaChats"></div>
       <div class="tasksPanel" id="tasksPanel" title="Afazeres — Heathcliff pode criar tarefas automaticamente">
         <div class="tasksPanelHeader">
@@ -65,6 +66,10 @@
         <div class="telemetryRow">
           <span class="telemetryLabel">Tokens (entrada/saída)</span>
           <span class="telemetryValue" id="telemetryTokens">—</span>
+        </div>
+        <div class="telemetryRow">
+          <span class="telemetryLabel">Escrita em disco</span>
+          <span class="telemetryValue" id="telemetryDiskWrites">—</span>
         </div>
       </div>
       <div class="userFooter">
@@ -99,6 +104,10 @@
         </div>
       </main>
       <aside class="workspacePanel" id="workspacePanel">
+        <div class="workspaceProgressBar" id="workspaceProgressBar" style="display:none">
+          <div class="workspaceProgressFill" id="workspaceProgressFill"></div>
+          <span class="workspaceProgressLabel" id="workspaceProgressLabel">Sincronizando Projeto...</span>
+        </div>
         <div class="workspaceHeader">
           <span class="workspaceTitle">Workspace</span>
           <div class="workspaceActions">
@@ -131,6 +140,13 @@
               <div class="workspaceConsoleActions" id="workspaceConsoleActions" style="display:none">
                 <button type="button" id="workspaceSuggestFix" class="workspaceConsoleBtn">Sugerir correção ao Heathcliff</button>
               </div>
+            </div>
+            <div class="workspaceTerminalWrap" id="workspaceTerminalWrap">
+              <div class="workspaceTerminalHeader">
+                <span>Terminal</span>
+                <button type="button" id="workspaceTerminalToggle" class="workspaceTerminalToggle" title="Expandir/Recolher">▼</button>
+              </div>
+              <div id="workspaceTerminal" class="workspaceTerminal"></div>
             </div>
             </div>
             <div class="workspaceTabContent" id="workspaceTabPreview" style="display:none">
@@ -188,9 +204,13 @@
     window.SUPABASE_KEY = "{{ supabase_key or '' }}";
   </script>
   <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.min.css" />
+  <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.min.js"></script>
   <script src="/static/app.js"></script>
   <script src="/static/chat.js"></script>
   <script src="/static/editor.js"></script>
   <script src="/static/workspace-project.js"></script>
+  <script src="/static/workspace-terminal.js"></script>
 </body>
 </html>

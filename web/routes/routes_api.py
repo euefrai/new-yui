@@ -193,6 +193,59 @@ def _safe_path(base: Path, path: str) -> Path:
     return joined
 
 
+def _record_disk_write() -> None:
+    """Registra escrita em disco para auditoria de custo Zeabur."""
+    try:
+        from core.usage_tracker import record_disk_write
+        record_disk_write()
+    except Exception:
+        pass
+
+
+@sandbox_bp.post("/files")
+def api_sandbox_files():
+    """
+    File System Bridge: comandos da IA para criar arquivos, pastas ou deletar.
+    Body: { action: "create_file"|"create_folder"|"delete", path: str, content?: str }
+    """
+    data = request.get_json(silent=True) or {}
+    action = (data.get("action") or "").strip().lower()
+    path = (data.get("path") or "").strip()
+    if not action or not path:
+        return jsonify({"ok": False, "error": "action e path obrigatórios"}), 400
+    if ".." in path or path.startswith("/"):
+        return jsonify({"ok": False, "error": "path inválido"}), 400
+    sandbox = Path(settings.SANDBOX_DIR)
+    sandbox.mkdir(parents=True, exist_ok=True)
+    try:
+        target = _safe_path(sandbox, path)
+        if action == "create_file":
+            content = data.get("content", "")
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(content, encoding="utf-8", errors="replace")
+            _record_disk_write()
+            return jsonify({"ok": True, "action": "create_file", "path": path})
+        if action == "create_folder":
+            target.mkdir(parents=True, exist_ok=True)
+            _record_disk_write()
+            return jsonify({"ok": True, "action": "create_folder", "path": path})
+        if action == "delete":
+            if not target.exists():
+                return jsonify({"ok": False, "error": "arquivo ou pasta não existe"}), 404
+            if target.is_file():
+                target.unlink()
+            else:
+                import shutil
+                shutil.rmtree(target)
+            _record_disk_write()
+            return jsonify({"ok": True, "action": "delete", "path": path})
+        return jsonify({"ok": False, "error": "action deve ser create_file, create_folder ou delete"}), 400
+    except ValueError as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
 @sandbox_bp.post("/save")
 def api_sandbox_save():
     """Salva arquivos do Workspace no sandbox do servidor."""
@@ -215,9 +268,122 @@ def api_sandbox_save():
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_text(content, encoding="utf-8", errors="replace")
             saved.append(path)
+            _record_disk_write()
         except Exception as e:
             return jsonify({"ok": False, "error": str(e), "saved": saved}), 400
     return jsonify({"ok": True, "saved": saved})
+
+
+@sandbox_bp.post("/map")
+def api_sandbox_generate_map():
+    """Project Mapper: gera .yui_map.json com estrutura e dependências."""
+    try:
+        from core.project_mapper import generate_yui_map
+        result = generate_yui_map()
+        if result.get("ok"):
+            return jsonify(result)
+        return jsonify({"ok": False, "error": result.get("error", "erro desconhecido")}), 400
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@sandbox_bp.get("/map")
+def api_sandbox_get_map():
+    """Retorna .yui_map.json se existir."""
+    try:
+        from core.project_mapper import get_yui_map
+        data = get_yui_map()
+        if data:
+            return jsonify({"ok": True, "map": data})
+        return jsonify({"ok": False, "error": ".yui_map.json não encontrado"}), 404
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@sandbox_bp.post("/multi-save")
+def api_sandbox_multi_save():
+    """
+    Multi-Write: salva lote de arquivos com streaming.
+    Body: { actions: [{ action: "create"|"update"|"delete", path: str, content?: str }] }
+    Processa em chunks para evitar >2GB RAM.
+    """
+    data = request.get_json(silent=True) or {}
+    actions = data.get("actions") or []
+    if not isinstance(actions, list):
+        return jsonify({"ok": False, "error": "actions deve ser lista"}), 400
+    sandbox = Path(settings.SANDBOX_DIR)
+    sandbox.mkdir(parents=True, exist_ok=True)
+    CHUNK_SIZE = 15
+    saved, deleted, errors = [], [], []
+    for i in range(0, min(len(actions), 100), CHUNK_SIZE):
+        chunk = actions[i : i + CHUNK_SIZE]
+        for item in chunk:
+            if not isinstance(item, dict):
+                continue
+            action = (item.get("action") or "").strip().lower()
+            path = (item.get("path") or "").strip()
+            if not path or ".." in path or path.startswith("/"):
+                errors.append(f"{path}: path inválido")
+                continue
+            try:
+                target = _safe_path(sandbox, path)
+                if action == "delete":
+                    if target.exists():
+                        if target.is_file():
+                            target.unlink()
+                        else:
+                            import shutil
+                            shutil.rmtree(target)
+                        deleted.append(path)
+                        _record_disk_write()
+                elif action in ("create", "update"):
+                    content = item.get("content", "")
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    target.write_text(content, encoding="utf-8", errors="replace")
+                    saved.append(path)
+                    _record_disk_write()
+                else:
+                    errors.append(f"{path}: action inválida")
+            except ValueError as e:
+                errors.append(f"{path}: {e}")
+            except Exception as e:
+                errors.append(f"{path}: {e}")
+    return jsonify({"ok": True, "saved": saved, "deleted": deleted, "errors": errors})
+
+
+@sandbox_bp.post("/deploy")
+def api_sandbox_deploy():
+    """Deploy via Yui: git add, commit, push no repositório do sandbox."""
+    import subprocess
+    sandbox = Path(settings.SANDBOX_DIR)
+    if not sandbox.is_dir():
+        return jsonify({"ok": False, "error": "Sandbox não existe"}), 400
+    msg = (request.get_json(silent=True) or {}).get("message") or "Deploy via Yui"
+    msg = msg.strip()[:200]
+    try:
+        r = subprocess.run(
+            ["git", "status", "--porcelain"],
+            cwd=str(sandbox),
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        if r.returncode != 0:
+            return jsonify({"ok": False, "error": "Não é um repositório git ou git não disponível"}), 400
+        if not r.stdout.strip():
+            return jsonify({"ok": True, "message": "Nenhuma alteração para commit"})
+        subprocess.run(["git", "add", "-A"], cwd=str(sandbox), capture_output=True, timeout=30, check=True)
+        subprocess.run(["git", "commit", "-m", msg], cwd=str(sandbox), capture_output=True, timeout=30, check=False)
+        r2 = subprocess.run(["git", "push"], cwd=str(sandbox), capture_output=True, text=True, timeout=60)
+        if r2.returncode != 0:
+            return jsonify({"ok": False, "error": r2.stderr or r2.stdout or "Push falhou"}), 500
+        return jsonify({"ok": True, "message": "Deploy concluído com sucesso"})
+    except subprocess.TimeoutExpired:
+        return jsonify({"ok": False, "error": "Timeout ao executar git"}), 500
+    except FileNotFoundError:
+        return jsonify({"ok": False, "error": "Git não encontrado no servidor"}), 400
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
 
 
 @sandbox_bp.post("/execute")

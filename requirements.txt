@@ -2,6 +2,7 @@ openai
 python-dotenv
 flask
 flask-cors
+flask-sock
 gunicorn
 supabase
 chromadb

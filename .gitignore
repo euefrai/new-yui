@@ -43,3 +43,6 @@ yui_vector_db/
 data/
 scripts/
 sandbox/
+
+# Mapa do projeto (gerado pelo Project Mapper)
+.yui_map.json

@@ -39,8 +39,17 @@ body::-webkit-scrollbar,
 .fileTreeSidebar::-webkit-scrollbar,
 .fileTreeList::-webkit-scrollbar,
 .workspaceConsoleOutput::-webkit-scrollbar,
-.monacoContainer::-webkit-scrollbar {
+.monacoContainer::-webkit-scrollbar,
+.workspaceTerminal::-webkit-scrollbar,
+.workspaceTerminal *::-webkit-scrollbar,
+.fileTreeList::-webkit-scrollbar {
   display: none !important;
+}
+
+.workspaceTerminal,
+.fileTreeList {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
 }
 
 body {
@@ -1670,6 +1679,161 @@ body.model-heathcliff .btn-download:hover {
 .workspaceConsoleBtn:hover {
   background: rgba(239, 68, 68, 0.3);
   box-shadow: 0 0 12px rgba(239, 68, 68, 0.3);
+}
+
+/* Terminal Xterm.js */
+.workspaceTerminalWrap {
+  flex: 0 0 200px;
+  min-height: 120px;
+  max-height: 280px;
+  display: flex;
+  flex-direction: column;
+  margin-top: 8px;
+  background: #1a1a1e;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.workspaceTerminalWrap.collapsed {
+  flex: 0 0 36px;
+  min-height: 36px;
+  max-height: 36px;
+}
+
+.workspaceTerminalWrap.collapsed .workspaceTerminal {
+  display: none;
+}
+
+.workspaceTerminalHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 12px;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #6a6a76;
+  background: rgba(0, 0, 0, 0.2);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.workspaceTerminalToggle {
+  background: none;
+  border: none;
+  color: #6a6a76;
+  cursor: pointer;
+  font-size: 0.7rem;
+  padding: 2px 6px;
+}
+
+.workspaceTerminalToggle:hover {
+  color: var(--electric-cyan);
+}
+
+.workspaceTerminal {
+  flex: 1;
+  padding: 8px;
+  min-height: 80px;
+  overflow: auto;
+}
+
+.workspaceTerminal .xterm {
+  padding: 4px;
+}
+
+/* Salvar no Projeto button */
+.codeBlockSaveProject {
+  background: rgba(0, 242, 255, 0.12);
+  color: var(--electric-cyan);
+  border: 1px solid rgba(0, 242, 255, 0.25);
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+
+.codeBlockSaveProject:hover {
+  background: rgba(0, 242, 255, 0.2);
+  box-shadow: 0 0 12px rgba(0, 242, 255, 0.2);
+}
+
+/* Deploy via Yui */
+.btnDeployYui {
+  width: 100%;
+  padding: 10px 14px;
+  margin: 8px 0;
+  background: linear-gradient(135deg, rgba(255, 193, 7, 0.25) 0%, rgba(255, 152, 0, 0.2) 100%);
+  border: 1px solid rgba(255, 193, 7, 0.4);
+  border-radius: 10px;
+  color: #ffc107;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+
+.btnDeployYui:hover {
+  background: linear-gradient(135deg, rgba(255, 193, 7, 0.35) 0%, rgba(255, 152, 0, 0.3) 100%);
+  box-shadow: 0 0 16px rgba(255, 193, 7, 0.3);
+}
+
+body.model-heathcliff .btnDeployYui {
+  box-shadow: 0 0 12px rgba(255, 193, 7, 0.2);
+}
+
+/* Progress bar neon dourada (Heathcliff) */
+.workspaceProgressBar {
+  height: 28px;
+  background: rgba(0, 0, 0, 0.4);
+  border-radius: 4px;
+  overflow: hidden;
+  position: relative;
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  margin: 0 12px 8px;
+  border: 1px solid rgba(255, 193, 7, 0.2);
+}
+
+.workspaceProgressFill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 0%;
+  background: linear-gradient(90deg, rgba(255, 193, 7, 0.4), rgba(255, 152, 0, 0.3));
+  box-shadow: 0 0 12px rgba(255, 193, 7, 0.5);
+  transition: width 0.2s ease;
+}
+
+.workspaceProgressLabel {
+  position: relative;
+  z-index: 1;
+  font-size: 0.72rem;
+  color: #ffc107;
+  text-shadow: 0 0 8px rgba(255, 193, 7, 0.8);
+  pointer-events: none;
+}
+
+/* Multi-Write Apply button */
+.msgMultiWriteApply {
+  margin-top: 8px;
+  padding: 8px 16px;
+  background: linear-gradient(135deg, rgba(255, 193, 7, 0.25), rgba(255, 152, 0, 0.2));
+  border: 1px solid rgba(255, 193, 7, 0.4);
+  border-radius: 8px;
+  color: #ffc107;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+
+.msgMultiWriteApply:hover {
+  background: linear-gradient(135deg, rgba(255, 193, 7, 0.35), rgba(255, 152, 0, 0.3));
+  box-shadow: 0 0 12px rgba(255, 193, 7, 0.3);
 }
 
 /* Diff View Overlay */

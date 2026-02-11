@@ -106,6 +106,10 @@ TOOL_DESCRIPTIONS = {
     "consultar_indice_projeto": "- consultar_indice_projeto(raiz?): consultar índice de arquitetura em cache.\n",
     "get_current_time": "- get_current_time(): quando o usuário perguntar as horas, data, ou para saudação (Bom dia/Boa tarde). Sempre use para horário real.\n",
     "buscar_web": "- buscar_web(query, limite?): buscar informações na web quando precisar verificar dados externos.\n",
+    "fs_create_file": "- fs_create_file(path, content): criar/sobrescrever arquivo no sandbox (workspace). Ex: fs_create_file(\"main.py\", \"print(1)\").\n",
+    "fs_create_folder": "- fs_create_folder(path): criar pasta no sandbox. Ex: fs_create_folder(\"src/components\").\n",
+    "fs_delete_file": "- fs_delete_file(path): deletar arquivo ou pasta no sandbox.\n",
+    "generate_project_map": "- generate_project_map(root?): gerar .yui_map.json (estrutura e dependências).\n",
 }
 
 TOOL_SYSTEM_HEADER = (
@@ -320,6 +324,18 @@ def _format_tool_reply(tool_name: str, args: Dict, payload: Dict) -> str:
             for r in resultados[:5]
         ]
         return "\n".join(linhas)
+    if tool_name in ("fs_create_file", "fs_create_folder", "fs_delete_file"):
+        if not payload.get("ok"):
+            return f"Erro ao executar {payload.get('action', tool_name)}: {payload.get('error') or 'erro desconhecido.'}"
+        action = payload.get("action", tool_name)
+        path = payload.get("path", "")
+        return f"Operação concluída: {action} em {path}"
+    if tool_name == "generate_project_map":
+        if not payload.get("ok"):
+            return f"Erro ao gerar mapa: {payload.get('error') or 'erro desconhecido.'}"
+        path = payload.get("path", "")
+        stats = payload.get("stats", {})
+        return f".yui_map.json gerado em {path}. Arquivos: {stats.get('total_files', 0)}, com dependências: {stats.get('total_with_deps', 0)}"
     return json.dumps(payload, ensure_ascii=False, indent=2)
 
 
@@ -346,7 +362,18 @@ REGRAS OBRIGATÓRIAS:
 7. Use get_current_time() quando precisar de horário real (logs, timestamps, agendamento, saudações).
 8. Use buscar_web(query) quando precisar verificar informações externas.
 9. Para criar tarefas para o usuário organizar o desenvolvimento, inclua na resposta linhas no formato [TASK]: Nome da tarefa (uma por linha). Ex: [TASK]: Corrigir erro de download no Zeabur.
-10. Responda em português do Brasil.
+10. MULTI-WRITE: Para alterar vários arquivos de uma vez, use o formato:
+    [CREATE_FILE: caminho/arquivo.py]
+    ```python
+    conteúdo do arquivo
+    ```
+    [UPDATE_FILE: caminho/existente.py]
+    ```python
+    conteúdo atualizado
+    ```
+    [DELETE_FILE: caminho/obsoleto.py]
+    (uma linha por ação, seguida do bloco de código quando aplicável)
+11. Responda em português do Brasil.
 """
 
 
