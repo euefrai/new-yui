@@ -33,3 +33,7 @@ Thumbs.db
 *.exe
 *.pyz
 *.zip
+
+# Projetos gerados e dados locais
+generated_projects/
+chroma/

@@ -44,6 +44,12 @@ def generated_static(path: str):
     return send_from_directory(GENERATED_DIR, path)
 
 
+@main_bp.route("/download/<path:filename>")
+def download_file(filename: str):
+    """Serve arquivos de generated_projects para download (ex.: .zip do projeto)."""
+    return send_from_directory(GENERATED_DIR, filename, as_attachment=True)
+
+
 @main_bp.route("/clear_chat", methods=["POST"])
 def clear_chat():
     user_id = session.get("user_id")

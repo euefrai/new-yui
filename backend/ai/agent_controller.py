@@ -172,6 +172,10 @@ def _format_tool_reply(tool_name: str, args: Dict, payload: Dict) -> str:
         ]
         if command:
             linhas.append(f"Para gerar o ZIP, execute no terminal:\n{command}")
+        zip_basename = Path(zip_output).name if zip_output else ""
+        if zip_basename and zip_basename.endswith(".zip"):
+            linhas.append("")
+            linhas.append(f"[DOWNLOAD]:/download/{zip_basename}")
         return "\n".join(linhas)
     return json.dumps(payload, ensure_ascii=False, indent=2)
 

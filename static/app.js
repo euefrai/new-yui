@@ -438,12 +438,15 @@
       content.className = "msgContent";
       var raw = m.content || "";
       var previewUrl = null;
-      if (m.role === "assistant" && raw.indexOf("[PREVIEW_URL]:") !== -1) {
+      var downloadUrl = null;
+      if (m.role === "assistant") {
         var linhas = raw.split("\n");
         var filtradas = [];
         linhas.forEach(function (ln) {
           if (ln.indexOf("[PREVIEW_URL]:") === 0) {
             previewUrl = ln.replace("[PREVIEW_URL]:", "").trim();
+          } else if (ln.indexOf("[DOWNLOAD]:") === 0) {
+            downloadUrl = ln.replace("[DOWNLOAD]:", "").trim();
           } else {
             filtradas.push(ln);
           }
@@ -453,6 +456,15 @@
       content.textContent = raw;
       div.appendChild(content);
 
+      if (downloadUrl) {
+        var link = document.createElement("a");
+        link.href = downloadUrl;
+        link.innerText = "⬇️ Baixar Projeto";
+        link.className = "download-btn";
+        link.target = "_blank";
+        link.rel = "noopener";
+        div.appendChild(link);
+      }
       if (previewUrl) {
         var btnPrev = document.createElement("button");
         btnPrev.type = "button";
@@ -894,6 +906,20 @@
                           statusLine.remove();
                           statusLine = null;
                           assistantBubble.setAttribute("data-status", "sent");
+                          if (cursor && cursor.parentNode) cursor.remove();
+                          var fullText = assistantBubble.textContent || "";
+                          var downloadMatch = fullText.match(/\[DOWNLOAD\]:(\S+)/);
+                          if (downloadMatch) {
+                            var cleaned = fullText.replace(/\n?\[DOWNLOAD\]:\S+/, "").trim();
+                            assistantBubble.textContent = cleaned;
+                            var link = document.createElement("a");
+                            link.href = downloadMatch[1];
+                            link.innerText = "⬇️ Baixar Projeto";
+                            link.className = "download-btn";
+                            link.target = "_blank";
+                            link.rel = "noopener";
+                            assistantBubble.appendChild(link);
+                          }
                         }
                         return;
                       }

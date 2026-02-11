@@ -584,6 +584,26 @@ body.theme-light .previewFrame {
   margin-top: 4px;
 }
 
+.download-btn {
+  display: inline-block;
+  margin-top: 8px;
+  padding: 8px 14px;
+  background: var(--accent, #6366f1);
+  color: #fff;
+  border-radius: 8px;
+  text-decoration: none;
+  font-weight: 500;
+  font-size: 0.9rem;
+  transition: opacity 0.15s, transform 0.1s;
+}
+.download-btn:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+.download-btn:active {
+  transform: translateY(0);
+}
+
 .msgEditArea {
   width: 100%;
   min-height: 80px;
