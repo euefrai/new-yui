@@ -16,6 +16,10 @@ os.makedirs(BASE_DATA_DIR, exist_ok=True)
 MEMORY_FILE = os.path.join(BASE_DATA_DIR, "memoria.json")
 MAX_MEMORIA_CURTA = 10
 
+# Quando Supabase está ativo (ex.: app web), não usar arquivo JSON — evita duas fontes de verdade.
+USE_LOCAL_MEMORY = not bool((os.environ.get("SUPABASE_URL") or "").strip())
+_MEMORIA_RAM = None  # cache in-memory quando USE_LOCAL_MEMORY é False
+
 # =============================================================
 # ESTRUTURA BASE DA MEMÓRIA
 # =============================================================
@@ -86,6 +90,12 @@ def _garantir_chaves(alvo, base):
 
 
 def carregar_memoria():
+    global _MEMORIA_RAM
+    if not USE_LOCAL_MEMORY:
+        if _MEMORIA_RAM is None:
+            _MEMORIA_RAM = json.loads(json.dumps(ESTRUTURA_BASE))
+        return _MEMORIA_RAM
+
     if not os.path.exists(MEMORY_FILE):
         salvar_memoria(ESTRUTURA_BASE)
         return json.loads(json.dumps(ESTRUTURA_BASE))
@@ -104,6 +114,8 @@ def carregar_memoria():
 
 
 def salvar_memoria(memoria):
+    if not USE_LOCAL_MEMORY:
+        return
     try:
         with open(MEMORY_FILE, "w", encoding="utf-8") as f:
             json.dump(memoria, f, ensure_ascii=False, indent=2)

@@ -819,6 +819,7 @@
       } else {
         var assistantBubble = document.createElement("div");
         assistantBubble.className = "msgBubble assistant";
+        assistantBubble.setAttribute("data-status", "sending");
         var statusLine = document.createElement("div");
         statusLine.className = "assistantStatus";
         statusLine.textContent = "🧠 Pensando...";
@@ -847,6 +848,7 @@
               return reader.read().then(function (result) {
                 if (result.done) {
                   cursor.remove();
+                  assistantBubble.setAttribute("data-status", "sent");
                   if (btnEnviar) btnEnviar.disabled = false;
                   if (isNovoChatTitulo(currentChatTitulo)) {
                     atualizarTituloChat(chatId, texto);
@@ -868,14 +870,18 @@
                         var state = chunk.slice("__STATUS__:".length);
                         if (state === "thinking") {
                           statusLine.textContent = "🧠 Pensando...";
+                          assistantBubble.setAttribute("data-status", "sending");
                         } else if (state === "analyzing_code") {
                           statusLine.textContent = "🔎 Analisando código...";
+                          assistantBubble.setAttribute("data-status", "streaming");
                         } else if (state === "done") {
                           statusLine.remove();
                           statusLine = null;
+                          assistantBubble.setAttribute("data-status", "sent");
                         }
                         return;
                       }
+                      assistantBubble.setAttribute("data-status", "streaming");
                       var textNode = document.createTextNode(chunk);
                       assistantBubble.insertBefore(textNode, cursor);
                     } catch (e) {}
@@ -889,7 +895,8 @@
           })
           .catch(function () {
             cursor.remove();
-            assistantBubble.textContent = "Erro de rede ou streaming não disponível.";
+            assistantBubble.setAttribute("data-status", "error");
+            assistantBubble.textContent = "Erro de rede ou streaming não disponível. Tente novamente.";
             if (btnEnviar) btnEnviar.disabled = false;
             chat.scrollTop = chat.scrollHeight;
           });

@@ -166,7 +166,32 @@
 
   replyPreviewCancel.addEventListener("click", clearReplyPreview);
 
-  /* Chat por texto */
+  /* Chat por texto — usa /api/chat/stream (única API de resposta) */
+  function getGuestIds() {
+    var uid = sessionStorage.getItem("yui_web_guest_id");
+    if (!uid) {
+      uid = "web-guest-" + Math.random().toString(36).slice(2, 12);
+      sessionStorage.setItem("yui_web_guest_id", uid);
+    }
+    return { user_id: uid, chat_id: sessionStorage.getItem("yui_web_chat_id") };
+  }
+
+  function ensureChat() {
+    var ids = getGuestIds();
+    if (ids.chat_id) return Promise.resolve(ids.chat_id);
+    return fetch(API_BASE + "/api/chat/new", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ user_id: ids.user_id }),
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        var cid = data && data.id;
+        if (cid) sessionStorage.setItem("yui_web_chat_id", cid);
+        return cid;
+      });
+  }
+
   function sendText() {
     const text = (msgInput.value || "").trim();
     if (!text) return;
@@ -174,49 +199,60 @@
     addMessage(text, false);
     msgInput.value = "";
     const loadingEl = addMessage("Pensando...", true, true);
-
-    const payload = { message: text };
-    if (replyToId) payload.reply_to = replyToId;
     clearReplyPreview();
 
-    fetch(API_BASE + "/api/chat", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    })
-      .then(function (res) {
-        return res.json().then(function (data) {
-          return { ok: res.ok, status: res.status, data: data };
-        }).catch(function () {
-          return { ok: false, status: res.status, data: { error: "Resposta inválida (status " + res.status + ")." } };
+    ensureChat().then(function (chatId) {
+      if (!chatId) {
+        removeMessage(loadingEl);
+        addMessage("Erro ao criar conversa. Use a aplicação principal em /", true);
+        return;
+      }
+      var ids = getGuestIds();
+      fetch(API_BASE + "/api/chat/stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chat_id: chatId, user_id: ids.user_id, message: text }),
+      })
+        .then(function (response) {
+          if (!response.ok || !response.body) throw new Error("Stream failed");
+          removeMessage(loadingEl);
+          var replyDiv = addMessage("", true, false, null);
+          replyDiv.classList.remove("loading");
+          var buffer = "";
+          return response.body.getReader().then(function (reader) {
+            var decoder = new TextDecoder();
+            function read() {
+              return reader.read().then(function (result) {
+                if (result.done) return;
+                buffer += decoder.decode(result.value, { stream: true });
+                var events = buffer.split("\n\n");
+                buffer = events.pop() || "";
+                events.forEach(function (event) {
+                  var idx = event.indexOf("data: ");
+                  if (idx === -1) return;
+                  try {
+                    var chunk = JSON.parse(event.slice(idx + 6).trim());
+                    if (typeof chunk === "string") {
+                      if (chunk.indexOf("__STATUS__:") === 0) return;
+                      replyDiv.textContent = (replyDiv.textContent || "") + chunk;
+                    }
+                  } catch (e) {}
+                });
+                chat.scrollTop = chat.scrollHeight;
+                return read();
+              });
+            }
+            return read();
+          });
+        })
+        .catch(function (err) {
+          removeMessage(loadingEl);
+          addMessage(getNetworkErrorMessage(err), true);
         });
-      })
-      .then(function (result) {
-        removeMessage(loadingEl);
-        var data = result.data;
-        var apiKeyMissing = !!(data && data.api_key_missing);
-
-        if (apiKeyMissing) {
-          if (apiKeyBanner) apiKeyBanner.style.display = "flex";
-          if (!apiKeyMissingShown) {
-            apiKeyMissingShown = true;
-            var msg = (data && data.reply) ? data.reply : "⚠️ Configure a variável OPENAI_API_KEY no ambiente de deploy.";
-            addMessage(msg, true, false, null);
-          }
-          return;
-        }
-
-        var reply = (data && (data.reply != null ? data.reply : data.error)) || "Não consegui processar.";
-        if (!result.ok && data && data.error) {
-          reply = data.error;
-        }
-        var messageId = (data && data.message_id) || null;
-        addMessage(reply, true, false, messageId);
-      })
-      .catch(function (err) {
-        removeMessage(loadingEl);
-        addMessage(getNetworkErrorMessage(err), true);
-      });
+    }).catch(function () {
+      removeMessage(loadingEl);
+      addMessage(getNetworkErrorMessage(new Error("network")), true);
+    });
   }
 
   sendBtn.addEventListener("click", sendText);

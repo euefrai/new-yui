@@ -469,6 +469,15 @@ body.theme-light .userMenu {
   margin-bottom: 4px;
 }
 
+/* Estado da mensagem: sending | streaming | sent | error */
+.msgBubble.assistant[data-status="error"] {
+  border: 1px solid #ef4444;
+  background: #1e293b;
+}
+.msgBubble.assistant[data-status="sent"] {
+  border-color: transparent;
+}
+
 .previewPanel {
   position: fixed;
   top: 0;
