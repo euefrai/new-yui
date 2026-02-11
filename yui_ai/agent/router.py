@@ -9,6 +9,8 @@ def detect_intent(text: str) -> str:
     t = text.lower().strip()
     if "upload" in t or "enviar arquivo" in t or "anexar" in t:
         return "upload"
-    if "codigo" in t or "código" in t or "analisar" in t or "analise" in t or "análise" in t:
+    # code_analysis só quando o usuário pede ANÁLISE de código (não quando pede para criar/gerar)
+    if "analisar" in t or "analise" in t or "análise" in t or "analisa " in t:
         return "code_analysis"
+    # "cria um código", "crie um codigo", "gera código" -> chat (agente gera o código)
     return "chat"

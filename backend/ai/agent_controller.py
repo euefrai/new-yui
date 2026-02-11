@@ -6,6 +6,7 @@
 
 import json
 import os
+import re
 from pathlib import Path
 from typing import Any, Dict, Generator, List
 
@@ -315,7 +316,17 @@ def agent_controller(
             reply = str(data.get("answer") or "").strip() or raw_content.strip()
 
         else:
-            reply = raw_content.strip()
+            # Evita mostrar JSON bruto: se parece resposta de tools, tenta processar
+            if raw_content and "mode" in raw_content and ("steps" in raw_content or '"tool"' in raw_content):
+                reply = processar_resposta_ai(raw_content)
+                if not reply or reply == raw_content.strip():
+                    reply = "Projeto criado. Se pediu download, use o botão «Baixar Projeto» abaixo."
+            else:
+                reply = raw_content.strip()
+
+        # Normaliza link de download: sandbox://xxx.zip -> /download/xxx.zip
+        if reply and "sandbox://" in reply:
+            reply = re.sub(r"sandbox://([^\s\)\]]+)", r"/download/\1", reply)
 
         # ---------- 3c) Self-Reflect + Auto Debug: melhora e corrige erros técnicos ----------
         if client and reply:
