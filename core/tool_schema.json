@@ -1,0 +1,66 @@
+[
+  {
+    "name": "analisar_arquivo",
+    "description": "Analisa o conteúdo de um arquivo de código/texto e gera um relatório técnico.",
+    "inputs": ["filename", "content"],
+    "outputs": ["text"],
+    "cost": "low",
+    "risk": "low"
+  },
+  {
+    "name": "listar_arquivos",
+    "description": "Lista arquivos do projeto com filtro por pasta, padrão e limite.",
+    "inputs": ["pasta", "padrao", "limite"],
+    "outputs": ["arquivos"],
+    "cost": "low",
+    "risk": "low"
+  },
+  {
+    "name": "ler_arquivo_texto",
+    "description": "Lê o conteúdo de um arquivo de texto (com limite de caracteres).",
+    "inputs": ["caminho", "max_chars"],
+    "outputs": ["conteudo"],
+    "cost": "low",
+    "risk": "low"
+  },
+  {
+    "name": "analisar_projeto",
+    "description": "Análise arquitetural completa do projeto (estrutura, riscos, roadmap).",
+    "inputs": ["raiz"],
+    "outputs": ["texto", "resumo"],
+    "cost": "high",
+    "risk": "low"
+  },
+  {
+    "name": "observar_ambiente",
+    "description": "Visão rápida do projeto e sugestões de próximos passos.",
+    "inputs": ["raiz"],
+    "outputs": ["resumo", "sugestao"],
+    "cost": "medium",
+    "risk": "low"
+  },
+  {
+    "name": "criar_projeto_arquivos",
+    "description": "Cria pastas e arquivos de um mini-projeto/SaaS.",
+    "inputs": ["root_dir", "files"],
+    "outputs": ["root", "files", "ok"],
+    "cost": "medium",
+    "risk": "medium"
+  },
+  {
+    "name": "criar_zip_projeto",
+    "description": "Gera script para compactar o projeto em ZIP.",
+    "inputs": ["root_dir", "zip_name"],
+    "outputs": ["script_path", "zip_output", "command", "ok"],
+    "cost": "low",
+    "risk": "low"
+  },
+  {
+    "name": "consultar_indice_projeto",
+    "description": "Consulta índice de análise do projeto em cache.",
+    "inputs": ["raiz"],
+    "outputs": ["texto", "resumo"],
+    "cost": "low",
+    "risk": "low"
+  }
+]

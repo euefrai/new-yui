@@ -1,11 +1,19 @@
 # ==========================================================
 # YUI EVENT BUS
 # Desacoplamento: componentes emitem eventos; plugins/outros reagem.
+# Eventos conhecidos: memory_saved, tool_executed, response_generated.
 # ==========================================================
 
 from typing import Any, Callable, Dict, List
 
 _listeners: Dict[str, List[Callable[..., None]]] = {}
+
+# Eventos padrão (para documentação e plugins)
+EVENTS = (
+    "memory_saved",
+    "tool_executed",
+    "response_generated",
+)
 
 
 def subscribe(event: str, handler: Callable[..., None]) -> None:
@@ -39,3 +47,8 @@ def clear(event: str | None = None) -> None:
         _listeners.clear()
     elif event in _listeners:
         _listeners[event] = []
+
+
+def list_events() -> tuple:
+    """Retorna a lista de eventos conhecidos (para plugins)."""
+    return EVENTS

@@ -1,6 +1,7 @@
 # ==========================================================
 # YUI SELF STATE
 # A IA raciocina sobre o próprio estado: última ação, erro, confiança, modo.
+# Base para auto-ajuste, auto-correção e personalidade dinâmica.
 # ==========================================================
 
 from typing import Any, Dict
@@ -37,6 +38,21 @@ def set_confidence(level: float) -> None:
 def set_execution_mode(mode: str) -> None:
     if mode in ("lite", "full", "autonomous"):
         _state["execution_mode"] = mode
+
+
+def clear_error() -> None:
+    """Limpa o último erro (ex: após sucesso)."""
+    _state["last_error"] = ""
+
+
+def reset() -> None:
+    """Reseta o estado para valores iniciais (nova sessão)."""
+    _state.update({
+        "last_action": "",
+        "last_error": "",
+        "confidence_level": 1.0,
+        "execution_mode": "full",
+    })
 
 
 def get_all() -> Dict[str, Any]:

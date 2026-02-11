@@ -2,6 +2,7 @@
 # YUI CONTEXT ENGINE
 # Motor central de contexto: escolhe o que enviar à IA.
 # Camadas: short_term_context, long_term_memory, system_state, user_profile.
+# contexto = short + memory + system_state
 # ==========================================================
 
 from typing import Any, Dict, List
@@ -20,6 +21,29 @@ MAX_MENSAGENS_HISTORICO = 15
 LIMITE_CURTA = 8
 LIMITE_LONGA = 8
 VETORIAL_LIMITE = 5
+
+
+def _build_short_term(historico: List[Dict[str, Any]], ultimas: int = 6) -> str:
+    """Camada de contexto de curto prazo (últimas mensagens em texto)."""
+    if not historico:
+        return ""
+    window = historico[-ultimas:] if len(historico) > ultimas else historico
+    parts = [f"[{m.get('role', 'user')}]: {(m.get('content') or '')[:500]}" for m in window]
+    return "\n".join(parts)
+
+
+def _build_long_term(vetorial: str, eventos: str) -> str:
+    """Camada de memória de longo prazo (vetorial + eventos)."""
+    combined = (vetorial + "\n\n" + eventos).strip()
+    return combined or ""
+
+
+def _build_system_state() -> str:
+    """Estado interno da Yui (última ação, erro, confiança, modo)."""
+    try:
+        return self_state_snippet()
+    except Exception:
+        return ""
 
 
 def montar_contexto_ia(
@@ -60,13 +84,7 @@ def montar_contexto_ia(
             {"role": m.get("role", "user"), "content": (m.get("content") or "")}
             for m in window
         ]
-        # short_term: últimas mensagens em texto (para contexto rápido)
-        parts = []
-        for m in window[-6:]:
-            role = m.get("role", "user")
-            content = (m.get("content") or "")[:500]
-            parts.append(f"[{role}]: {content}")
-        out["short_term_context"] = "\n".join(parts) if parts else ""
+        out["short_term_context"] = _build_short_term(out["historico"])
 
     # Contexto do projeto (arquivos)
     try:
@@ -97,17 +115,8 @@ def montar_contexto_ia(
     except Exception:
         out["memoria_eventos"] = ""
 
-    # long_term_memory: vetorial + eventos (contexto de longo prazo)
-    out["long_term_memory"] = (
-        (out["memoria_vetorial"] + "\n\n" + out["memoria_eventos"]).strip()
-        or ""
-    )
-
-    # system_state: estado interno da Yui (última ação, erro, confiança, modo)
-    try:
-        out["system_state"] = self_state_snippet()
-    except Exception:
-        out["system_state"] = ""
+    out["long_term_memory"] = _build_long_term(out["memoria_vetorial"], out["memoria_eventos"])
+    out["system_state"] = _build_system_state()
 
     # user_profile: nível técnico, linguagens, modo de resposta
     try:

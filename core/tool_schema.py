@@ -1,9 +1,12 @@
 # ==========================================================
 # YUI TOOL SCHEMA (registro central para o engine)
 # nome, descrição, inputs, outputs, custo, nível de risco.
+# Também existe core/tool_schema.json para leitura externa.
 # ==========================================================
 
-from typing import Any, Dict, List
+import json
+from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 # Schema por ferramenta: usado para escolha inteligente e prompt
 TOOL_SCHEMAS: List[Dict[str, Any]] = [
@@ -74,7 +77,7 @@ TOOL_SCHEMAS: List[Dict[str, Any]] = [
 ]
 
 
-def get_schema(name: str) -> Dict[str, Any] | None:
+def get_schema(name: str) -> Optional[Dict[str, Any]]:
     """Retorna o schema da ferramenta pelo nome."""
     for s in TOOL_SCHEMAS:
         if s.get("name") == name:
@@ -82,10 +85,34 @@ def get_schema(name: str) -> Dict[str, Any] | None:
     return None
 
 
-def list_for_prompt() -> str:
+def load_from_json(path: Optional[str] = None) -> List[Dict[str, Any]]:
+    """Carrega schemas do JSON (fallback se core/tool_schema.json existir)."""
+    p = Path(path or __file__).parent / "tool_schema.json"
+    if not p.exists():
+        return TOOL_SCHEMAS
+    try:
+        with open(p, encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return TOOL_SCHEMAS
+
+
+def list_for_prompt(schemas: Optional[List[Dict[str, Any]]] = None) -> str:
     """Lista ferramentas em texto para o prompt do sistema."""
+    tools = schemas or TOOL_SCHEMAS
     lines = []
-    for t in TOOL_SCHEMAS:
-        inp = ", ".join(t.get("inputs", {}).keys())
-        lines.append(f"- {t['name']}({inp}): {t['description']}")
+    for t in tools:
+        inp = t.get("inputs")
+        inp_str = ", ".join(inp.keys()) if isinstance(inp, dict) else ", ".join(inp or [])
+        lines.append(f"- {t['name']}({inp_str}): {t['description']}")
     return "\n".join(lines)
+
+
+def get_by_risk(risk: str) -> list:
+    """Retorna ferramentas com o nível de risco indicado (low, medium, high)."""
+    return [t for t in TOOL_SCHEMAS if t.get("risk") == risk]
+
+
+def get_by_cost(cost: str) -> list:
+    """Retorna ferramentas com o custo indicado (low, medium, high)."""
+    return [t for t in TOOL_SCHEMAS if t.get("cost") == cost]

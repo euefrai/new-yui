@@ -1,6 +1,7 @@
 # ==========================================================
 # YUI AUTO DEBUG AGENT
-# Detecta erros em código e tenta corrigir automaticamente
+# Detecta erros em código e tenta corrigir automaticamente.
+# Middleware: resposta → falhou? → analisar traceback → correção.
 # ==========================================================
 
 import json
@@ -141,3 +142,37 @@ Analise e corrija este conteúdo:
         return False, resposta_original
     except Exception:
         return False, resposta_original
+
+
+def analisar_traceback(
+    model_call: Callable[[List[dict]], str],
+    traceback_str: str,
+) -> Tuple[bool, str]:
+    """
+    Analisa um traceback e sugere correção (middleware para exceções).
+    Útil quando executar falha: try/except chama analisar_traceback(traceback).
+    Retorna (True, sugestao) ou (False, traceback_original).
+    """
+    if not traceback_str or not traceback_str.strip():
+        return False, traceback_str
+
+    prompt = [
+        {
+            "role": "system",
+            "content": "Você é o módulo AUTO DEBUG da YUI. Analise o traceback e sugira a correção. "
+            "Responda em JSON: {\"corrigido\": true, \"sugestao\": \"texto da correção\"}",
+        },
+        {"role": "user", "content": f"Traceback:\n\n{traceback_str}"},
+    ]
+
+    try:
+        resultado = model_call(prompt)
+        if not resultado or not resultado.strip():
+            return False, traceback_str
+        dados = _extrair_json(resultado)
+        if not dados or not dados.get("corrigido"):
+            return False, traceback_str
+        sugestao = (dados.get("sugestao") or "").strip()
+        return (True, sugestao) if sugestao else (False, traceback_str)
+    except Exception:
+        return False, traceback_str

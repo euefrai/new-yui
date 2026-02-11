@@ -27,6 +27,10 @@ from backend.ai.self_reflect import avaliar_resposta
 from backend.ai.skill_manager import executar_skill, listar_skills
 from backend.ai.task_planner import criar_plano
 from backend.ai.tool_router import processar_resposta_ai
+from core.limits import MAX_STEPS as LIMIT_MAX_STEPS
+from core.planner import criar_plano_estruturado, plan_to_prompt
+from core.reflection import refletir
+from core.state_machine import AgentState, transition
 from core.task_graph import build_task_graph, get_planned_steps_for_prompt, infer_intention
 
 # ==========================================================
@@ -258,7 +262,8 @@ def agent_controller(
         msgs.insert(0, {"role": "system", "content": TOOL_SYSTEM + skills_system})
         msgs.append({"role": "user", "content": user_message})
 
-        # ---------- Task Planner + Task Graph (só se capability planner ativa) ----------
+        # ---------- Planner Core (v2): planeja antes de responder ----------
+        transition(AgentState.PLANNING)
         if is_enabled("planner"):
             try:
                 plano_execucao = criar_plano(user_message)
@@ -269,6 +274,10 @@ def agent_controller(
                 plan_steps = get_planned_steps_for_prompt(task_graph)
                 if plan_steps:
                     msgs.insert(0, {"role": "system", "content": plan_steps})
+                # Planner estruturado (memory aware, tool reasoning)
+                plan = criar_plano_estruturado(user_message, user_id, chat_id, max_steps=LIMIT_MAX_STEPS)
+                if plan:
+                    msgs.insert(0, {"role": "system", "content": plan_to_prompt(plan)})
             except Exception:
                 pass
 
@@ -278,6 +287,7 @@ def agent_controller(
             return
 
         # ---------- 2) Uma chamada à IA (resposta estruturada) ----------
+        transition(AgentState.EXECUTING)
         response = client.chat.completions.create(model=MODEL, messages=msgs)
         raw_content = (response.choices[0].message.content or "").strip()
         data = _parse_json(raw_content)
@@ -310,7 +320,9 @@ def agent_controller(
                         steps.append({"tool": str(s["tool"]).strip(), "args": s.get("args") or {}})
 
             partes: List[str] = []
-            for step in steps:
+            for i, step in enumerate(steps):
+                if i >= LIMIT_MAX_STEPS:
+                    break
                 tool_name = step["tool"]
                 args = step.get("args") or {}
                 result = run_tool(tool_name, args)
@@ -319,6 +331,11 @@ def agent_controller(
                     err = result.get("error") or "erro desconhecido."
                     set_last_error(err)
                     partes.append(f"Não consegui executar '{tool_name}': {err}")
+                    # Reflexão: decidir se continua ou para
+                    from core.planner import PlanStep
+                    refl = refletir({"ok": False, "error": err}, PlanStep(goal="", action="", tool=tool_name))
+                    if refl.get("ajustar") and refl.get("motivo"):
+                        partes.append(f"(Ajuste: {refl['motivo']})")
                     continue
                 set_last_action(f"tool:{tool_name}")
                 payload = result.get("result") or {}
@@ -364,7 +381,8 @@ def agent_controller(
         if reply and "sandbox://" in reply:
             reply = re.sub(r"sandbox://([^\s\)\]]+)", r"/download/\1", reply)
 
-        # ---------- 3c) Middleware de resposta: Self-Reflect + Auto Debug (conforme capabilities) ----------
+        # ---------- 3c) Reflexão + Middleware: Self-Reflect + Auto Debug ----------
+        transition(AgentState.REFLECTING)
         if client and reply:
             try:
                 def _call_model_reflect(messages):
@@ -385,7 +403,8 @@ def agent_controller(
             except Exception as e:
                 set_last_error(str(e))
 
-        # ---------- 4) Tool Router: intercepta JSON de tool e devolve texto limpo ----------
+        # ---------- 4) Responder ----------
+        transition(AgentState.RESPONDING)
         reply = processar_resposta_ai(reply)
 
         # ---------- 4b) Salva resposta na memória contextual do chat ----------
@@ -406,8 +425,10 @@ def agent_controller(
         add_event(user_id=user_id, chat_id=chat_id, tipo="curta", conteudo=user_message)
         add_event(user_id=user_id, chat_id=chat_id, tipo="curta", conteudo=reply)
         emit("memory_saved", chat_id=chat_id, user_id=user_id)
+        transition(AgentState.IDLE)
 
     except Exception as e:
+        transition(AgentState.IDLE)
         erro = f"Erro no Agent Controller: {str(e)}"
         set_last_error(erro)
         print(erro)

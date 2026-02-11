@@ -5,19 +5,24 @@
 # ==========================================================
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 from core.capabilities import is_enabled
 
 
 @dataclass
 class TaskStep:
-    """Uma etapa do grafo: nome, tipo (tool/action), argumentos."""
+    """Uma etapa do grafo: nome, tipo (tool/action), argumentos e action opcional."""
     id: str
     name: str
     kind: str  # "tool" | "action" | "subtask"
     args: Dict[str, Any] = field(default_factory=dict)
     depends_on: List[str] = field(default_factory=list)  # ids de steps anteriores
+    action: Optional[Callable[..., Any]] = None  # função a executar (opcional; tools usam run_tool)
+
+
+# Alias para compatibilidade com o conceito "Task(name, action)"
+Task = TaskStep
 
 
 @dataclass
@@ -48,13 +53,16 @@ INTENTION_TEMPLATES: Dict[str, List[Dict[str, Any]]] = {
 def infer_intention(user_message: str) -> str:
     """Infere a intenção principal a partir da mensagem (heurístico)."""
     t = (user_message or "").lower().strip()
-    if "criar" in t or "cria" in t or "gerar" in t or "projeto" in t:
-        if "calculadora" in t or "login" in t or "sistema" in t or "api" in t:
+    # Criar projeto (calculadora, login, sistema, api, etc.)
+    if any(x in t for x in ("criar", "cria", "gerar", "fazer")):
+        if any(x in t for x in ("calculadora", "login", "sistema", "api", "projeto", "site")):
             return "criar_projeto"
-    if "analis" in t and ("projeto" in t or "código" in t or "codigo" in t):
+    # Analisar
+    if "analis" in t or "analise" in t:
         if "arquivo" in t or "código" in t or "codigo" in t:
             return "analisar_codigo"
-        return "analisar_projeto"
+        if "projeto" in t:
+            return "analisar_projeto"
     return "chat"
 
 
@@ -90,3 +98,10 @@ def get_planned_steps_for_prompt(task_graph: TaskGraph) -> str:
         dep = f" (depende de {', '.join(s.depends_on)})" if s.depends_on else ""
         lines.append(f"  - {s.id}: {s.name} ({s.kind}){dep}")
     return "\n".join(lines)
+
+
+def next_step(task_graph: TaskGraph) -> Optional[TaskStep]:
+    """Retorna o próximo step a executar (quando status=pending, retorna o primeiro)."""
+    if not task_graph.steps or task_graph.status != "pending":
+        return None
+    return task_graph.steps[0]
