@@ -12,6 +12,8 @@
 
   var ICON_FOLDER = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>';
   var ICON_FILE = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>';
+  var ICON_ARROW_RIGHT = '<svg class="folderArrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>';
+  var ICON_ARROW_DOWN = '<svg class="folderArrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>';
 
   function buildTreeFromPaths(paths) {
     var root = {};
@@ -63,12 +65,14 @@
       var folderEl = document.createElement("div");
       folderEl.className = "fileTreeItem fileTreeFolder open";
       folderEl.style.paddingLeft = (depth * 12 + 8) + "px";
-      folderEl.innerHTML = ICON_FOLDER + "<span>" + escapeHtml(node.name) + "</span>";
+      folderEl.innerHTML = '<span class="folderArrowWrap">' + ICON_ARROW_DOWN + '</span>' + ICON_FOLDER + "<span>" + escapeHtml(node.name) + "</span>";
       folderEl.addEventListener("click", function (e) {
         e.stopPropagation();
-        folderEl.classList.toggle("open");
+        var isOpen = folderEl.classList.toggle("open");
+        var arrowWrap = folderEl.querySelector(".folderArrowWrap");
+        if (arrowWrap) arrowWrap.innerHTML = isOpen ? ICON_ARROW_DOWN : ICON_ARROW_RIGHT;
         var next = folderEl.nextElementSibling;
-        if (next) next.classList.toggle("collapsed", !folderEl.classList.contains("open"));
+        if (next) next.classList.toggle("collapsed", !isOpen);
       });
       container.appendChild(folderEl);
       var childWrap = document.createElement("div");
@@ -197,9 +201,10 @@
   function logToConsole(text, isError) {
     var el = document.getElementById("workspaceConsoleOutput");
     if (!el) return;
-    el.textContent = text || "";
+    el.textContent = text || "$ Aguardando execução...";
     el.classList.toggle("error", !!isError);
-    el.classList.toggle("success", !isError && text && text.indexOf("$") === 0);
+    el.classList.remove("success");
+    if (!isError && text && text.indexOf("$ Salvos:") === 0) el.classList.add("success");
   }
 
   function executeCode() {

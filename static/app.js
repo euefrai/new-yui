@@ -573,9 +573,11 @@
         var link = document.createElement("a");
         link.href = downloadUrl;
         link.innerText = "⬇️ Baixar Projeto";
-        link.className = "download-btn";
+        link.className = "download-btn btn-download";
         link.target = "_blank";
         link.rel = "noopener";
+        var filename = downloadUrl.split("/").pop() || "projeto.zip";
+        if (filename) link.setAttribute("download", filename);
         div.appendChild(link);
       }
       if (previewUrl) {
@@ -1000,9 +1002,11 @@
                     var link = document.createElement("a");
                     link.href = downloadMatch[1];
                     link.innerText = "⬇️ Baixar Projeto";
-                    link.className = "download-btn";
+                    link.className = "download-btn btn-download";
                     link.target = "_blank";
                     link.rel = "noopener";
+                    var filename = downloadMatch[1].split("/").pop() || "projeto.zip";
+                    if (filename) link.setAttribute("download", filename);
                     assistantBubble.appendChild(link);
                   }
                   if (btnEnviar) btnEnviar.disabled = false;
@@ -1045,9 +1049,11 @@
                             var link = document.createElement("a");
                             link.href = downloadMatch[1];
                             link.innerText = "⬇️ Baixar Projeto";
-                            link.className = "download-btn";
+                            link.className = "download-btn btn-download";
                             link.target = "_blank";
                             link.rel = "noopener";
+                            var filename = downloadMatch[1].split("/").pop() || "projeto.zip";
+                            if (filename) link.setAttribute("download", filename);
                             assistantBubble.appendChild(link);
                           }
                         }
