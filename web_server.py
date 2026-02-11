@@ -7,7 +7,7 @@ from flask_cors import CORS
 
 from yui_ai.main import processar_texto_web
 from yui_ai.analyzer.report_formatter import run_file_analysis, report_to_text
-from yui_ai.core.ai_engine import stream_resposta_yui, gerar_titulo_chat
+from yui_ai.core.ai_engine import gerar_titulo_chat
 
 from core.supabase_client import supabase
 from core.memory import (
@@ -23,6 +23,7 @@ from core.engine import process_message as engine_process_message
 from core.tools_registry import list_tools
 from core.tool_runner import run_tool
 from core.user_profile import get_user_profile, upsert_user_profile
+from backend.ai.agent_controller import agent_controller
 
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -141,27 +142,10 @@ def api_chat_stream():
         if not chat_belongs_to_user(chat_id, user_id):
             return jsonify({"error": "Chat não encontrado ou não pertence ao usuário"}), 403
 
-        memory_save_message(chat_id, "user", message, user_id)
-
-        msg_lower = message.lower()
-        if "```" in message or "analis" in msg_lower or "código" in msg_lower or "codigo" in msg_lower:
-            initial_state = "analyzing_code"
-        else:
-            initial_state = "thinking"
-
-        full_content = []
-
         def generate():
-            yield f"data: {json.dumps('__STATUS__:' + initial_state)}\n\n"
-            for chunk in stream_resposta_yui(message):
-                full_content.append(chunk)
+            yield f"data: {json.dumps('__STATUS__:thinking')}\n\n"
+            for chunk in agent_controller(user_id, chat_id, message):
                 yield f"data: {json.dumps(chunk)}\n\n"
-            content = "".join(full_content)
-            if content:
-                try:
-                    memory_save_message(chat_id, "assistant", content, user_id)
-                except Exception:
-                    pass
             yield f"data: {json.dumps('__STATUS__:done')}\n\n"
 
         return Response(
@@ -415,6 +399,17 @@ def api_analyze_file():
 
 
 if __name__ == "__main__":
+    import threading
+    def _indexar_memoria():
+        try:
+            from backend.ai.vector_memory import indexar_projeto
+            raiz = os.path.dirname(os.path.abspath(__file__))
+            qtd = indexar_projeto(raiz)
+            print(f"🧠 Memória do projeto: {qtd} blocos indexados (yui_vector_db).")
+        except Exception as e:
+            print(f"⚠️ Indexação da memória vetorial ignorada: {e}")
+
+    threading.Thread(target=_indexar_memoria, daemon=True).start()
     port = int(os.environ.get("PORT", 5000))
     debug = os.environ.get("FLASK_DEBUG", "false").lower() in ("1", "true", "yes")
     app.run(host="0.0.0.0", port=port, debug=debug)
