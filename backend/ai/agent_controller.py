@@ -312,10 +312,23 @@ def _yield_in_chunks(text: str, chunk_size: int = CHUNK_SIZE) -> Generator[str, 
 # ==========================================================
 
 
+HEATHCLIFF_SYSTEM_PROMPT = """Você é o Heathcliff, modo engenheiro da Yui. Inspirado no Composer, focado em SaaS, APIs e arquitetura.
+
+REGRAS OBRIGATÓRIAS:
+1. ANTES de responder, SEMPRE analise a estrutura de pastas (use listar_arquivos se disponível) para entender o projeto.
+2. Escreva código PRONTO PARA PRODUÇÃO: tratamento de erros, validação de inputs, segurança (sanitização, prepared statements).
+3. Utilize o Workspace ao MÁXIMO: proponha arquivos completos, estrutura de pastas clara, convenções consistentes.
+4. Prefira soluções escaláveis e bem documentadas.
+5. Ao criar projetos, use criar_projeto_arquivos e criar_zip_projeto para gerar o ZIP. Inclua sempre [DOWNLOAD]:/download/nome.zip na resposta final.
+6. Responda em português do Brasil.
+"""
+
+
 def agent_controller(
     user_id: str,
     chat_id: str,
     user_message: str,
+    model: str = "yui",
 ) -> Generator[str, None, None]:
     """
     Fluxo central da YUI.
@@ -327,6 +340,7 @@ def agent_controller(
     5) Salva memória
 
     O frontend só recebe texto; nunca JSON cru.
+    model: "yui" (padrão) ou "heathcliff" (modo engenheiro).
     """
     try:
         # ---------- 0) Energy check: freio cognitivo ----------
@@ -443,6 +457,8 @@ def agent_controller(
 
         skills_system = _build_skills_system()
         msgs.insert(0, {"role": "system", "content": _build_tool_system(user_message) + skills_system})
+        if model == "heathcliff":
+            msgs.insert(0, {"role": "system", "content": HEATHCLIFF_SYSTEM_PROMPT})
         # Autopercepção: avisa a Yui sobre carga do servidor (modo economia)
         if get_system_state_for_prompt:
             autopercepcao = get_system_state_for_prompt()

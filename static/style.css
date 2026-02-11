@@ -1011,6 +1011,84 @@ body.theme-light .msgContent .codeBlockToWorkspace {
   50% { opacity: 0.6; }
 }
 
+/* ========== Model Switcher ========== */
+.modelSwitcherWrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 20px 4px;
+  background: rgba(255, 255, 255, 0.02);
+  border-top: 1px solid var(--glass-border);
+}
+
+.modelSwitcherLabel {
+  font-size: 0.78rem;
+  color: #8a8a96;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.modelSwitcher {
+  padding: 8px 14px;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: 10px;
+  color: #e8e8ec;
+  font-size: 0.88rem;
+  font-family: inherit;
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+
+.modelSwitcher:hover {
+  border-color: rgba(0, 242, 255, 0.25);
+  color: var(--electric-cyan);
+}
+
+.modelSwitcher:focus {
+  outline: none;
+  border-color: rgba(0, 242, 255, 0.4);
+  box-shadow: 0 0 12px rgba(0, 242, 255, 0.15);
+}
+
+/* Heathcliff mode: input glow vermelho/dourado */
+body.model-heathcliff .inputArea input:focus {
+  border-color: rgba(220, 38, 38, 0.5);
+  box-shadow: 0 0 20px rgba(220, 38, 38, 0.2), 0 0 40px rgba(234, 179, 8, 0.15);
+}
+
+body.model-heathcliff .inputArea button:hover:not(:disabled) {
+  border-color: rgba(234, 179, 8, 0.5);
+  box-shadow: 0 0 24px rgba(220, 38, 38, 0.3), 0 0 48px rgba(234, 179, 8, 0.2);
+}
+
+body.model-heathcliff .inputArea .btnAnexo:hover {
+  border-color: rgba(220, 38, 38, 0.3);
+  color: #f87171;
+}
+
+body.model-heathcliff .modelSwitcher:focus {
+  border-color: rgba(220, 38, 38, 0.5);
+  box-shadow: 0 0 12px rgba(220, 38, 38, 0.2);
+}
+
+/* Avatar Heathcliff: tom mais sério/técnico (filter) */
+body.model-heathcliff .sidebar .logo img {
+  filter: sepia(0.3) saturate(0.9) hue-rotate(-10deg) brightness(0.95);
+}
+
+body.model-heathcliff .download-btn,
+body.model-heathcliff .btn-download {
+  background: linear-gradient(135deg, #dc2626 0%, #eaab08 100%);
+  border-color: rgba(220, 38, 38, 0.5);
+  box-shadow: 0 0 16px rgba(220, 38, 38, 0.35), 0 0 32px rgba(234, 179, 8, 0.2);
+}
+
+body.model-heathcliff .download-btn:hover,
+body.model-heathcliff .btn-download:hover {
+  box-shadow: 0 0 24px rgba(220, 38, 38, 0.5), 0 0 48px rgba(234, 179, 8, 0.3);
+}
+
 /* ========== Input Area — Sutil separador ========== */
 .inputArea {
   flex-shrink: 0;

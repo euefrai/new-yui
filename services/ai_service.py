@@ -8,7 +8,6 @@ Route -> Service -> Core; rotas NÃO importam yui_ai.
 from typing import Any, Generator, Optional, Tuple
 
 from backend.ai.agent_controller import agent_controller
-from core.engine import process_message as engine_process_message
 from yui_ai.agent.router import detect_intent
 from yui_ai.agent.tool_executor import executor as tool_executor
 from yui_ai.core.ai_engine import gerar_titulo_chat as _gerar_titulo_chat
@@ -19,9 +18,10 @@ def stream_resposta(
     user_id: str,
     chat_id: str,
     message: str,
+    model: str = "yui",
 ) -> Generator[str, None, None]:
     """Streaming da resposta da YUI (Agent Controller)."""
-    yield from agent_controller(user_id, chat_id, message)
+    yield from agent_controller(user_id, chat_id, message, model=model)
 
 
 def gerar_titulo_chat(first_message: str) -> str:
@@ -29,15 +29,21 @@ def gerar_titulo_chat(first_message: str) -> str:
     return (_gerar_titulo_chat(first_message) or "").strip() or "Novo chat"
 
 
-def processar_mensagem_sync(user_id: str, chat_id: str, message: str) -> str:
-    """Resposta síncrona (engine legado, ex.: /api/send)."""
-    return (engine_process_message(user_id, chat_id, message) or "").strip()
+def processar_mensagem_sync(
+    user_id: str, chat_id: str, message: str, model: str = "yui"
+) -> str:
+    """Resposta síncrona; usa agent_controller para consistência com stream."""
+    full: list[str] = []
+    for chunk in agent_controller(user_id, chat_id, message, model=model):
+        full.append(chunk)
+    return "".join(full).strip()
 
 
 def handle_chat_stream(
     user_id: str,
     chat_id: str,
     message: str,
+    model: str = "yui",
 ) -> Generator[str, None, None]:
     """
     Orquestra o stream do chat: intent, tool ou IA, session_memory.
@@ -53,7 +59,7 @@ def handle_chat_stream(
             yield msg
             return
     full_reply = []
-    for chunk in stream_resposta(user_id, chat_id, message):
+    for chunk in stream_resposta(user_id, chat_id, message, model=model):
         full_reply.append(chunk)
         yield chunk
     session_memory.add(user_id, "assistant", "".join(full_reply))

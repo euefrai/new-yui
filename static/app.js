@@ -36,6 +36,21 @@
   var fileBadge = null;
   var messagesAbortController = null;
   var messagesCache = {};
+  var currentModel = "yui";
+
+  function getCurrentModel() {
+    var sel = document.getElementById("modelSwitcher");
+    return (sel && sel.value) ? sel.value : "yui";
+  }
+
+  function applyModelVisual(model) {
+    currentModel = model;
+    var appContent = document.getElementById("appContent");
+    var inputArea = document.getElementById("inputArea");
+    if (appContent) appContent.setAttribute("data-model", model);
+    if (inputArea) inputArea.setAttribute("data-model", model);
+    document.body.classList.toggle("model-heathcliff", model === "heathcliff");
+  }
 
   function escapeHtml(s) {
     var div = document.createElement("div");
@@ -939,7 +954,7 @@
         fetch("/api/send", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ user_id: user.id, chat_id: chatId, message: texto })
+          body: JSON.stringify({ user_id: user.id, chat_id: chatId, message: texto, model: getCurrentModel() })
         })
           .then(function (r) { return r.json(); })
           .then(function (data) {
@@ -979,7 +994,7 @@
         fetch("/api/chat/stream", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ chat_id: chatId, user_id: user.id, message: texto })
+          body: JSON.stringify({ chat_id: chatId, user_id: user.id, message: texto, model: getCurrentModel() })
         })
           .then(function (response) {
             if (!response.ok || !response.body) throw new Error("Stream failed");
@@ -1092,6 +1107,20 @@
         chat.innerHTML = "<div class=\"chatVazio\">Erro ao criar chat. Tente clicar em «+ Novo chat» primeiro.</div>";
       }
     });
+  }
+
+  var modelSwitcher = document.getElementById("modelSwitcher");
+  if (modelSwitcher) {
+    modelSwitcher.addEventListener("change", function () {
+      applyModelVisual(getCurrentModel());
+      try { localStorage.setItem("yui_model", getCurrentModel()); } catch (e) {}
+    });
+    var saved = "";
+    try { saved = localStorage.getItem("yui_model") || ""; } catch (e) {}
+    if (saved === "heathcliff") {
+      modelSwitcher.value = "heathcliff";
+      applyModelVisual("heathcliff");
+    }
   }
 
   var btnEnviarEl = document.getElementById("btnEnviar");

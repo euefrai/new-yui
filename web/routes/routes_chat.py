@@ -66,6 +66,9 @@ def api_send():
     user_id = data.get("user_id")
     chat_id = data.get("chat_id")
     message = (data.get("message") or "").strip()
+    model = (data.get("model") or "yui").strip().lower()
+    if model not in ("yui", "heathcliff"):
+        model = "yui"
     if not user_id or not chat_id:
         return jsonify({"error": "user_id e chat_id obrigatórios"}), 400
     if not message:
@@ -73,7 +76,7 @@ def api_send():
     if not chat_pertence_usuario(chat_id, user_id):
         return jsonify({"error": "Chat não encontrado ou não pertence ao usuário"}), 403
     try:
-        reply = processar_mensagem_sync(user_id, chat_id, message)
+        reply = processar_mensagem_sync(user_id, chat_id, message, model=model)
         return jsonify({"reply": reply})
     except Exception as e:
         return jsonify({"error": str(e), "reply": None}), 500
@@ -88,6 +91,9 @@ def api_chat_stream():
         chat_id = data.get("chat_id")
         user_id = data.get("user_id")
         message = (data.get("message") or "").strip()
+        model = (data.get("model") or "yui").strip().lower()
+        if model not in ("yui", "heathcliff"):
+            model = "yui"
         if not chat_id:
             return jsonify({"error": "chat_id obrigatório"}), 400
         if not user_id:
@@ -101,7 +107,7 @@ def api_chat_stream():
 
         def generate():
             yield f"data: {json.dumps('__STATUS__:thinking')}\n\n"
-            for chunk in handle_chat_stream(user_id, chat_id, message):
+            for chunk in handle_chat_stream(user_id, chat_id, message, model=model):
                 yield f"data: {json.dumps(chunk)}\n\n"
             yield f"data: {json.dumps('__STATUS__:done')}\n\n"
 

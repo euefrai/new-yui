@@ -26,10 +26,10 @@
   </div>
 
   <div id="appScreen" class="app" style="display: none;">
-    <div class="appContent">
+    <div class="appContent" id="appContent" data-model="yui">
     <aside class="sidebar">
-      <div class="logo">
-        <img src="/static/yui-icon.png" alt="Yui" class="yuiLogoImg" />
+      <div class="logo" id="sidebarLogo">
+        <img src="/static/yui-icon.png" alt="Yui" class="yuiLogoImg" id="sidebarAvatar" />
       </div>
       <button type="button" id="novoChat" class="btnNovoChat">+ Novo chat</button>
       <button type="button" id="toggleWorkspace" class="btnToggleWorkspace" title="Abrir/fechar Editor (Ctrl+L)">
@@ -59,7 +59,14 @@
       <main class="chatArea">
         <div class="chatContainer">
           <div id="chat" class="chatMessages"></div>
-          <div class="inputArea">
+          <div class="modelSwitcherWrap">
+            <label class="modelSwitcherLabel">Modelo</label>
+            <select id="modelSwitcher" class="modelSwitcher" title="Alternar entre Yui e Heathcliff">
+              <option value="yui">Yui — Modo Padrão</option>
+              <option value="heathcliff">Heathcliff — Modo Engenheiro</option>
+            </select>
+          </div>
+          <div class="inputArea" id="inputArea">
           <label class="btnAnexo" title="Enviar arquivo para análise">
             <span class="btnAnexoIcon">&#128206;</span>
             <input type="file" id="fileInput" hidden accept=".py,.js,.ts,.json,.txt,.md,.html,.css,.yml,.yaml,.java,.tsx,.jsx" />
