@@ -50,6 +50,10 @@ try:
 except ImportError:
     get_world_model = None
 try:
+    from core.strategy_engine import get_strategy_engine
+except ImportError:
+    get_strategy_engine = None
+try:
     from core.energy_manager import (
         get_energy_manager,
         COST_RESPONDER_IA,
@@ -341,8 +345,28 @@ def agent_controller(
                     yield c
                 return
 
+        # ---------- Strategy Engine: escolhe como pensar ----------
+        strategy = "exploration"
+        if get_strategy_engine:
+            em = get_energy_manager() if get_energy_manager else None
+            goal_prio = 0.0
+            try:
+                goals_pre = get_active_goals(user_id, chat_id, energy=em.energy if em else None) if is_enabled("goals") else []
+                goal_prio = goals_pre[0].priority if goals_pre else 0.0
+            except Exception:
+                pass
+            strategy = get_strategy_engine().choose(
+                meta_signals=meta_signals,
+                energy=em.energy if em else None,
+                goal_priority=goal_prio,
+                has_error=bool(meta_signals.get("last_failed")),
+            )
+
         if filter_context_blocks:
-            top = 2 if (meta_signals.get("context_overload") or meta_signals.get("simplified_mode")) else None
+            if get_strategy_engine:
+                top = get_strategy_engine().get_attention_top(strategy)
+            else:
+                top = 2 if (meta_signals.get("context_overload") or meta_signals.get("simplified_mode")) else None
             ctx = filter_context_blocks(ctx, user_message=user_message, top=top)
         msgs: List[Dict[str, str]] = list(ctx.get("historico") or [])
 
@@ -408,8 +432,10 @@ def agent_controller(
                 plan_steps = get_planned_steps_for_prompt(task_graph)
                 if plan_steps:
                     msgs.insert(0, {"role": "system", "content": plan_steps})
-                # Planner estruturado (memory aware, tool reasoning, goals aware, meta-aware)
+                # Planner estruturado (memory aware, tool reasoning, goals aware, meta-aware, strategy-aware)
                 max_steps = LIMIT_MAX_STEPS
+                if get_strategy_engine:
+                    max_steps = min(max_steps, get_strategy_engine().get_max_steps(strategy))
                 if meta_signals.get("simplified_mode") or meta_signals.get("too_many_steps"):
                     max_steps = min(max_steps, 2)
                 plan = criar_plano_estruturado(user_message, user_id, chat_id, max_steps=max_steps, goals_ativos=goals_ativos or None)
@@ -623,9 +649,15 @@ def agent_controller(
         emit("memory_saved", chat_id=chat_id, user_id=user_id)
         if get_energy_manager:
             get_energy_manager().recover()
+        if get_strategy_engine:
+            try:
+                get_strategy_engine().record_result(strategy, success=True)
+            except Exception:
+                pass
         if get_world_model:
             try:
                 get_world_model().sync_from_modules()
+                get_world_model().runtime["last_strategy"] = strategy
                 get_world_model().save()
             except Exception:
                 pass
@@ -635,6 +667,11 @@ def agent_controller(
         transition(AgentState.IDLE)
         erro = f"Erro no Agent Controller: {str(e)}"
         set_last_error(erro)
+        if get_strategy_engine:
+            try:
+                get_strategy_engine().record_result("exploration", success=False)
+            except Exception:
+                pass
         if get_identity_core:
             err_lower = str(e).lower()
             if "token" in err_lower or "length" in err_lower or "context" in err_lower:

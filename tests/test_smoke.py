@@ -87,6 +87,17 @@ def test_attention_manager():
     assert "criar_projeto_arquivos" in tools
 
 
+def test_strategy_engine():
+    from core.strategy_engine import StrategyEngine, get_strategy_engine
+    se = StrategyEngine()
+    s = se.choose(meta_signals={"loop_detected": True}, energy=100)
+    assert s == "correction"
+    s2 = se.choose(meta_signals={}, energy=10)
+    assert s2 == "minimal"
+    assert se.get_max_steps("minimal") == 1
+    assert se.get_attention_top("focused") == 5
+
+
 def test_world_model():
     from core.world_model import WorldModel, get_world_model
     wm = WorldModel()
