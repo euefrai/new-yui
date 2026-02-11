@@ -141,6 +141,26 @@ def _sanitize_code(path: str, content: str) -> str:
     return "\n".join(linhas)
 
 
+def _normalize_files(files: Any) -> list:
+    """Converte files para lista de dicts; aceita JSON string, dict único ou lista."""
+    if isinstance(files, list):
+        return files
+    if isinstance(files, str) and files.strip():
+        try:
+            import json
+            parsed = json.loads(files)
+            return parsed if isinstance(parsed, list) else [parsed] if isinstance(parsed, dict) else []
+        except Exception:
+            pass
+    if isinstance(files, dict):
+        # Um único arquivo {path, content} ou {files: [...]}
+        if "path" in files or "content" in files:
+            return [files]
+        if "files" in files:
+            return _normalize_files(files["files"])
+    return []
+
+
 def tool_criar_projeto_arquivos(root_dir: str, files: Any) -> Dict[str, Any]:
     """
     Cria fisicamente um mini-projeto a partir de uma lista de arquivos.
@@ -156,9 +176,10 @@ def tool_criar_projeto_arquivos(root_dir: str, files: Any) -> Dict[str, Any]:
     created: list[str] = []
     try:
         base.mkdir(parents=True, exist_ok=True)
-        if not isinstance(files, list):
-            return {"ok": False, "root": str(base), "files": [], "error": "Parametro 'files' deve ser lista."}
-        for item in files:
+        files_list = _normalize_files(files) if files is not None else []
+        if not files_list:
+            return {"ok": False, "root": str(base), "files": [], "error": "Parametro 'files' deve ser lista de {path, content} (ex: [{\"path\":\"index.html\",\"content\":\"...\"}])."}
+        for item in files_list:
             if not isinstance(item, dict):
                 continue
             rel_path = (item.get("path") or "").strip()
@@ -185,7 +206,7 @@ def _resolve_project_dir(root_dir: str) -> Optional[Path]:
     """
     Resolve root_dir para um Path absoluto da pasta do projeto.
     Projetos gerados ficam em GENERATED_ROOT (generated_projects/).
-    No Render, cwd pode ser outro; por isso SEMPRE usamos BASE_DIR absoluto.
+    No Render/Zeabur, cwd pode ser outro; por isso SEMPRE usamos BASE_DIR absoluto.
     """
     if not root_dir or not root_dir.strip():
         return None
@@ -194,17 +215,28 @@ def _resolve_project_dir(root_dir: str) -> Optional[Path]:
     # 1) Já é absoluto e existe
     if p.is_absolute() and p.is_dir():
         return p
-    # 2) Nome da pasta só (ex: sistema_calculadora) -> em generated_projects/
+    # 2) Nome da pasta só (ex: calculadora) -> em generated_projects/
     candidate = (GENERATED_ROOT / root_dir).resolve()
     if candidate.is_dir():
         return candidate
-    # 3) root_dir era path completo; pega só o nome (slug) e procura em generated_projects
+    # 3) root_dir era path completo; extrai slug e procura em generated_projects
     slug = p.name
     if slug:
         candidate = (GENERATED_ROOT / slug).resolve()
         if candidate.is_dir():
             return candidate
-    # 4) Relativo à raiz do app (ex: generated_projects/sistema_calculadora)
+    # 4) Se root_dir contém "generated_projects", extrai o slug final
+    if "generated_projects" in root_dir or "generated_projects" in root_dir.replace("\\", "/"):
+        parts = root_dir.replace("\\", "/").split("/")
+        for i, part in enumerate(parts):
+            if part == "generated_projects" and i + 1 < len(parts):
+                slug = parts[i + 1]
+                if slug:
+                    candidate = (GENERATED_ROOT / slug).resolve()
+                    if candidate.is_dir():
+                        return candidate
+                break
+    # 5) Relativo à raiz do app
     candidate = (PROJECT_ROOT / root_dir).resolve()
     if candidate.is_dir():
         return candidate

@@ -52,7 +52,7 @@ TOOL_SYSTEM = (
     "- ler_arquivo_texto(caminho, max_chars): ler conteúdo de um arquivo.\n"
     "- analisar_projeto(raiz?): analisar arquitetura, riscos e roadmap.\n"
     "- observar_ambiente(raiz?): visão rápida do projeto e sugestões.\n"
-    "- criar_projeto_arquivos(root_dir, files): criar projeto/mini SaaS (pastas/arquivos).\n"
+    "- criar_projeto_arquivos(root_dir, files): criar projeto. files = lista [{path, content}], ex: [{\"path\":\"index.html\",\"content\":\"<html>...</html>\"}].\n"
     "- criar_zip_projeto(root_dir, zip_name?): gerar script para compactar o projeto em ZIP.\n"
     "- consultar_indice_projeto(raiz?): consultar índice de arquitetura em cache.\n\n"
     "Planejamento:\n"
