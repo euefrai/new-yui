@@ -26,11 +26,16 @@
   </div>
 
   <div id="appScreen" class="app" style="display: none;">
+    <div class="appContent">
     <aside class="sidebar">
       <div class="logo">
         <img src="/static/yui-icon.png" alt="Yui" class="yuiLogoImg" />
       </div>
       <button type="button" id="novoChat" class="btnNovoChat">+ Novo chat</button>
+      <button type="button" id="toggleWorkspace" class="btnToggleWorkspace" title="Abrir/fechar Editor (Ctrl+L)">
+        <span class="btnToggleIcon">&#60;/&#62;</span>
+        <span class="btnToggleLabel">Editor</span>
+      </button>
       <button type="button" id="clearChat" class="btnClearChat" title="Limpar memória da sessão">Excluir Chat</button>
       <div id="listaChats" class="listaChats"></div>
       <div class="telemetryPanel" id="telemetryPanel" title="Custo acumulado do dia">
@@ -78,6 +83,10 @@
         </div>
         <div id="monacoContainer" class="monacoContainer"></div>
       </aside>
+    </div>
+    </div>
+    <div class="statusBar" id="statusBar">
+      <span class="statusBarHint">Pressione Ctrl+L para o Editor</span>
     </div>
   </div>
 

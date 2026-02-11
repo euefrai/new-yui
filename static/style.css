@@ -183,8 +183,17 @@ body.theme-light .inputArea {
 /* ========== App Layout ========== */
 .app {
   display: flex;
+  flex-direction: column;
   height: 100vh;
-  height: 100dvh; /* Mobile: evita overflow com barra de endereço */
+  height: 100dvh;
+  overflow: hidden;
+}
+
+.appContent {
+  flex: 1;
+  display: flex;
+  flex-direction: row;
+  min-height: 0;
   overflow: hidden;
 }
 
@@ -244,6 +253,43 @@ body.theme-light .inputArea {
   cursor: pointer;
   text-align: left;
   transition: var(--transition-fast);
+}
+
+.btnToggleWorkspace {
+  width: 100%;
+  padding: 10px 14px;
+  margin-bottom: 8px;
+  background: rgba(0, 242, 255, 0.06);
+  border: 1px solid rgba(0, 242, 255, 0.2);
+  border-radius: 10px;
+  color: var(--electric-cyan);
+  font-size: 0.86rem;
+  cursor: pointer;
+  text-align: left;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: var(--transition-fast);
+}
+
+.btnToggleWorkspace:hover {
+  background: rgba(0, 242, 255, 0.12);
+  box-shadow: 0 0 16px rgba(0, 242, 255, 0.15);
+}
+
+.btnToggleIcon {
+  font-family: "Fira Code", "JetBrains Mono", monospace;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.btnToggleLabel {
+  flex: 1;
+}
+
+.btnToggleWorkspace.workspaceClosed {
+  border-color: rgba(255, 255, 255, 0.08);
+  color: #6a6a76;
 }
 
 .btnClearChat:hover {
@@ -516,6 +562,26 @@ body.theme-light .inputArea {
   background: transparent;
   padding-right: 0;
   border-right: 1px solid var(--glass-border);
+  transition: flex 0.4s ease;
+}
+
+.mainSplit.workspaceCollapsed .chatArea {
+  flex: 1 1 100%;
+  border-right: none;
+}
+
+.mainSplit.workspaceCollapsed .workspacePanel {
+  flex: 0 0 0 !important;
+  min-width: 0 !important;
+  max-width: 0 !important;
+  overflow: hidden;
+  padding: 0;
+  border-width: 0;
+  transition: flex 0.4s ease, min-width 0.4s ease, max-width 0.4s ease;
+}
+
+.workspacePanel {
+  transition: flex 0.4s ease, min-width 0.4s ease, width 0.4s ease;
 }
 
 .chatContainer {
@@ -1088,6 +1154,20 @@ body.theme-light .msgContent .codeBlockToWorkspace {
   text-align: center;
 }
 
+/* ========== Status Bar ========== */
+.statusBar {
+  flex-shrink: 0;
+  padding: 6px 14px;
+  background: rgba(0, 0, 0, 0.25);
+  border-top: 1px solid var(--glass-border);
+  font-size: 0.72rem;
+  color: #6a6a76;
+}
+
+.statusBarHint {
+  letter-spacing: 0.03em;
+}
+
 /* ========== Barra de Saúde do Sistema ========== */
 .systemHealthBar {
   display: flex;
@@ -1179,8 +1259,12 @@ body.theme-light .msgContent .codeBlockToWorkspace {
   }
   .btnNovoChat span,
   .btnClearChat,
+  .btnToggleLabel,
   #userName {
     display: none;
+  }
+  .btnToggleWorkspace {
+    justify-content: center;
   }
   .telemetryPanel {
     padding: 10px 12px;

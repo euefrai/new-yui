@@ -188,9 +188,44 @@
     el.setAttribute("title", user.email || "Usuário");
   }
 
+  var workspaceOpen = true;
+  function getWorkspacePref() {
+    try {
+      var v = localStorage.getItem("yui_workspace_open");
+      return v === null ? true : v === "true";
+    } catch (e) { return true; }
+  }
+  function setWorkspacePref(open) {
+    try { localStorage.setItem("yui_workspace_open", String(open)); } catch (e) {}
+  }
+  function toggleWorkspace() {
+    workspaceOpen = !workspaceOpen;
+    setWorkspacePref(workspaceOpen);
+    var mainSplit = document.querySelector(".mainSplit");
+    var btn = document.getElementById("toggleWorkspace");
+    if (mainSplit) mainSplit.classList.toggle("workspaceCollapsed", !workspaceOpen);
+    if (btn) btn.classList.toggle("workspaceClosed", !workspaceOpen);
+    if (workspaceOpen) setTimeout(function () { window.dispatchEvent(new Event("resize")); }, 420);
+  }
+  function initWorkspaceToggle() {
+    workspaceOpen = getWorkspacePref();
+    var mainSplit = document.querySelector(".mainSplit");
+    var btn = document.getElementById("toggleWorkspace");
+    if (mainSplit) mainSplit.classList.toggle("workspaceCollapsed", !workspaceOpen);
+    if (btn) btn.classList.toggle("workspaceClosed", !workspaceOpen);
+    if (btn) btn.addEventListener("click", toggleWorkspace);
+    document.addEventListener("keydown", function (e) {
+      if (e.ctrlKey && e.key === "l") {
+        e.preventDefault();
+        toggleWorkspace();
+      }
+    });
+  }
+
   function showApp() {
     if (loginScreen) loginScreen.style.display = "none";
     if (appScreen) appScreen.style.display = "flex";
+    initWorkspaceToggle();
     if (window.initYuiWorkspace) window.initYuiWorkspace();
     if (userName && user) userName.textContent = user.email || user.nome || "Usuário";
     if (userMenuName && user) userMenuName.textContent = user.email || user.nome || "Usuário";
