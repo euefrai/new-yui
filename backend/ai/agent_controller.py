@@ -11,19 +11,18 @@ from typing import Any, Dict, Generator, List
 
 from openai import OpenAI
 
-from core.memory import get_messages, save_message
-from core.memory_manager import add_event, build_context_text
+from core.memory import save_message
+from core.memory_manager import add_event
 from core.tool_runner import run_tool
 from core.user_profile import get_user_profile
 
 from backend.ai.auto_debug import auto_debug
-from backend.ai.context_builder import montar_contexto_projeto
-from backend.ai.context_memory import buscar_contexto as buscar_contexto_chat, salvar_memoria as salvar_memoria_chat
+from backend.ai.context_engine import montar_contexto_ia
+from backend.ai.context_memory import salvar_memoria as salvar_memoria_chat
 from backend.ai.self_reflect import avaliar_resposta
 from backend.ai.skill_manager import executar_skill, listar_skills
 from backend.ai.task_planner import criar_plano
 from backend.ai.tool_router import processar_resposta_ai
-from backend.ai.vector_memory import buscar_contexto
 
 # ==========================================================
 # CONFIG
@@ -205,38 +204,33 @@ def agent_controller(
     O frontend só recebe texto; nunca JSON cru.
     """
     try:
-        # ---------- 1) Buscar memória do chat ----------
-        history = get_messages(chat_id, user_id)
-        msgs: List[Dict[str, str]] = [
-            {"role": m["role"], "content": (m.get("content") or "")}
-            for m in (history[-MAX_HISTORY * 2 :] if len(history) > MAX_HISTORY * 2 else history)
-        ]
+        # ---------- 1) Context Engine: histórico + contexto do projeto + memórias ----------
+        ctx = montar_contexto_ia(user_id, chat_id, user_message, raiz_projeto=".", max_mensagens=MAX_HISTORY)
+        msgs: List[Dict[str, str]] = list(ctx.get("historico") or [])
 
-        # ---------- Contexto do projeto (arquivos relevantes) ----------
-        contexto_projeto = montar_contexto_projeto(".")
-        if contexto_projeto:
+        if ctx.get("contexto_projeto"):
             msgs.insert(0, {
                 "role": "system",
                 "content": (
                     "Você é a YUI, uma IA desenvolvedora. Use o contexto do projeto abaixo para responder "
-                    "de forma compatível com o código existente.\n\n" + contexto_projeto
+                    "de forma compatível com o código existente.\n\n" + ctx["contexto_projeto"]
                 )
             })
-
-        # ---------- Memória vetorial (trechos relevantes à pergunta) ----------
-        memoria_projeto = buscar_contexto(user_message, limite=5)
-        if memoria_projeto:
+        if ctx.get("memoria_vetorial"):
             msgs.insert(0, {
                 "role": "system",
                 "content": (
                     "Você é a YUI, uma IA desenvolvedora especialista. Use o contexto recuperado da memória do projeto:\n"
-                    + memoria_projeto
+                    + ctx["memoria_vetorial"]
                 )
             })
-
-        contexto = build_context_text(user_id=user_id, chat_id=chat_id, limit_short=8, limit_long=8)
-        if contexto:
-            msgs.insert(0, {"role": "system", "content": contexto})
+        if ctx.get("contexto_chat_anterior"):
+            msgs.insert(0, {
+                "role": "system",
+                "content": f"Contexto anterior relevante gerado pela própria Yui:\n\n{ctx['contexto_chat_anterior']}",
+            })
+        if ctx.get("memoria_eventos"):
+            msgs.insert(0, {"role": "system", "content": ctx["memoria_eventos"]})
 
         profile = get_user_profile(user_id)
         if profile:
@@ -252,17 +246,6 @@ def agent_controller(
         skills_system = _build_skills_system()
         msgs.insert(0, {"role": "system", "content": TOOL_SYSTEM + skills_system})
         msgs.append({"role": "user", "content": user_message})
-
-        # ---------- Memory Context: contexto de respostas anteriores deste chat ----------
-        try:
-            contexto_extra = buscar_contexto_chat(chat_id, user_message)
-            if contexto_extra:
-                msgs.insert(1, {
-                    "role": "system",
-                    "content": f"""Contexto anterior relevante gerado pela própria Yui:\n\n{contexto_extra}""",
-                })
-        except Exception:
-            pass
 
         # ---------- Task Planner: plano interno antes da resposta ----------
         try:
