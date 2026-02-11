@@ -21,6 +21,16 @@
   box-sizing: border-box;
 }
 
+/* Ocultar scrollbars mantendo scroll ativo (Neo-Glassmorphism imersivo) */
+* {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge */
+}
+
+*::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
+}
+
 body {
   margin: 0;
   background: var(--obsidian);
@@ -900,7 +910,8 @@ body.theme-light .msgContent .codeBlockToWorkspace {
 .download-btn,
 .btn-download {
   display: inline-block;
-  margin-top: 10px;
+  margin-top: 12px;
+  width: fit-content;
   padding: 10px 18px;
   background: var(--gradient-accent);
   color: #0a0a0c;
@@ -1051,25 +1062,36 @@ body.theme-light .msgContent .codeBlockToWorkspace {
   box-shadow: 0 0 12px rgba(0, 242, 255, 0.15);
 }
 
-/* Heathcliff mode: input glow vermelho/dourado */
+/* Heathcliff mode: gradiente Dourado/Âmbar (diferencia do Ciano da Yui) */
 body.model-heathcliff .inputArea input:focus {
-  border-color: rgba(220, 38, 38, 0.5);
-  box-shadow: 0 0 20px rgba(220, 38, 38, 0.2), 0 0 40px rgba(234, 179, 8, 0.15);
+  border-color: rgba(245, 158, 11, 0.5);
+  box-shadow: 0 0 20px rgba(245, 158, 11, 0.25), 0 0 40px rgba(251, 191, 36, 0.15);
 }
 
 body.model-heathcliff .inputArea button:hover:not(:disabled) {
-  border-color: rgba(234, 179, 8, 0.5);
-  box-shadow: 0 0 24px rgba(220, 38, 38, 0.3), 0 0 48px rgba(234, 179, 8, 0.2);
+  border-color: rgba(251, 191, 36, 0.5);
+  box-shadow: 0 0 24px rgba(245, 158, 11, 0.35), 0 0 48px rgba(251, 191, 36, 0.25);
+}
+
+body.model-heathcliff .inputArea button:not(:disabled) {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  border-color: rgba(245, 158, 11, 0.5);
+  box-shadow: 0 0 16px rgba(245, 158, 11, 0.3);
 }
 
 body.model-heathcliff .inputArea .btnAnexo:hover {
-  border-color: rgba(220, 38, 38, 0.3);
-  color: #f87171;
+  border-color: rgba(245, 158, 11, 0.4);
+  color: #fbbf24;
+}
+
+body.model-heathcliff .modelSwitcher:hover {
+  border-color: rgba(245, 158, 11, 0.3);
+  color: #fbbf24;
 }
 
 body.model-heathcliff .modelSwitcher:focus {
-  border-color: rgba(220, 38, 38, 0.5);
-  box-shadow: 0 0 12px rgba(220, 38, 38, 0.2);
+  border-color: rgba(245, 158, 11, 0.5);
+  box-shadow: 0 0 12px rgba(245, 158, 11, 0.25);
 }
 
 /* Avatar Heathcliff: tom mais sério/técnico (filter) */
@@ -1079,14 +1101,14 @@ body.model-heathcliff .sidebar .logo img {
 
 body.model-heathcliff .download-btn,
 body.model-heathcliff .btn-download {
-  background: linear-gradient(135deg, #dc2626 0%, #eaab08 100%);
-  border-color: rgba(220, 38, 38, 0.5);
-  box-shadow: 0 0 16px rgba(220, 38, 38, 0.35), 0 0 32px rgba(234, 179, 8, 0.2);
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  border-color: rgba(245, 158, 11, 0.5);
+  box-shadow: 0 0 16px rgba(245, 158, 11, 0.35), 0 0 32px rgba(251, 191, 36, 0.2);
 }
 
 body.model-heathcliff .download-btn:hover,
 body.model-heathcliff .btn-download:hover {
-  box-shadow: 0 0 24px rgba(220, 38, 38, 0.5), 0 0 48px rgba(234, 179, 8, 0.3);
+  box-shadow: 0 0 24px rgba(245, 158, 11, 0.5), 0 0 48px rgba(251, 191, 36, 0.3);
 }
 
 /* ========== Input Area — Sutil separador ========== */
