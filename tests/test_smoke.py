@@ -87,6 +87,15 @@ def test_attention_manager():
     assert "criar_projeto_arquivos" in tools
 
 
+def test_world_model():
+    from core.world_model import WorldModel, get_world_model
+    wm = WorldModel()
+    wm.update_project(known_files=["main.py", "app.py"], main_file="main.py", root=".")
+    assert wm.file_exists("main.py")
+    assert wm.get_focus_hint()
+    wm.save()
+
+
 def test_metacognition():
     from core.metacognition import MetaCognition, MetaState, get_metacognition, record_action
     meta = MetaCognition()

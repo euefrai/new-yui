@@ -46,6 +46,10 @@ except ImportError:
     MetaState = None
     _build_state = None
 try:
+    from core.world_model import get_world_model
+except ImportError:
+    get_world_model = None
+try:
     from core.energy_manager import (
         get_energy_manager,
         COST_RESPONDER_IA,
@@ -317,6 +321,15 @@ def agent_controller(
         # ---------- 1) Context Engine: histórico + contexto do projeto + memórias ----------
         ctx = montar_contexto_ia(user_id, chat_id, user_message, raiz_projeto=".", max_mensagens=MAX_HISTORY)
 
+        # ---------- World Model: mapa do ambiente ----------
+        if get_world_model:
+            try:
+                wm = get_world_model()
+                wm.update_from_scan(".")
+                wm.sync_from_modules()
+            except Exception:
+                pass
+
         # ---------- 0.5) Meta-Cognition: observador interno (antes de planner) ----------
         meta_signals = {}
         if get_metacognition and _build_state:
@@ -401,7 +414,12 @@ def agent_controller(
                     max_steps = min(max_steps, 2)
                 plan = criar_plano_estruturado(user_message, user_id, chat_id, max_steps=max_steps, goals_ativos=goals_ativos or None)
                 if plan:
-                    msgs.insert(0, {"role": "system", "content": plan_to_prompt(plan, goals_ativos or None)})
+                    plan_txt = plan_to_prompt(plan, goals_ativos or None)
+                    if get_world_model:
+                        hint = get_world_model().get_focus_hint()
+                        if hint:
+                            plan_txt = f"[World Model] {hint}\n\n{plan_txt}"
+                    msgs.insert(0, {"role": "system", "content": plan_txt})
             except Exception:
                 pass
 
@@ -472,6 +490,11 @@ def agent_controller(
                     get_energy_manager().consume(COST_TOOL)
                 tool_name = step["tool"]
                 args = step.get("args") or {}
+                if get_metacognition and tool_name == "criar_projeto_arquivos":
+                    redundant, motivo = get_metacognition().check_redundant_action(tool_name, args)
+                    if redundant:
+                        partes.append(f"⚠️ {motivo} Pulando criação duplicada.")
+                        continue
                 result = run_tool(tool_name, args)
                 emit("tool_executed", tool_name=tool_name, args=args, result=result)
                 if not result.get("ok"):
@@ -488,6 +511,17 @@ def agent_controller(
                 last_step_ok = True
                 set_last_action(f"tool:{tool_name}")
                 payload = result.get("result") or {}
+                if get_world_model and tool_name == "criar_projeto_arquivos" and payload.get("ok"):
+                    try:
+                        wm = get_world_model()
+                        known = list(wm.project.get("known_files", []))
+                        for p in payload.get("files") or []:
+                            path = p if isinstance(p, str) else str(p)
+                            if path and path not in known:
+                                known.append(path)
+                        wm.project["known_files"] = known[-50:]
+                    except Exception:
+                        pass
                 msg = _format_tool_reply(tool_name, args, payload)
                 partes.append(msg)
                 # Ao criar projeto, gera ZIP e adiciona link de download clicável (se ainda não tiver)
@@ -589,6 +623,12 @@ def agent_controller(
         emit("memory_saved", chat_id=chat_id, user_id=user_id)
         if get_energy_manager:
             get_energy_manager().recover()
+        if get_world_model:
+            try:
+                get_world_model().sync_from_modules()
+                get_world_model().save()
+            except Exception:
+                pass
         transition(AgentState.IDLE)
 
     except Exception as e:

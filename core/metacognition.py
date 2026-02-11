@@ -129,6 +129,41 @@ class MetaCognition:
 
         return signals
 
+    def check_redundant_action(
+        self,
+        tool_name: str,
+        args: Optional[Dict[str, Any]] = None,
+    ) -> tuple[bool, str]:
+        """
+        World Model: verifica se ação é redundante (ex: criar arquivo que já existe).
+        Retorna (is_redundant, motivo).
+        """
+        try:
+            from core.world_model import get_world_model
+        except Exception:
+            return False, ""
+
+        if tool_name != "criar_projeto_arquivos":
+            return False, ""
+
+        wm = get_world_model()
+        files = args.get("files") if args else []
+        if not files:
+            return False, ""
+
+        root_dir = (args.get("root_dir") or "").replace("\\", "/")
+        base = root_dir if "generated_projects" in root_dir else f"generated_projects/{root_dir}" if root_dir else ""
+        existing = []
+        for f in files:
+            path = f.get("path", f) if isinstance(f, dict) else str(f)
+            full_path = f"{base}/{path}".strip("/") if base else path
+            if wm.file_exists(full_path) or wm.file_exists(path):
+                existing.append(path)
+
+        if existing:
+            return True, f"Arquivos já existem no projeto: {', '.join(existing[:3])}"
+        return False, ""
+
 
 _meta: Optional[MetaCognition] = None
 
