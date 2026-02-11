@@ -1138,6 +1138,106 @@ body.theme-light .msgContent .codeBlockToWorkspace {
   box-shadow: 0 0 12px rgba(0, 242, 255, 0.2);
 }
 
+.workspaceBody {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.fileTreeSidebar {
+  flex: 0 0 220px;
+  min-width: 180px;
+  background: rgba(0, 0, 0, 0.2);
+  border-right: 1px solid var(--glass-border);
+  overflow-y: auto;
+  font-size: 0.82rem;
+}
+
+.fileTreeEmpty {
+  padding: 16px;
+  color: #6a6a76;
+  font-size: 0.8rem;
+  text-align: center;
+}
+
+.fileTreeList {
+  padding: 8px 0;
+}
+
+.fileTreeItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+
+.fileTreeItem svg {
+  flex-shrink: 0;
+  color: #8a8a96;
+}
+
+.fileTreeItem span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fileTreeFolder span {
+  color: #a0a0ac;
+}
+
+.fileTreeFile:hover {
+  background: rgba(0, 242, 255, 0.08);
+}
+
+.fileTreeFile.active {
+  background: rgba(0, 242, 255, 0.12);
+  color: var(--electric-cyan);
+}
+
+.fileTreeFile.active svg {
+  color: var(--electric-cyan);
+}
+
+.fileTreeFolder {
+  color: #a0a0ac;
+}
+
+.fileTreeFolder.open svg {
+  transform: rotate(0deg);
+}
+
+.fileTreeFolder:not(.open) svg {
+  transform: rotate(-90deg);
+}
+
+.fileTreeChildren {
+  overflow: hidden;
+}
+
+.fileTreeChildren.collapsed {
+  display: none;
+}
+
+.workspaceBtnHighlight {
+  background: rgba(112, 0, 255, 0.2);
+  border-color: rgba(112, 0, 255, 0.35);
+  color: #c084fc;
+}
+
+.workspaceBtnHighlight:hover {
+  background: rgba(112, 0, 255, 0.3);
+  box-shadow: 0 0 12px rgba(112, 0, 255, 0.2);
+}
+
+.workspaceHeader .workspaceActions {
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
 .monacoContainer {
   flex: 1;
   min-height: 200px;
@@ -1283,6 +1383,10 @@ body.theme-light .msgContent .codeBlockToWorkspace {
     flex: 0 0 auto;
     min-height: 180px;
     max-height: 45%;
+  }
+  .fileTreeSidebar {
+    flex: 0 0 160px;
+    min-width: 120px;
   }
   .btnNovoChat {
     padding: 12px;

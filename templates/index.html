@@ -77,11 +77,21 @@
         <div class="workspaceHeader">
           <span class="workspaceTitle">Workspace</span>
           <div class="workspaceActions">
+            <input type="file" id="workspaceImportInput" webkitdirectory directory multiple hidden />
+            <button type="button" id="workspaceImport" class="workspaceBtn" title="Importar projeto">Importar</button>
+            <button type="button" id="workspaceExport" class="workspaceBtn" title="Exportar ZIP">Exportar ZIP</button>
+            <button type="button" id="workspaceFeedYui" class="workspaceBtn workspaceBtnHighlight" title="Enviar arquivo para o chat">Alimentar Yui</button>
             <button type="button" id="workspaceCopy" class="workspaceBtn" title="Copiar">Copiar</button>
             <button type="button" id="workspaceDownload" class="workspaceBtn" title="Baixar arquivo">Baixar</button>
           </div>
         </div>
-        <div id="monacoContainer" class="monacoContainer"></div>
+        <div class="workspaceBody">
+          <div class="fileTreeSidebar" id="fileTreeSidebar">
+            <div class="fileTreeEmpty" id="fileTreeEmpty">Importe um projeto para ver os arquivos</div>
+            <div class="fileTreeList" id="fileTreeList" style="display: none;"></div>
+          </div>
+          <div id="monacoContainer" class="monacoContainer"></div>
+        </div>
       </aside>
     </div>
     </div>
@@ -131,8 +141,10 @@
     window.SUPABASE_URL = "{{ supabase_url or '' }}";
     window.SUPABASE_KEY = "{{ supabase_key or '' }}";
   </script>
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
   <script src="/static/app.js"></script>
   <script src="/static/chat.js"></script>
   <script src="/static/editor.js"></script>
+  <script src="/static/workspace-project.js"></script>
 </body>
 </html>

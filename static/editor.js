@@ -77,6 +77,16 @@
     return map[(lang || "").toLowerCase()] || "plaintext";
   }
 
+  function getLangFromPath(path) {
+    var ext = (path || "").split(".").pop().toLowerCase();
+    var map = {
+      js: "javascript", ts: "typescript", tsx: "typescript", jsx: "javascript",
+      py: "python", json: "json", html: "html", css: "css", md: "markdown",
+      java: "java", yml: "yaml", yaml: "yaml", sh: "shell",
+    };
+    return map[ext] || "plaintext";
+  }
+
   function getLangToExt(lang) {
     var map = {
       js: "js", javascript: "js", ts: "ts", typescript: "ts",
@@ -158,9 +168,13 @@
     if (downloadBtn) downloadBtn.addEventListener("click", workspaceDownload);
   }
 
+  window.getMonacoEditor = function () { return monacoEditor; };
+  window.getLangFromPath = getLangFromPath;
+
   window.initYuiWorkspace = function () {
     initWorkspaceButtons();
     initMonacoEditor();
+    if (window.initWorkspaceProject) window.initWorkspaceProject();
   };
 
   if (document.readyState === "loading") {
