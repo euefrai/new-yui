@@ -3,7 +3,7 @@
 import json
 import uuid
 
-from flask import Blueprint, jsonify, request, Response, stream_with_context
+from flask import Blueprint, jsonify, request, Response, stream_with_context, session
 
 from services.chat_service import (
     chat_pertence_usuario,
@@ -20,6 +20,9 @@ from services.chat_service import (
 from services.ai_service import stream_resposta, gerar_titulo_chat, processar_mensagem_sync
 from core.supabase_client import supabase
 from yui_ai.main import processar_texto_web
+from yui_ai.memory.session_memory import memory as session_memory
+from yui_ai.agent.router import detect_intent
+from yui_ai.agent.tool_executor import executor as tool_executor
 
 
 chat_bp = Blueprint("chat", __name__, url_prefix="")
@@ -92,11 +95,36 @@ def api_chat_stream():
         if not chat_pertence_usuario(chat_id, user_id):
             return jsonify({"error": "Chat não encontrado ou não pertence ao usuário"}), 403
 
+        session["user_id"] = user_id
+        history = session_memory.get(user_id)
+
+        intent = detect_intent(message)
+        if intent != "chat":
+            tool_result = tool_executor.execute(intent, message)
+            if tool_result:
+                msg = tool_result.get("message") or str(tool_result)
+                def tool_stream():
+                    yield f"data: {json.dumps('__STATUS__:thinking')}\n\n"
+                    yield f"data: {json.dumps(msg)}\n\n"
+                    yield f"data: {json.dumps('__STATUS__:done')}\n\n"
+                    session_memory.add(user_id, "user", message)
+                    session_memory.add(user_id, "assistant", msg)
+                return Response(
+                    stream_with_context(tool_stream()),
+                    mimetype="text/event-stream",
+                    headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+                )
+
         def generate():
             yield f"data: {json.dumps('__STATUS__:thinking')}\n\n"
+            full_reply = []
             for chunk in stream_resposta(user_id, chat_id, message):
+                full_reply.append(chunk)
                 yield f"data: {json.dumps(chunk)}\n\n"
             yield f"data: {json.dumps('__STATUS__:done')}\n\n"
+            reply_text = "".join(full_reply) if full_reply else ""
+            session_memory.add(user_id, "user", message)
+            session_memory.add(user_id, "assistant", reply_text)
 
         return Response(
             stream_with_context(generate()),

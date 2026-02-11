@@ -19,6 +19,7 @@ app = Flask(
     static_folder="static",
     template_folder="templates",
 )
+app.secret_key = os.environ.get("SECRET_KEY", "yui-dev-secret-change-in-production")
 CORS(app)
 
 

@@ -251,6 +251,22 @@
     showLogin();
   });
 
+  var clearChatBtn = document.getElementById("clearChat");
+  if (clearChatBtn) {
+    clearChatBtn.addEventListener("click", async function () {
+      try {
+        var body = {};
+        if (user && user.id) body.user_id = user.id;
+        await fetch("/clear_chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+      } catch (e) {}
+      location.reload();
+    });
+  }
+
   if (themeDarkBtn) themeDarkBtn.addEventListener("click", function () { applyTheme("dark"); });
   if (themeLightBtn) themeLightBtn.addEventListener("click", function () { applyTheme("light"); });
   if (closePreview) closePreview.addEventListener("click", function () { closePreviewPanel(); });

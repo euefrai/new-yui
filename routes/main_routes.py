@@ -1,7 +1,7 @@
-# Rotas principais: index, estáticos (web, generated).
+# Rotas principais: index, estáticos (web, generated), clear_chat.
 
 import os
-from flask import Blueprint, request, render_template, send_from_directory
+from flask import Blueprint, request, render_template, send_from_directory, jsonify, session
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 WEB_DIR = os.path.join(BASE_DIR, "web")
@@ -42,3 +42,19 @@ def web_static(path: str):
 @main_bp.route("/generated/<path:path>")
 def generated_static(path: str):
     return send_from_directory(GENERATED_DIR, path)
+
+
+@main_bp.route("/clear_chat", methods=["POST"])
+def clear_chat():
+    user_id = session.get("user_id")
+    if not user_id:
+        data = request.get_json(silent=True) or {}
+        user_id = data.get("user_id")
+    if not user_id:
+        return jsonify({"error": "user_id obrigatório", "status": "error"}), 400
+    try:
+        from yui_ai.memory.session_memory import memory
+        memory.clear(user_id)
+        return jsonify({"status": "ok"}), 200
+    except Exception as e:
+        return jsonify({"status": "error", "error": str(e)}), 500
