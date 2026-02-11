@@ -103,17 +103,108 @@
     link.href = url;
     link.innerText = "⬇️ Baixar Projeto";
     link.className = "download-btn btn-download";
-    link.target = "_blank";
-    link.rel = "noopener";
-    var filename = url.split("/").pop() || "projeto.zip";
-    if (filename) link.setAttribute("download", filename);
+    link.setAttribute("download", url.split("/").pop() || "projeto.zip");
+    link.addEventListener("click", function (e) {
+      e.preventDefault();
+      fetch(url).then(function (r) { return r.blob(); }).then(function (blob) {
+        var a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = url.split("/").pop() || "projeto.zip";
+        a.click();
+        URL.revokeObjectURL(a.href);
+      }).catch(function () { window.open(url, "_blank"); });
+    });
     container.appendChild(link);
+  }
+
+  function addTaskFromText(text) {
+    if (!text || typeof text !== "string") return;
+    var lines = text.split("\n");
+    lines.forEach(function (ln) {
+      var m = ln.match(/^\[TASK\]:\s*(.+)$/);
+      if (m && m[1]) {
+        addTask(m[1].trim());
+      }
+    });
+  }
+
+  function addTask(text) {
+    if (!text || !text.trim()) return;
+    var tasks = loadTasks();
+    var t = text.trim();
+    if (tasks.some(function (x) { return x.text === t; })) return;
+    tasks.push({ id: Date.now().toString(), text: t, done: false });
+    saveTasks(tasks);
+    renderTasks();
+  }
+
+  function loadTasks() {
+    try {
+      var raw = localStorage.getItem("yui_tasks");
+      return raw ? JSON.parse(raw) : [];
+    } catch (e) { return []; }
+  }
+
+  function saveTasks(tasks) {
+    try { localStorage.setItem("yui_tasks", JSON.stringify(tasks)); } catch (e) {}
+  }
+
+  function toggleTask(id) {
+    var tasks = loadTasks();
+    var t = tasks.find(function (x) { return x.id === id; });
+    if (t) { t.done = !t.done; saveTasks(tasks); renderTasks(); }
+  }
+
+  function removeTask(id) {
+    var tasks = loadTasks().filter(function (x) { return x.id !== id; });
+    saveTasks(tasks);
+    renderTasks();
+  }
+
+  function renderTasks() {
+    var list = document.getElementById("tasksList");
+    var tasks = loadTasks();
+    if (!list) return;
+    list.innerHTML = "";
+    tasks.forEach(function (t) {
+      var li = document.createElement("li");
+      if (t.done) li.classList.add("done");
+      li.innerHTML = '<input type="checkbox" class="taskCheck" ' + (t.done ? "checked" : "") + ' data-id="' + escapeHtml(t.id) + '">' +
+        '<span class="taskText">' + escapeHtml(t.text) + '</span>' +
+        '<button type="button" class="taskDel" data-id="' + escapeHtml(t.id) + '">×</button>';
+      var chk = li.querySelector(".taskCheck");
+      var del = li.querySelector(".taskDel");
+      if (chk) chk.addEventListener("change", function () { toggleTask(chk.dataset.id); });
+      if (del) del.addEventListener("click", function () { removeTask(del.dataset.id); });
+      list.appendChild(li);
+    });
+  }
+
+  function initTasks() {
+    renderTasks();
+    var addBtn = document.getElementById("tasksAddBtn");
+    var input = document.getElementById("tasksInput");
+    if (addBtn && input) {
+      addBtn.addEventListener("click", function () {
+        input.style.display = input.style.display === "none" ? "block" : "none";
+        if (input.style.display !== "none") input.focus();
+      });
+      input.addEventListener("keydown", function (e) {
+        if (e.key === "Enter" && input.value.trim()) {
+          addTask(input.value.trim());
+          input.value = "";
+          input.style.display = "none";
+        }
+      });
+    }
   }
 
   function finalizeAssistantBubble(bubble) {
     if (!bubble) return;
     var fullText = bubble.textContent || "";
+    addTaskFromText(fullText);
     var cleaned = fullText.replace(/\n?\[DOWNLOAD\]:\S+/, "").trim();
+    cleaned = cleaned.replace(/\n?\[TASK\]:[^\n]*/g, "").trim();
     bubble.innerHTML = formatMarkdownToHtml(cleaned);
     attachCodeBlockCopyButtons(bubble);
     initDownloadButtons(bubble, fullText);
@@ -597,6 +688,7 @@
       var previewUrl = null;
       var downloadUrl = null;
       if (m.role === "assistant") {
+        addTaskFromText(raw);
         var linhas = raw.split("\n");
         var filtradas = [];
         linhas.forEach(function (ln) {
@@ -604,6 +696,8 @@
             previewUrl = ln.replace("[PREVIEW_URL]:", "").trim();
           } else if (ln.indexOf("[DOWNLOAD]:") === 0) {
             downloadUrl = ln.replace("[DOWNLOAD]:", "").trim();
+          } else if (ln.indexOf("[TASK]:") === 0) {
+            /* já extraído em addTaskFromText */
           } else {
             filtradas.push(ln);
           }
@@ -623,10 +717,17 @@
         link.href = downloadUrl;
         link.innerText = "⬇️ Baixar Projeto";
         link.className = "download-btn btn-download";
-        link.target = "_blank";
-        link.rel = "noopener";
-        var filename = downloadUrl.split("/").pop() || "projeto.zip";
-        if (filename) link.setAttribute("download", filename);
+        link.setAttribute("download", downloadUrl.split("/").pop() || "projeto.zip");
+        link.addEventListener("click", function (e) {
+          e.preventDefault();
+          fetch(downloadUrl).then(function (r) { return r.blob(); }).then(function (blob) {
+            var a = document.createElement("a");
+            a.href = URL.createObjectURL(blob);
+            a.download = downloadUrl.split("/").pop() || "projeto.zip";
+            a.click();
+            URL.revokeObjectURL(a.href);
+          }).catch(function () { window.open(downloadUrl, "_blank"); });
+        });
         div.appendChild(link);
       }
       if (previewUrl) {
@@ -1031,11 +1132,14 @@
 
         if (btnEnviar) btnEnviar.disabled = true;
 
-        fetch("/api/chat/stream", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ chat_id: chatId, user_id: user.id, message: texto, model: getCurrentModel() })
-        })
+        function runStreamFetch(cId, txt, confirmHighCost, aBubble, sLine, cur, btn) {
+          var body = { chat_id: cId, user_id: user.id, message: txt, model: getCurrentModel() };
+          if (confirmHighCost) body.confirm_high_cost = true;
+          fetch("/api/chat/stream", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body)
+          })
           .then(function (response) {
             if (!response.ok || !response.body) throw new Error("Stream failed");
             return response.body.getReader();
@@ -1046,12 +1150,12 @@
             function read() {
               return reader.read().then(function (result) {
                 if (result.done) {
-                  cursor.remove();
-                  assistantBubble.setAttribute("data-status", "sent");
-                  finalizeAssistantBubble(assistantBubble);
-                  if (btnEnviar) btnEnviar.disabled = false;
+                  if (cur && cur.parentNode) cur.remove();
+                  aBubble.setAttribute("data-status", "sent");
+                  finalizeAssistantBubble(aBubble);
+                  if (btn) btn.disabled = false;
                   if (isNovoChatTitulo(currentChatTitulo)) {
-                    atualizarTituloChat(chatId, texto);
+                    atualizarTituloChat(cId, txt);
                   }
                   fetchTelemetry();
                   return;
@@ -1067,26 +1171,52 @@
                       if (!payload) return;
                       var chunk = JSON.parse(payload);
                       if (typeof chunk === "string" && chunk.indexOf("__STATUS__:") === 0) {
-                        if (!statusLine) return;
+                        if (!sLine) return;
                         var state = chunk.slice("__STATUS__:".length);
                         if (state === "thinking") {
-                          statusLine.textContent = "🧠 Pensando...";
-                          assistantBubble.setAttribute("data-status", "sending");
+                          sLine.textContent = "🧠 Pensando...";
+                          aBubble.setAttribute("data-status", "sending");
                         } else if (state === "analyzing_code") {
-                          statusLine.textContent = "🔎 Analisando código...";
-                          assistantBubble.setAttribute("data-status", "streaming");
+                          sLine.textContent = "🔎 Analisando código...";
+                          aBubble.setAttribute("data-status", "streaming");
                         } else if (state === "done") {
-                          statusLine.remove();
-                          statusLine = null;
-                          assistantBubble.setAttribute("data-status", "sent");
-                          if (cursor && cursor.parentNode) cursor.remove();
-                          finalizeAssistantBubble(assistantBubble);
+                          sLine.remove();
+                          if (cur && cur.parentNode) cur.remove();
+                          aBubble.setAttribute("data-status", "sent");
+                          finalizeAssistantBubble(aBubble);
                         }
                         return;
                       }
-                      assistantBubble.setAttribute("data-status", "streaming");
+                      if (typeof chunk === "string" && chunk.indexOf("__BUDGET_CONFIRM__:") === 0) {
+                        var parts = chunk.split(":");
+                        var costVal = parts[1] || "0";
+                        var msg = parts.slice(2).join(":").trim() || ("Custo estimado R$ " + costVal + ". Deseja continuar?");
+                        if (sLine) sLine.remove();
+                        if (cur && cur.parentNode) cur.remove();
+                        aBubble.innerHTML = "<div class=\"assistantStatus\">" + escapeHtml(msg) + "</div><button type=\"button\" class=\"msgBudgetConfirm\">Sim, continuar</button>";
+                        aBubble.setAttribute("data-status", "budget_confirm");
+                        if (btn) btn.disabled = false;
+                        var confirmBtn = aBubble.querySelector(".msgBudgetConfirm");
+                        if (confirmBtn) {
+                          confirmBtn.addEventListener("click", function () {
+                            aBubble.innerHTML = "";
+                            var newStatus = document.createElement("div");
+                            newStatus.className = "assistantStatus";
+                            newStatus.textContent = "🧠 Pensando...";
+                            var newCursor = document.createElement("span");
+                            newCursor.className = "cursorStream";
+                            aBubble.appendChild(newStatus);
+                            aBubble.appendChild(newCursor);
+                            aBubble.setAttribute("data-status", "sending");
+                            if (btn) btn.disabled = true;
+                            runStreamFetch(cId, txt, true, aBubble, newStatus, newCursor, btn);
+                          });
+                        }
+                        return;
+                      }
+                      aBubble.setAttribute("data-status", "streaming");
                       var textNode = document.createTextNode(chunk);
-                      assistantBubble.insertBefore(textNode, cursor);
+                      aBubble.insertBefore(textNode, cur);
                     } catch (e) {}
                   }
                 });
@@ -1097,12 +1227,14 @@
             return read();
           })
           .catch(function () {
-            cursor.remove();
-            assistantBubble.setAttribute("data-status", "error");
-            assistantBubble.textContent = "Erro de rede ou streaming não disponível. Tente novamente.";
-            if (btnEnviar) btnEnviar.disabled = false;
+            if (cur && cur.parentNode) cur.remove();
+            aBubble.setAttribute("data-status", "error");
+            aBubble.textContent = "Erro de rede ou streaming não disponível. Tente novamente.";
+            if (btn) btn.disabled = false;
             chat.scrollTop = chat.scrollHeight;
           });
+        }
+        runStreamFetch(chatId, texto, false, assistantBubble, statusLine, cursor, btnEnviar);
       }
     }
 
@@ -1132,6 +1264,8 @@
       applyModelVisual("heathcliff");
     }
   }
+
+  initTasks();
 
   var btnEnviarEl = document.getElementById("btnEnviar");
   if (btnEnviarEl) btnEnviarEl.addEventListener("click", function (e) { e.preventDefault(); enviar(); });
@@ -1208,14 +1342,25 @@
       .then(function (data) {
         var costEl = document.getElementById("telemetryCost");
         var reqEl = document.getElementById("telemetryRequests");
+        var lastEl = document.getElementById("telemetryLastResponse");
+        var tokensEl = document.getElementById("telemetryTokens");
         if (costEl) costEl.textContent = (data.cost_estimate != null ? "R$ " + data.cost_estimate.toFixed(2) : "—");
         if (reqEl) reqEl.textContent = (data.requests != null ? data.requests : "—");
+        if (lastEl) lastEl.textContent = (data.last_response_cost != null && data.last_response_cost > 0 ? "R$ " + data.last_response_cost.toFixed(4) : "—");
+        if (tokensEl) {
+          var t = data.last_response_tokens;
+          tokensEl.textContent = (t && (t.prompt != null || t.completion != null)) ? (t.prompt || 0) + " / " + (t.completion || 0) : "—";
+        }
       })
       .catch(function () {
         var costEl = document.getElementById("telemetryCost");
         var reqEl = document.getElementById("telemetryRequests");
+        var lastEl = document.getElementById("telemetryLastResponse");
+        var tokensEl = document.getElementById("telemetryTokens");
         if (costEl) costEl.textContent = "—";
         if (reqEl) reqEl.textContent = "—";
+        if (lastEl) lastEl.textContent = "—";
+        if (tokensEl) tokensEl.textContent = "—";
       });
   }
 

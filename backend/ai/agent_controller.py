@@ -22,12 +22,14 @@ from core.user_profile import get_user_profile
 
 from backend.ai.auto_debug import auto_debug
 from backend.ai.context_engine import montar_contexto_ia
+from core.memoria_ia import salvar_resumo as salvar_memoria_ia
 from backend.ai.context_memory import salvar_memoria as salvar_memoria_chat
 from backend.ai.self_reflect import avaliar_resposta
 from backend.ai.skill_manager import executar_skill, listar_skills
 from backend.ai.task_planner import criar_plano
 from backend.ai.tool_router import processar_resposta_ai
 from core.limits import MAX_STEPS as LIMIT_MAX_STEPS
+from core.usage_tracker import record_response_cost, estimate_cost_brl, BUDGET_ALERT_BRL
 from core.goals.goal_manager import get_active_goals, update_progress
 from core.planner import criar_plano_estruturado, plan_to_prompt
 try:
@@ -343,8 +345,34 @@ REGRAS OBRIGATÓRIAS:
 6. Ao criar projetos, use criar_projeto_arquivos e criar_zip_projeto para gerar o ZIP. Inclua sempre [DOWNLOAD]:/download/nome.zip na resposta final.
 7. Use get_current_time() quando precisar de horário real (logs, timestamps, agendamento, saudações).
 8. Use buscar_web(query) quando precisar verificar informações externas.
-9. Responda em português do Brasil.
+9. Para criar tarefas para o usuário organizar o desenvolvimento, inclua na resposta linhas no formato [TASK]: Nome da tarefa (uma por linha). Ex: [TASK]: Corrigir erro de download no Zeabur.
+10. Responda em português do Brasil.
 """
+
+
+def _salvar_memoria_ia_se_relevante(user_id: str, chat_id: str, user_msg: str, reply: str) -> None:
+    """Salva resumo em memoria_ia quando for comando importante ou conclusão de código."""
+    if not user_id or not reply or len(reply) < 20:
+        return
+    triggers = ("criar", "implementar", "adicionar", "corrigir", "alterar", "refatorar", "configurar", "crie", "implemente")
+    user_lower = (user_msg or "").lower()
+    has_trigger = any(t in user_lower for t in triggers)
+    has_code = "```" in reply or "[DOWNLOAD]:" in reply or "Projeto criado" in reply
+    if not (has_trigger or has_code):
+        return
+    resumo = (reply[:500] + "..." if len(reply) > 500 else reply).strip()
+    tags = []
+    if "db" in user_lower or "banco" in user_lower or "sql" in user_lower:
+        tags.append("#db")
+    if "login" in user_lower or "auth" in user_lower or "autenticação" in user_lower:
+        tags.append("#login")
+    if "estilo" in user_lower or "css" in user_lower or "ui" in user_lower or "interface" in user_lower:
+        tags.append("#estilo")
+    if "api" in user_lower or "endpoint" in user_lower:
+        tags.append("#api")
+    if not tags:
+        tags.append("#projeto")
+    salvar_memoria_ia(user_id, resumo, ",".join(tags), chat_id)
 
 
 def _get_dependencies_context() -> str:
@@ -381,6 +409,7 @@ def agent_controller(
     chat_id: str,
     user_message: str,
     model: str = "yui",
+    confirm_high_cost: bool = False,
 ) -> Generator[str, None, None]:
     """
     Fluxo central da YUI.
@@ -493,6 +522,11 @@ def agent_controller(
             })
         if ctx.get("memoria_eventos"):
             msgs.insert(0, {"role": "system", "content": ctx["memoria_eventos"]})
+        if ctx.get("memoria_ia"):
+            msgs.insert(0, {
+                "role": "system",
+                "content": "Use as decisões abaixo (memória de longo prazo) para manter consistência:\n\n" + ctx["memoria_ia"],
+            })
         if ctx.get("system_state"):
             msgs.insert(0, {"role": "system", "content": f"Estado da Yui: {ctx['system_state']}"})
 
@@ -566,6 +600,14 @@ def agent_controller(
                 yield c
             return
 
+        # ---------- 1.5) Alerta de orçamento: estimar custo antes de chamar ----------
+        prompt_chars = sum(len(str(m.get("content", ""))) for m in msgs)
+        estimated_cost = estimate_cost_brl(prompt_chars)
+        if estimated_cost > BUDGET_ALERT_BRL and not confirm_high_cost:
+            msg = f"⚠️ Esta tarefa pode custar aproximadamente R$ {estimated_cost:.2f}. Deseja continuar? (Responda 'sim' para prosseguir)"
+            yield f"__BUDGET_CONFIRM__:{estimated_cost:.2f}:{msg}"
+            return
+
         # ---------- 2) Uma chamada à IA (resposta estruturada) ----------
         if get_energy_manager:
             get_energy_manager().consume(COST_RESPONDER_IA)
@@ -582,6 +624,16 @@ def agent_controller(
         transition(AgentState.EXECUTING)
         response = client.chat.completions.create(model=MODEL, messages=msgs)
         raw_content = (response.choices[0].message.content or "").strip()
+        # Registrar custo da resposta para telemetria
+        try:
+            usage = getattr(response, "usage", None)
+            if usage:
+                pt = getattr(usage, "prompt_tokens") or 0
+                ct = getattr(usage, "completion_tokens") or 0
+                if pt or ct:
+                    record_response_cost(pt, ct)
+        except Exception:
+            pass
         data = _parse_json(raw_content)
         if data is None and ("mode" in raw_content and ("tools" in raw_content or "tool" in raw_content)):
             data = _parse_json(raw_content[raw_content.find("{"):] if "{" in raw_content else raw_content)
@@ -759,6 +811,11 @@ def agent_controller(
         save_message(chat_id, "assistant", reply, user_id)
         add_event(user_id=user_id, chat_id=chat_id, tipo="curta", conteudo=user_message)
         add_event(user_id=user_id, chat_id=chat_id, tipo="curta", conteudo=reply)
+        # Salvar em memoria_ia quando for comando importante ou código finalizado
+        try:
+            _salvar_memoria_ia_se_relevante(user_id, chat_id, user_message, reply)
+        except Exception:
+            pass
         emit("memory_saved", chat_id=chat_id, user_id=user_id)
         if get_energy_manager:
             em_final = get_energy_manager()

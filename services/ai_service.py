@@ -19,9 +19,10 @@ def stream_resposta(
     chat_id: str,
     message: str,
     model: str = "yui",
+    confirm_high_cost: bool = False,
 ) -> Generator[str, None, None]:
     """Streaming da resposta da YUI (Agent Controller)."""
-    yield from agent_controller(user_id, chat_id, message, model=model)
+    yield from agent_controller(user_id, chat_id, message, model=model, confirm_high_cost=confirm_high_cost)
 
 
 def gerar_titulo_chat(first_message: str) -> str:
@@ -44,6 +45,7 @@ def handle_chat_stream(
     chat_id: str,
     message: str,
     model: str = "yui",
+    confirm_high_cost: bool = False,
 ) -> Generator[str, None, None]:
     """
     Orquestra o stream do chat: intent, tool ou IA, session_memory.
@@ -59,7 +61,7 @@ def handle_chat_stream(
             yield msg
             return
     full_reply = []
-    for chunk in stream_resposta(user_id, chat_id, message, model=model):
+    for chunk in stream_resposta(user_id, chat_id, message, model=model, confirm_high_cost=confirm_high_cost):
         full_reply.append(chunk)
         yield chunk
     session_memory.add(user_id, "assistant", "".join(full_reply))

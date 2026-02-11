@@ -314,6 +314,51 @@
     msg.focus();
   }
 
+  function updateWorkspacePreview() {
+    saveCurrentToCache();
+    var frame = document.getElementById("workspacePreviewFrame");
+    var empty = document.getElementById("workspacePreviewEmpty");
+    var wrap = frame && frame.closest(".workspacePreviewWrap");
+    if (!frame || !empty) return;
+    var html = "";
+    var path = currentFilePath;
+    if (path && /\.(html|htm)$/i.test(path)) {
+      html = projectFiles[path] || "";
+    }
+    if (!html) {
+      var idx = Object.keys(projectFiles).find(function (p) { return /index\.html?$/i.test(p); });
+      if (idx) html = projectFiles[idx] || "";
+    }
+    if (!html || !html.trim()) {
+      frame.srcdoc = "";
+      frame.style.display = "none";
+      empty.style.display = "flex";
+      if (wrap) wrap.classList.remove("has-content");
+      return;
+    }
+    html = html.replace(/<link\s+[^>]*href=["']([^"']+\.css)["'][^>]*>/gi, function (m, href) {
+      var cssPath = href.replace(/^\//, "");
+      var css = projectFiles[cssPath] || projectFiles["style.css"] || "";
+      var keys = Object.keys(projectFiles);
+      for (var i = 0; i < keys.length; i++) {
+        if (keys[i].toLowerCase().endsWith(".css") && keys[i].indexOf(cssPath) >= 0) {
+          css = projectFiles[keys[i]] || "";
+          break;
+        }
+      }
+      return css ? "<style>" + css + "</style>" : m;
+    });
+    try {
+      frame.srcdoc = html;
+      frame.style.display = "block";
+      empty.style.display = "none";
+      if (wrap) wrap.classList.add("has-content");
+    } catch (e) {
+      empty.style.display = "flex";
+      empty.textContent = "Erro ao renderizar preview.";
+    }
+  }
+
   function showDiffView() {
     saveCurrentToCache();
     var path = currentFilePath;
@@ -344,6 +389,23 @@
   }
 
   function initWorkspaceProject() {
+    var tabs = document.getElementById("workspaceTabs");
+    if (tabs) {
+      tabs.querySelectorAll(".workspaceTab").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          var tab = btn.getAttribute("data-tab");
+          tabs.querySelectorAll(".workspaceTab").forEach(function (b) { b.classList.remove("active"); });
+          btn.classList.add("active");
+          document.querySelectorAll(".workspaceTabContent").forEach(function (c) { c.style.display = "none"; });
+          var content = document.getElementById("workspaceTab" + (tab === "editor" ? "Editor" : tab === "preview" ? "Preview" : "Editor"));
+          if (content) {
+            content.style.display = "flex";
+            if (tab === "preview") updateWorkspacePreview();
+          }
+        });
+      });
+    }
+    document.addEventListener("workspacePreviewUpdate", updateWorkspacePreview);
     var importBtn = document.getElementById("workspaceImport");
     var exportBtn = document.getElementById("workspaceExport");
     var feedBtn = document.getElementById("workspaceFeedYui");
@@ -387,6 +449,7 @@
 
   window.initWorkspaceProject = initWorkspaceProject;
   window.loadWorkspaceFile = loadFile;
+  window.updateWorkspacePreview = updateWorkspacePreview;
 
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", initWorkspaceProject);

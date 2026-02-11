@@ -52,6 +52,26 @@ CREATE INDEX IF NOT EXISTS idx_memory_events_created_at ON memory_events(created
 
 ALTER TABLE memory_events ENABLE ROW LEVEL SECURITY;
 
+-- Memória de longo prazo (RAG): resumos de decisões e conclusões
+CREATE TABLE IF NOT EXISTS memoria_ia (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  chat_id UUID REFERENCES chats(id) ON DELETE CASCADE,
+  resumo TEXT NOT NULL,
+  tags TEXT DEFAULT '',
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_memoria_ia_user_id ON memoria_ia(user_id);
+CREATE INDEX IF NOT EXISTS idx_memoria_ia_chat_id ON memoria_ia(chat_id);
+CREATE INDEX IF NOT EXISTS idx_memoria_ia_created_at ON memoria_ia(created_at DESC);
+
+ALTER TABLE memoria_ia ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Usuário acessa só sua memoria_ia"
+  ON memoria_ia FOR ALL
+  USING (auth.uid() = user_id);
+
 CREATE POLICY "Usuário acessa só seus eventos de memória"
   ON memory_events FOR ALL
   USING (auth.uid() = user_id);

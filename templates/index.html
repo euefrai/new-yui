@@ -40,6 +40,14 @@
       </button>
       <button type="button" id="clearChat" class="btnClearChat" title="Limpar memória da sessão">Excluir Chat</button>
       <div id="listaChats" class="listaChats"></div>
+      <div class="tasksPanel" id="tasksPanel" title="Afazeres — Heathcliff pode criar tarefas automaticamente">
+        <div class="tasksPanelHeader">
+          <span class="tasksPanelTitle">Afazeres</span>
+          <button type="button" id="tasksAddBtn" class="tasksAddBtn" title="Nova tarefa">+</button>
+        </div>
+        <ul class="tasksList" id="tasksList"></ul>
+        <input type="text" id="tasksInput" class="tasksInput" placeholder="Nova tarefa..." style="display:none" />
+      </div>
       <div class="telemetryPanel" id="telemetryPanel" title="Custo acumulado do dia">
         <div class="telemetryTitle">Telemetria</div>
         <div class="telemetryRow">
@@ -49,6 +57,14 @@
         <div class="telemetryRow">
           <span class="telemetryLabel">Requisições</span>
           <span class="telemetryValue" id="telemetryRequests">—</span>
+        </div>
+        <div class="telemetryRow">
+          <span class="telemetryLabel">Custo da última resposta</span>
+          <span class="telemetryValue" id="telemetryLastResponse">—</span>
+        </div>
+        <div class="telemetryRow">
+          <span class="telemetryLabel">Tokens (entrada/saída)</span>
+          <span class="telemetryValue" id="telemetryTokens">—</span>
         </div>
       </div>
       <div class="userFooter">
@@ -103,12 +119,24 @@
             <div class="fileTreeList" id="fileTreeList" style="display: none;"></div>
           </div>
           <div class="workspaceEditorColumn">
-            <div id="monacoContainer" class="monacoContainer"></div>
+            <div class="workspaceTabs" id="workspaceTabs">
+              <button type="button" class="workspaceTab active" data-tab="editor">Editor</button>
+              <button type="button" class="workspaceTab" data-tab="preview">Preview</button>
+            </div>
+            <div class="workspaceTabContent" id="workspaceTabEditor">
+              <div id="monacoContainer" class="monacoContainer"></div>
             <div class="workspaceConsole" id="workspaceConsole">
               <div class="workspaceConsoleHeader">Console</div>
               <pre class="workspaceConsoleOutput" id="workspaceConsoleOutput">$ Aguardando execução...</pre>
               <div class="workspaceConsoleActions" id="workspaceConsoleActions" style="display:none">
                 <button type="button" id="workspaceSuggestFix" class="workspaceConsoleBtn">Sugerir correção ao Heathcliff</button>
+              </div>
+            </div>
+            </div>
+            <div class="workspaceTabContent" id="workspaceTabPreview" style="display:none">
+              <div class="workspacePreviewWrap">
+                <iframe id="workspacePreviewFrame" class="workspacePreviewFrame" src="about:blank" title="Preview do HTML"></iframe>
+                <div class="workspacePreviewEmpty" id="workspacePreviewEmpty">Abra um arquivo HTML para visualizar a prévia</div>
               </div>
             </div>
           </div>

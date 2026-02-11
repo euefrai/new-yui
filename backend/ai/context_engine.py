@@ -15,6 +15,7 @@ from core.user_profile import get_user_profile
 from backend.ai.context_builder import montar_contexto_projeto
 from backend.ai.context_memory import buscar_contexto as buscar_contexto_chat
 from backend.ai.vector_memory import buscar_contexto as buscar_contexto_vetorial
+from core.memoria_ia import buscar_memoria as buscar_memoria_ia
 
 # Limites padrão (ajustáveis)
 MAX_MENSAGENS_HISTORICO = 15
@@ -68,6 +69,7 @@ def montar_contexto_ia(
         "historico": [],
         "contexto_projeto": "",
         "memoria_vetorial": "",
+        "memoria_ia": "",
         "contexto_chat_anterior": "",
         "memoria_eventos": "",
         "short_term_context": "",
@@ -98,6 +100,12 @@ def montar_contexto_ia(
     except Exception:
         out["memoria_vetorial"] = ""
 
+    # Memória de longo prazo (RAG): decisões anteriores do projeto
+    try:
+        out["memoria_ia"] = buscar_memoria_ia(user_id, query=user_message, chat_id=chat_id, limite=8) or ""
+    except Exception:
+        out["memoria_ia"] = ""
+
     # Contexto de respostas anteriores deste chat (RAM)
     try:
         out["contexto_chat_anterior"] = buscar_contexto_chat(chat_id, user_message) or ""
@@ -115,7 +123,10 @@ def montar_contexto_ia(
     except Exception:
         out["memoria_eventos"] = ""
 
-    out["long_term_memory"] = _build_long_term(out["memoria_vetorial"], out["memoria_eventos"])
+    out["long_term_memory"] = _build_long_term(
+        (out["memoria_vetorial"] + "\n\n" + out["memoria_ia"]).strip(),
+        out["memoria_eventos"],
+    )
     out["system_state"] = _build_system_state()
 
     # user_profile: nível técnico, linguagens, modo de resposta
