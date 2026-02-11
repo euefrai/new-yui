@@ -8,7 +8,7 @@ Lógica em: services/, config/settings.py.
 from flask import Flask
 from flask_cors import CORS
 
-from config.settings import BASE_DIR, FLASK_DEBUG, PORT, SECRET_KEY
+from config import settings
 from web.routes import register_routes
 
 app = Flask(
@@ -16,7 +16,7 @@ app = Flask(
     static_folder="static",
     template_folder="templates",
 )
-app.secret_key = SECRET_KEY
+app.secret_key = settings.SECRET_KEY
 CORS(app)
 
 
@@ -35,11 +35,11 @@ if __name__ == "__main__":
     def _indexar_memoria():
         try:
             from backend.ai.vector_memory import indexar_projeto
-            qtd = indexar_projeto(str(BASE_DIR))
+            qtd = indexar_projeto(str(settings.BASE_DIR))
             print(f"🧠 Memória do projeto: {qtd} blocos indexados (yui_vector_db).")
         except Exception as e:
             print(f"⚠️ Indexação da memória vetorial ignorada: {e}")
 
     import threading
     threading.Thread(target=_indexar_memoria, daemon=True).start()
-    app.run(host="0.0.0.0", port=PORT, debug=FLASK_DEBUG)
+    app.run(host="0.0.0.0", port=settings.PORT, debug=settings.FLASK_DEBUG)

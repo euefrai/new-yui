@@ -2,12 +2,7 @@
 
 from flask import Blueprint, request, render_template, send_from_directory, jsonify, session
 
-from config.settings import (
-    GENERATED_PROJECTS_DIR,
-    SUPABASE_ANON_KEY,
-    SUPABASE_URL,
-    WEB_LEGACY_DIR,
-)
+from config import settings
 from core.tool_runner import run_tool
 from core.tools_registry import list_tools
 
@@ -22,25 +17,25 @@ def index():
         return "", 204
     return render_template(
         "index.html",
-        supabase_url=SUPABASE_URL or "",
-        supabase_key=SUPABASE_ANON_KEY or "",
+        supabase_url=settings.SUPABASE_URL or "",
+        supabase_key=settings.SUPABASE_ANON_KEY or "",
     )
 
 
 @main_bp.get("/web/<path:path>")
 def web_static(path: str):
-    return send_from_directory(str(WEB_LEGACY_DIR), path)
+    return send_from_directory(str(settings.WEB_LEGACY_DIR), path)
 
 
 @main_bp.route("/generated/<path:path>")
 def generated_static(path: str):
-    return send_from_directory(str(GENERATED_PROJECTS_DIR), path)
+    return send_from_directory(str(settings.GENERATED_PROJECTS_DIR), path)
 
 
 @main_bp.route("/download/<path:filename>")
 def download_file(filename: str):
     """Serve arquivos de generated_projects para download (ex.: .zip do projeto)."""
-    return send_from_directory(str(GENERATED_PROJECTS_DIR), filename, as_attachment=True)
+    return send_from_directory(str(settings.GENERATED_PROJECTS_DIR), filename, as_attachment=True)
 
 
 @main_bp.route("/clear_chat", methods=["POST"])

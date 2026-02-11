@@ -4,7 +4,7 @@ Nunca expor SERVICE_KEY em templates ou JS.
 """
 from typing import Literal, Optional
 
-from config.settings import SUPABASE_ANON_KEY, SUPABASE_SERVICE_KEY, SUPABASE_URL
+from config import settings
 
 _anon_client = None
 _service_client = None
@@ -17,27 +17,27 @@ def get_supabase_client(mode: Literal["anon", "service"] = "anon"):
     - mode="service": chave service_role (backend, operações administrativas).
     """
     global _anon_client, _service_client
-    if not SUPABASE_URL:
+    if not settings.SUPABASE_URL:
         return None
     if mode == "service":
-        key = SUPABASE_SERVICE_KEY or SUPABASE_ANON_KEY
+        key = settings.SUPABASE_SERVICE_KEY or settings.SUPABASE_ANON_KEY
         if not key:
             return None
         if _service_client is None:
             try:
                 from supabase import create_client
-                _service_client = create_client(SUPABASE_URL, key)
+                _service_client = create_client(settings.SUPABASE_URL, key)
             except Exception:
                 _service_client = None
         return _service_client
     else:
-        key = SUPABASE_ANON_KEY
+        key = settings.SUPABASE_ANON_KEY
         if not key:
             return None
         if _anon_client is None:
             try:
                 from supabase import create_client
-                _anon_client = create_client(SUPABASE_URL, key)
+                _anon_client = create_client(settings.SUPABASE_URL, key)
             except Exception:
                 _anon_client = None
         return _anon_client

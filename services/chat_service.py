@@ -6,7 +6,13 @@ Rotas só chamam o serviço; nenhum acesso direto ao JSON.
 
 from typing import Any, Dict, List, Optional
 
+from core.supabase_client import get_supabase_client
 from yui_ai.services import memory_service as mem
+
+
+def supabase_available() -> bool:
+    """True se o backend tem cliente Supabase (service key)."""
+    return get_supabase_client("service") is not None
 
 
 def chat_pertence_usuario(chat_id: str, user_id: str) -> bool:

@@ -1,4 +1,5 @@
 # Rotas de chat: listar, criar, mensagens, stream, título, delete, edit message.
+# Regra: rotas NÃO importam yui_ai; apenas services e config.
 
 import json
 import uuid
@@ -16,13 +17,14 @@ from services.chat_service import (
     obter_mensagem_para_edicao,
     atualizar_mensagem,
     remover_mensagem,
+    supabase_available,
 )
-from services.ai_service import stream_resposta, gerar_titulo_chat, processar_mensagem_sync
-from core.supabase_client import supabase
-from yui_ai.main import processar_texto_web
-from yui_ai.memory.session_memory import memory as session_memory
-from yui_ai.agent.router import detect_intent
-from yui_ai.agent.tool_executor import executor as tool_executor
+from services.ai_service import (
+    gerar_titulo_chat,
+    handle_chat_stream,
+    improve_message,
+    processar_mensagem_sync,
+)
 
 
 chat_bp = Blueprint("chat", __name__, url_prefix="")
@@ -39,7 +41,7 @@ def api_new_chat():
     user_id = data.get("user_id")
     if not user_id:
         return jsonify({"error": "user_id obrigatório"}), 400
-    if not supabase:
+    if not supabase_available():
         fake = {"id": str(uuid.uuid4()), "titulo": "Novo chat", "user_id": user_id}
         return jsonify(fake), 200
     chat = svc_criar_chat(user_id)
@@ -96,35 +98,12 @@ def api_chat_stream():
             return jsonify({"error": "Chat não encontrado ou não pertence ao usuário"}), 403
 
         session["user_id"] = user_id
-        history = session_memory.get(user_id)
-
-        intent = detect_intent(message)
-        if intent != "chat":
-            tool_result = tool_executor.execute(intent, message)
-            if tool_result:
-                msg = tool_result.get("message") or str(tool_result)
-                def tool_stream():
-                    yield f"data: {json.dumps('__STATUS__:thinking')}\n\n"
-                    yield f"data: {json.dumps(msg)}\n\n"
-                    yield f"data: {json.dumps('__STATUS__:done')}\n\n"
-                    session_memory.add(user_id, "user", message)
-                    session_memory.add(user_id, "assistant", msg)
-                return Response(
-                    stream_with_context(tool_stream()),
-                    mimetype="text/event-stream",
-                    headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
-                )
 
         def generate():
             yield f"data: {json.dumps('__STATUS__:thinking')}\n\n"
-            full_reply = []
-            for chunk in stream_resposta(user_id, chat_id, message):
-                full_reply.append(chunk)
+            for chunk in handle_chat_stream(user_id, chat_id, message):
                 yield f"data: {json.dumps(chunk)}\n\n"
             yield f"data: {json.dumps('__STATUS__:done')}\n\n"
-            reply_text = "".join(full_reply) if full_reply else ""
-            session_memory.add(user_id, "user", message)
-            session_memory.add(user_id, "assistant", reply_text)
 
         return Response(
             stream_with_context(generate()),
@@ -137,7 +116,7 @@ def api_chat_stream():
 
 @chat_bp.route("/chat/title", methods=["POST"])
 def api_chat_title():
-    if not supabase:
+    if not supabase_available():
         return jsonify({"error": "Supabase não configurado"}), 503
     try:
         data = request.get_json(silent=True) or {}
@@ -159,7 +138,7 @@ def api_chat_title():
 
 @chat_bp.route("/chat/delete", methods=["POST"])
 def api_chat_delete():
-    if not supabase:
+    if not supabase_available():
         return jsonify({"error": "Supabase não configurado"}), 503
     try:
         data = request.get_json(silent=True) or {}
@@ -178,7 +157,7 @@ def api_chat_delete():
 
 @chat_bp.route("/message/edit", methods=["POST"])
 def api_message_edit():
-    if not supabase:
+    if not supabase_available():
         return jsonify({"error": "Supabase não configurado"}), 503
     try:
         data = request.get_json(silent=True) or {}
@@ -206,10 +185,9 @@ def api_message_edit():
                 "mantendo o mesmo significado geral. Se houver código, mantenha a mesma funcionalidade.\n\n"
                 + base_text
             )
-            resposta, _mid, api_key_missing = processar_texto_web(prompt, reply_to_id=None)
+            new_content, api_key_missing = improve_message(prompt)
             if api_key_missing:
                 return jsonify({"error": "OPENAI_API_KEY não configurada no servidor."}), 503
-            new_content = (resposta or "").strip()
         elif not new_content:
             return jsonify({"error": "new_content obrigatório para ação 'edit'"}), 400
 
@@ -222,7 +200,7 @@ def api_message_edit():
 
 @chat_bp.route("/message/delete", methods=["POST"])
 def api_message_delete():
-    if not supabase:
+    if not supabase_available():
         return jsonify({"error": "Supabase não configurado"}), 503
     try:
         data = request.get_json(silent=True) or {}
