@@ -430,6 +430,10 @@
         var prompt = "O código que você gerou deu erro. Por favor corrija.\n\nErro:\n" + err + (code ? "\n\nCódigo atual:\n```\n" + code.slice(0, 1000) + "\n```" : "");
         msg.value = prompt;
         msg.focus();
+        try {
+          sessionStorage.setItem("yui_lesson_error", err);
+          sessionStorage.setItem("yui_lesson_context", code ? code.slice(0, 1500) : "");
+        } catch (e) {}
         var switcher = document.getElementById("modelSwitcher");
         if (switcher) {
           switcher.value = "heathcliff";

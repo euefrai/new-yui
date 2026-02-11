@@ -46,3 +46,6 @@ sandbox/
 
 # Mapa do projeto (gerado pelo Project Mapper)
 .yui_map.json
+
+# Lessons Learned (memória de erros por projeto)
+.yui_lessons.md

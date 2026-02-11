@@ -185,6 +185,14 @@ def _extract_answer_from_raw(raw: str) -> str | None:
     return "".join(out) if out else None
 
 
+def _strip_thought_block(text: str) -> str:
+    """Remove bloco <thought>...</thought> da resposta (reflexão interna, não exibir ao usuário)."""
+    if not text or "<thought>" not in text:
+        return text
+    import re
+    return re.sub(r"<thought>[\s\S]*?</thought>\s*", "", text, flags=re.IGNORECASE).strip()
+
+
 def _strip_json_wrapper(text: str) -> str:
     """Remove wrapper JSON da resposta quando a IA coloca JSON no answer."""
     if not text or not text.strip().startswith("{"):
@@ -353,16 +361,24 @@ def _yield_in_chunks(text: str, chunk_size: int = CHUNK_SIZE) -> Generator[str, 
 HEATHCLIFF_SYSTEM_PROMPT = """Você é o Heathcliff, modo engenheiro da Yui. Inspirado no Composer, focado em SaaS, APIs e arquitetura.
 
 REGRAS OBRIGATÓRIAS:
-1. ANTES de responder, SEMPRE analise a estrutura de pastas (use listar_arquivos se disponível) para entender o projeto.
-2. SEMPRE verifique requirements.txt (Python) ou package.json (Node) antes de sugerir código. NUNCA sugira bibliotecas que não estejam nesses arquivos.
-3. Escreva código PRONTO PARA PRODUÇÃO: tratamento de erros, validação de inputs, segurança (sanitização, prepared statements).
-4. Utilize o Workspace ao MÁXIMO: proponha arquivos completos, estrutura de pastas clara, convenções consistentes.
-5. Prefira soluções escaláveis e bem documentadas.
-6. Ao criar projetos, use criar_projeto_arquivos e criar_zip_projeto para gerar o ZIP. Inclua sempre [DOWNLOAD]:/download/nome.zip na resposta final.
-7. Use get_current_time() quando precisar de horário real (logs, timestamps, agendamento, saudações).
-8. Use buscar_web(query) quando precisar verificar informações externas.
-9. Para criar tarefas para o usuário organizar o desenvolvimento, inclua na resposta linhas no formato [TASK]: Nome da tarefa (uma por linha). Ex: [TASK]: Corrigir erro de download no Zeabur.
-10. MULTI-WRITE: Para alterar vários arquivos de uma vez, use o formato:
+1. REFLEXÃO PRÉ-RESPOSTA: Para tarefas complexas (código, múltiplos arquivos, refatoração), comece com um bloco <thought> detalhando: lógica da solução, arquivos impactados, dependências e riscos. Exemplo:
+   <thought>
+   - Objetivo: criar API de login
+   - Arquivos: auth.py (novo), routes.py (update), models.py (update)
+   - Dependências: bcrypt, jwt
+   - Riscos: validar sanitização de inputs
+   </thought>
+   Depois do </thought>, prossiga com a resposta ou código.
+2. ANTES de responder, SEMPRE analise a estrutura de pastas (use listar_arquivos se disponível) para entender o projeto.
+3. SEMPRE verifique requirements.txt (Python) ou package.json (Node) antes de sugerir código. NUNCA sugira bibliotecas que não estejam nesses arquivos.
+4. Escreva código PRONTO PARA PRODUÇÃO: tratamento de erros, validação de inputs, segurança (sanitização, prepared statements).
+5. Utilize o Workspace ao MÁXIMO: proponha arquivos completos, estrutura de pastas clara, convenções consistentes.
+6. Prefira soluções escaláveis e bem documentadas.
+7. Ao criar projetos, use criar_projeto_arquivos e criar_zip_projeto para gerar o ZIP. Inclua sempre [DOWNLOAD]:/download/nome.zip na resposta final.
+8. Use get_current_time() quando precisar de horário real (logs, timestamps, agendamento, saudações).
+9. Use buscar_web(query) quando precisar verificar informações externas.
+10. Para criar tarefas para o usuário organizar o desenvolvimento, inclua na resposta linhas no formato [TASK]: Nome da tarefa (uma por linha). Ex: [TASK]: Corrigir erro de download no Zeabur.
+11. MULTI-WRITE: Para alterar vários arquivos de uma vez, use o formato:
     [CREATE_FILE: caminho/arquivo.py]
     ```python
     conteúdo do arquivo
@@ -373,7 +389,8 @@ REGRAS OBRIGATÓRIAS:
     ```
     [DELETE_FILE: caminho/obsoleto.py]
     (uma linha por ação, seguida do bloco de código quando aplicável)
-11. Responda em português do Brasil.
+12. CONFIRMAÇÃO: Se sua alteração afetar MAIS DE 3 ARQUIVOS, inclua no início da resposta: [REQUIRE_CONFIRM] e liste os arquivos. O usuário verá um checklist antes de aplicar. Ex: [REQUIRE_CONFIRM] Arquivos: a.py, b.py, c.py, d.py
+13. Responda em português do Brasil.
 """
 
 
@@ -400,6 +417,15 @@ def _salvar_memoria_ia_se_relevante(user_id: str, chat_id: str, user_msg: str, r
     if not tags:
         tags.append("#projeto")
     salvar_memoria_ia(user_id, resumo, ",".join(tags), chat_id)
+
+
+def _get_lessons_context() -> str:
+    """Lê .yui_lessons.md (memória de erros) para o Heathcliff."""
+    try:
+        from core.lessons_learner import get_lessons_for_prompt
+        return get_lessons_for_prompt() or ""
+    except Exception:
+        return ""
 
 
 def _get_dependencies_context() -> str:
@@ -575,8 +601,15 @@ def agent_controller(
             deps = _get_dependencies_context()
             if deps:
                 msgs.insert(0, {"role": "system", "content": deps})
+            lessons = _get_lessons_context()
+            if lessons:
+                msgs.insert(0, {"role": "system", "content": lessons})
+            if get_system_state_for_prompt:
+                telemetry = get_system_state_for_prompt(always_include=True)
+                if telemetry:
+                    msgs.insert(-1, {"role": "system", "content": telemetry})
         # Autopercepção: avisa a Yui sobre carga do servidor (modo economia)
-        if get_system_state_for_prompt:
+        elif get_system_state_for_prompt:
             autopercepcao = get_system_state_for_prompt()
             if autopercepcao:
                 msgs.insert(-1, {"role": "system", "content": autopercepcao})
@@ -775,17 +808,17 @@ def agent_controller(
 
         elif isinstance(data, dict) and data.get("mode") == "answer":
             set_last_action("answer")
-            reply = str(data.get("answer") or "").strip() or raw_content.strip()
+            reply = str(data.get("answer") or "").strip() or _strip_thought_block(raw_content.strip())
 
         else:
             # Evita mostrar JSON bruto: se parece resposta de tools, tenta processar
+            raw_clean = _strip_thought_block(raw_content.strip()) if raw_content else ""
             if raw_content and "mode" in raw_content and ("steps" in raw_content or '"tool"' in raw_content):
-                reply = processar_resposta_ai(raw_content)
-                if not reply or reply == raw_content.strip():
+                reply = processar_resposta_ai(raw_clean)
+                if not reply or reply == raw_clean:
                     reply = "Projeto criado. Se pediu download, use o botão «Baixar Projeto» abaixo."
             else:
-                # Fallback: extrai answer quando parse falhou (evita mostrar JSON bruto)
-                reply = _strip_json_wrapper(raw_content.strip())
+                reply = _strip_json_wrapper(raw_clean)
 
         # Normaliza link de download: sandbox://xxx.zip -> /download/xxx.zip
         if reply and "sandbox://" in reply:
@@ -818,6 +851,7 @@ def agent_controller(
 
         # ---------- 4) Responder ----------
         transition(AgentState.RESPONDING)
+        reply = _strip_thought_block(reply)
         reply = processar_resposta_ai(reply)
         reply = _strip_json_wrapper(reply)  # garante que nunca mostre JSON bruto
 

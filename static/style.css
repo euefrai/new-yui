@@ -1836,6 +1836,24 @@ body.model-heathcliff .btnDeployYui {
   box-shadow: 0 0 12px rgba(255, 193, 7, 0.3);
 }
 
+.msgLessonBtn {
+  margin-top: 6px;
+  margin-left: 8px;
+  padding: 6px 12px;
+  background: rgba(76, 175, 80, 0.2);
+  border: 1px solid rgba(76, 175, 80, 0.4);
+  border-radius: 6px;
+  color: #81c784;
+  font-size: 0.78rem;
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+
+.msgLessonBtn:hover {
+  background: rgba(76, 175, 80, 0.3);
+  box-shadow: 0 0 8px rgba(76, 175, 80, 0.2);
+}
+
 /* Diff View Overlay */
 .workspaceDiffOverlay {
   display: none;

@@ -103,17 +103,31 @@ def should_use_fast_mode() -> bool:
     return snap.mode in ("fast", "critical")
 
 
-def get_system_state_for_prompt() -> str:
+def get_system_state_for_prompt(always_include: bool = False) -> str:
     """
-    Texto para injetar no prompt do sistema quando em modo FAST.
-    A Yui pode informar ao usuário proativamente.
+    Texto para injetar no prompt do sistema.
+    always_include=True (Heathcliff): sempre inclui RAM/CPU para sugerir código mais leve.
+    always_include=False: só inclui quando sobrecarregado.
     """
     snap = get_system_snapshot()
-    if not snap or snap.mode == "normal":
+    if not snap:
+        return ""
+    cpu = getattr(snap, "cpu_percent", 0) or 0
+    ram = getattr(snap, "ram_percent", 0) or 0
+    mode = getattr(snap, "mode", "normal") or "normal"
+    if always_include:
+        base = f"[Telemetria] Sistema: CPU {cpu:.0f}%, RAM {ram:.0f}%."
+        if mode in ("fast", "critical"):
+            base += (
+                " Servidor sobrecarregado. Sugira código OTIMIZADO e LEVE por padrão: "
+                "evite soluções pesadas, prefira algoritmos eficientes, menos dependências."
+            )
+        return base
+    if mode == "normal":
         return ""
     return (
         f"[Autopercepção] O servidor está com carga elevada "
-        f"(CPU: {snap.cpu_percent:.0f}%, RAM: {snap.ram_percent:.0f}%). "
+        f"(CPU: {cpu:.0f}%, RAM: {ram:.0f}%). "
         "Se o usuário perguntar sobre performance ou lentidão, informe de forma proativa "
         "que você está operando em modo de economia de energia e que as respostas podem ser "
         "mais resumidas até a carga normalizar."

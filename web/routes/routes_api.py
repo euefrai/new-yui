@@ -300,6 +300,23 @@ def api_sandbox_get_map():
         return jsonify({"ok": False, "error": str(e)}), 500
 
 
+@sandbox_bp.post("/lessons")
+def api_sandbox_lessons():
+    """Memória de Erros: grava correção em .yui_lessons.md quando usuário corrige a IA."""
+    data = request.get_json(silent=True) or {}
+    error_desc = (data.get("error") or data.get("error_description") or "").strip()
+    correction = (data.get("correction") or data.get("fix") or "").strip()
+    context = (data.get("context") or "").strip()
+    if not error_desc or not correction:
+        return jsonify({"ok": False, "error": "error e correction obrigatórios"}), 400
+    try:
+        from core.lessons_learner import append_lesson
+        ok = append_lesson(error_desc, correction, context=context or None)
+        return jsonify({"ok": ok}) if ok else jsonify({"ok": False, "error": "Falha ao gravar"}), 500
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
 @sandbox_bp.post("/multi-save")
 def api_sandbox_multi_save():
     """
@@ -315,6 +332,18 @@ def api_sandbox_multi_save():
     sandbox.mkdir(parents=True, exist_ok=True)
     CHUNK_SIZE = 15
     saved, deleted, errors = [], [], []
+    # Validação de sintaxe (Linter) antes de salvar
+    try:
+        from core.code_linter import lint_multi_write_actions
+        _, lint_errors = lint_multi_write_actions(actions)
+        if lint_errors:
+            return jsonify({
+                "ok": False,
+                "error": "Erros de sintaxe detectados. Corrija antes de aplicar.",
+                "lint_errors": lint_errors[:10],
+            }), 400
+    except Exception:
+        pass
     for i in range(0, min(len(actions), 100), CHUNK_SIZE):
         chunk = actions[i : i + CHUNK_SIZE]
         for item in chunk:

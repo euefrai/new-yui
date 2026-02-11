@@ -145,6 +145,10 @@
 
   function applyMultiWriteActions(actions, msgDiv) {
     if (!actions || actions.length === 0) return;
+    if (actions.length > 3) {
+      var fileList = actions.map(function (a) { return a.path; }).join(", ");
+      if (!confirm("Esta alteração afetará " + actions.length + " arquivos:\n\n" + fileList + "\n\nDeseja aplicar?")) return;
+    }
     showWorkspaceProgress(true, 0, "Sincronizando Projeto...");
     var payload = { actions: actions.map(function (a) { return { action: a.action, path: a.path, content: a.content || "" }; }) };
     fetch("/api/sandbox/multi-save", {
@@ -154,9 +158,18 @@
     })
       .then(function (r) { return r.json(); })
       .then(function (data) {
+        if (!data.ok) {
+          showWorkspaceProgress(false);
+          if (data.lint_errors && data.lint_errors.length) {
+            alert("Erros de sintaxe:\n\n" + data.lint_errors.join("\n"));
+          } else {
+            alert("Erro: " + (data.error || "desconhecido"));
+          }
+          return;
+        }
         showWorkspaceProgress(true, 100, "Concluído!");
         setTimeout(function () { showWorkspaceProgress(false); }, 800);
-        if (data.ok && window.addFileToWorkspace) {
+        if (window.addFileToWorkspace) {
           (data.saved || []).forEach(function (path) {
             var act = actions.find(function (a) { return a.path === path; });
             if (act && act.content) window.addFileToWorkspace(path, act.content);
@@ -840,6 +853,41 @@
             applyMultiWriteActions(multiWriteActions, div);
           });
           content.appendChild(btnApply);
+        }
+        var lessonError = "";
+        try { lessonError = sessionStorage.getItem("yui_lesson_error") || ""; } catch (e) {}
+        if (lessonError && (raw.indexOf("```") >= 0 || multiWriteActions.length > 0)) {
+          var btnLesson = document.createElement("button");
+          btnLesson.type = "button";
+          btnLesson.className = "msgLessonBtn";
+          btnLesson.textContent = "Registrar em Lessons Learned";
+          btnLesson.title = "Gravar esta correção em .yui_lessons.md para não repetir";
+          btnLesson.addEventListener("click", function () {
+            var correction = m.content || "";
+            if (multiWriteActions.length > 0) {
+              correction = multiWriteActions.map(function (a) { return "[" + a.action + "] " + a.path + (a.content ? "\n" + a.content.slice(0, 300) : ""); }).join("\n\n");
+            } else {
+              var mm = (m.content || "").match(/```[\s\S]*?```/);
+              correction = mm ? mm[0] : correction.slice(0, 500);
+            }
+            var ctx = "";
+            try { ctx = sessionStorage.getItem("yui_lesson_context") || ""; } catch (e) {}
+            fetch("/api/sandbox/lessons", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ error: lessonError, correction: correction.slice(0, 2000), context: ctx }),
+            })
+              .then(function (r) { return r.json(); })
+              .then(function (data) {
+                if (data.ok) {
+                  btnLesson.textContent = "✓ Registrado";
+                  btnLesson.disabled = true;
+                  try { sessionStorage.removeItem("yui_lesson_error"); sessionStorage.removeItem("yui_lesson_context"); } catch (e) {}
+                } else { alert("Erro: " + (data.error || "")); }
+              })
+              .catch(function () { alert("Erro ao registrar"); });
+          });
+          content.appendChild(btnLesson);
         }
       } else {
         content.textContent = raw;
