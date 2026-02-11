@@ -1255,9 +1255,69 @@ body.theme-light .msgContent .codeBlockToWorkspace {
   gap: 6px;
 }
 
+.workspaceBtnPlay {
+  background: rgba(34, 197, 94, 0.2);
+  border-color: rgba(34, 197, 94, 0.4);
+  color: #4ade80;
+}
+
+.workspaceBtnPlay:hover {
+  background: rgba(34, 197, 94, 0.3);
+  box-shadow: 0 0 12px rgba(34, 197, 94, 0.25);
+}
+
+.workspaceEditorColumn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
 .monacoContainer {
   flex: 1;
-  min-height: 200px;
+  min-height: 150px;
+}
+
+.workspaceConsole {
+  flex: 0 0 140px;
+  min-height: 100px;
+  max-height: 200px;
+  background: rgba(0, 0, 0, 0.4);
+  border-top: 1px solid rgba(0, 242, 255, 0.2);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.workspaceConsoleHeader {
+  padding: 6px 12px;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--electric-cyan);
+  background: rgba(0, 242, 255, 0.06);
+  border-bottom: 1px solid var(--glass-border);
+}
+
+.workspaceConsoleOutput {
+  flex: 1;
+  margin: 0;
+  padding: 12px 14px;
+  font-size: 0.8rem;
+  font-family: "Fira Code", "JetBrains Mono", Consolas, monospace;
+  color: #a0a0ac;
+  overflow: auto;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.workspaceConsoleOutput.error {
+  color: #f87171;
+}
+
+.workspaceConsoleOutput.success {
+  color: #4ade80;
 }
 
 .workspaceFallback {

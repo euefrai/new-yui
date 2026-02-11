@@ -78,6 +78,8 @@
           <span class="workspaceTitle">Workspace</span>
           <div class="workspaceActions">
             <input type="file" id="workspaceImportInput" webkitdirectory directory multiple hidden />
+            <button type="button" id="workspaceRun" class="workspaceBtn workspaceBtnPlay" title="Executar código (Ctrl+Enter)">▶ Executar</button>
+            <button type="button" id="workspaceSyncSandbox" class="workspaceBtn" title="Salvar no Sandbox">Salvar no Sandbox</button>
             <button type="button" id="workspaceImport" class="workspaceBtn" title="Importar projeto">Importar</button>
             <button type="button" id="workspaceExport" class="workspaceBtn" title="Exportar ZIP">Exportar ZIP</button>
             <button type="button" id="workspaceFeedYui" class="workspaceBtn workspaceBtnHighlight" title="Enviar arquivo para o chat">Alimentar Yui</button>
@@ -90,7 +92,13 @@
             <div class="fileTreeEmpty" id="fileTreeEmpty">Importe um projeto para ver os arquivos</div>
             <div class="fileTreeList" id="fileTreeList" style="display: none;"></div>
           </div>
-          <div id="monacoContainer" class="monacoContainer"></div>
+          <div class="workspaceEditorColumn">
+            <div id="monacoContainer" class="monacoContainer"></div>
+            <div class="workspaceConsole" id="workspaceConsole">
+              <div class="workspaceConsoleHeader">Console</div>
+              <pre class="workspaceConsoleOutput" id="workspaceConsoleOutput">$ Aguardando execução...</pre>
+            </div>
+          </div>
         </div>
       </aside>
     </div>

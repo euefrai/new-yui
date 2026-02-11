@@ -1,5 +1,7 @@
 # Rotas de API: index, estáticos, download, clear_chat, upload, analyze, tools.
 
+from pathlib import Path
+
 from flask import Blueprint, request, render_template, send_from_directory, jsonify, session
 
 from config import settings
@@ -176,6 +178,117 @@ def api_system_telemetry():
         return jsonify(usage)
     except Exception as e:
         return jsonify({"error": str(e), "energy_consumed": 0, "requests": 0, "cost_estimate": 0})
+
+
+# --- Sandbox (filesystem + execute) ---
+sandbox_bp = Blueprint("sandbox", __name__, url_prefix="/api/sandbox")
+
+
+def _safe_path(base: Path, path: str) -> Path:
+    """Resolve path dentro do sandbox, bloqueando path traversal."""
+    base = Path(base).resolve()
+    joined = (base / path).resolve()
+    if not str(joined).startswith(str(base)):
+        raise ValueError("Path inválido")
+    return joined
+
+
+@sandbox_bp.post("/save")
+def api_sandbox_save():
+    """Salva arquivos do Workspace no sandbox do servidor."""
+    data = request.get_json(silent=True) or {}
+    files = data.get("files") or []
+    if not isinstance(files, list):
+        return jsonify({"ok": False, "error": "files deve ser lista"}), 400
+    sandbox = Path(settings.SANDBOX_DIR)
+    sandbox.mkdir(parents=True, exist_ok=True)
+    saved = []
+    for item in files[:50]:
+        if not isinstance(item, dict):
+            continue
+        path = (item.get("path") or "").strip()
+        content = item.get("content", "")
+        if not path or ".." in path or path.startswith("/"):
+            continue
+        try:
+            target = _safe_path(sandbox, path)
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(content, encoding="utf-8", errors="replace")
+            saved.append(path)
+        except Exception as e:
+            return jsonify({"ok": False, "error": str(e), "saved": saved}), 400
+    return jsonify({"ok": True, "saved": saved})
+
+
+@sandbox_bp.post("/execute")
+def api_sandbox_execute():
+    """Executa código no sandbox de forma segura (timeout, captura stdout/stderr)."""
+    import subprocess
+    data = request.get_json(silent=True) or {}
+    code = data.get("code") or ""
+    lang = (data.get("lang") or "python").lower()
+    timeout = int(data.get("timeout") or 15)
+    if timeout > 30:
+        timeout = 30
+    if not code.strip():
+        return jsonify({"ok": False, "stdout": "", "stderr": "Código vazio", "exit_code": -1, "feedback": ""}), 400
+
+    sandbox = Path(settings.SANDBOX_DIR)
+    sandbox.mkdir(parents=True, exist_ok=True)
+    feedback = ""
+
+    try:
+        if lang in ("python", "py"):
+            script_path = sandbox / "_run_script.py"
+            script_path.write_text(code, encoding="utf-8", errors="replace")
+            result = subprocess.run(
+                ["python", str(script_path)],
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+                cwd=str(sandbox),
+            )
+        elif lang in ("javascript", "js", "node"):
+            script_path = sandbox / "_run_script.js"
+            script_path.write_text(code, encoding="utf-8", errors="replace")
+            result = subprocess.run(
+                ["node", str(script_path)],
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+                cwd=str(sandbox),
+            )
+        else:
+            return jsonify({"ok": False, "stdout": "", "stderr": f"Linguagem '{lang}' não suportada. Use python ou javascript.", "exit_code": -1, "feedback": ""}), 400
+
+        if result.returncode != 0:
+            try:
+                from core.self_monitoring import get_system_snapshot
+                snap = get_system_snapshot()
+                if snap and snap.mode != "normal":
+                    feedback = f"Servidor sob carga (CPU: {snap.cpu_percent:.0f}%, RAM: {snap.ram_percent:.0f}%). A execução pode ter sido limitada."
+            except Exception:
+                pass
+
+        return jsonify({
+            "ok": result.returncode == 0,
+            "stdout": result.stdout or "",
+            "stderr": result.stderr or "",
+            "exit_code": result.returncode,
+            "feedback": feedback,
+        })
+    except subprocess.TimeoutExpired:
+        try:
+            from core.self_monitoring import get_system_snapshot
+            snap = get_system_snapshot()
+            feedback = f"Timeout ({timeout}s). Servidor: CPU {snap.cpu_percent:.0f}%, RAM {snap.ram_percent:.0f}%."
+        except Exception:
+            feedback = f"Timeout ({timeout}s). Considere simplificar o código."
+        return jsonify({"ok": False, "stdout": "", "stderr": "Timeout na execução", "exit_code": -1, "feedback": feedback}), 400
+    except FileNotFoundError:
+        return jsonify({"ok": False, "stdout": "", "stderr": "Python/Node não encontrado no servidor", "exit_code": -1, "feedback": ""}), 400
+    except Exception as e:
+        return jsonify({"ok": False, "stdout": "", "stderr": str(e), "exit_code": -1, "feedback": ""}), 500
 
 
 # --- Goals (objetivos persistentes) ---

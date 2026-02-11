@@ -194,6 +194,86 @@
     });
   }
 
+  function logToConsole(text, isError) {
+    var el = document.getElementById("workspaceConsoleOutput");
+    if (!el) return;
+    el.textContent = text || "";
+    el.classList.toggle("error", !!isError);
+    el.classList.toggle("success", !isError && text && text.indexOf("$") === 0);
+  }
+
+  function executeCode() {
+    saveCurrentToCache();
+    var ed = window.getMonacoEditor && window.getMonacoEditor();
+    if (!ed) {
+      logToConsole("$ Erro: Editor não disponível.", true);
+      return;
+    }
+    var code = ed.getValue();
+    var path = currentFilePath;
+    var lang = path ? (window.getLangFromPath ? window.getLangFromPath(path) : "python") : "python";
+    if (lang === "plaintext") lang = "python";
+    if (!code.trim()) {
+      logToConsole("$ Nenhum código para executar.", true);
+      return;
+    }
+    logToConsole("$ Executando...", false);
+    fetch("/api/sandbox/execute", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code: code, lang: lang, timeout: 15 }),
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        var out = [];
+        if (data.stdout) out.push(data.stdout.trim());
+        if (data.stderr) out.push(data.stderr.trim());
+        if (data.feedback) out.push("\n--- " + data.feedback + " ---");
+        var text = out.join("\n") || "(nenhuma saída)";
+        if (!data.ok) text = "ERRO (exit " + (data.exit_code || -1) + "):\n" + text;
+        logToConsole("$ " + text, !data.ok);
+      })
+      .catch(function (e) {
+        logToConsole("$ Erro de rede: " + (e.message || String(e)), true);
+      });
+  }
+
+  function syncToSandbox() {
+    saveCurrentToCache();
+    var files = [];
+    Object.keys(projectFiles).forEach(function (path) {
+      files.push({ path: path, content: projectFiles[path] });
+    });
+    if (files.length === 0) {
+      var ed = window.getMonacoEditor && window.getMonacoEditor();
+      if (ed && ed.getValue().trim()) {
+        var path = currentFilePath || "main.py";
+        files.push({ path: path, content: ed.getValue() });
+      }
+    }
+    if (files.length === 0) {
+      logToConsole("$ Nenhum arquivo para salvar no sandbox.", true);
+      return;
+    }
+    logToConsole("$ Salvando " + files.length + " arquivo(s) no sandbox...", false);
+    fetch("/api/sandbox/save", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ files: files }),
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data.ok) {
+          logToConsole("$ Salvos: " + (data.saved || []).join(", "), false);
+        } else {
+          logToConsole("$ Erro: " + (data.error || "desconhecido"), true);
+        }
+      })
+      .catch(function (e) {
+        logToConsole("$ Erro de rede: " + (e.message || String(e)), true);
+      });
+  }
+
   function feedToYui() {
     saveCurrentToCache();
     var path = currentFilePath;
@@ -216,9 +296,21 @@
     var importBtn = document.getElementById("workspaceImport");
     var exportBtn = document.getElementById("workspaceExport");
     var feedBtn = document.getElementById("workspaceFeedYui");
+    var runBtn = document.getElementById("workspaceRun");
+    var syncBtn = document.getElementById("workspaceSyncSandbox");
     if (importBtn) importBtn.addEventListener("click", importProject);
     if (exportBtn) exportBtn.addEventListener("click", exportZip);
     if (feedBtn) feedBtn.addEventListener("click", feedToYui);
+    if (runBtn) runBtn.addEventListener("click", executeCode);
+    if (syncBtn) syncBtn.addEventListener("click", syncToSandbox);
+    document.addEventListener("keydown", function (e) {
+      if (e.ctrlKey && e.key === "Enter") {
+        var mainSplit = document.querySelector(".mainSplit");
+        if (mainSplit && (mainSplit.classList.contains("editor-hidden") || mainSplit.classList.contains("workspaceCollapsed"))) return;
+        e.preventDefault();
+        executeCode();
+      }
+    });
   }
 
   window.initWorkspaceProject = initWorkspaceProject;
