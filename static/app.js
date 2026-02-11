@@ -43,8 +43,20 @@
     return div.innerHTML;
   }
 
+  function stripJsonWrapper(text) {
+    if (!text || typeof text !== "string") return text;
+    var s = text.trim();
+    if (s.indexOf("{\"mode\":\"answer\"") !== 0 && s.indexOf('{"mode":"answer"') !== 0) return text;
+    try {
+      var parsed = JSON.parse(s);
+      if (parsed && typeof parsed.answer === "string") return parsed.answer;
+    } catch (e) {}
+    return text;
+  }
+
   function formatMarkdownToHtml(text) {
     if (!text || typeof text !== "string") return "";
+    text = stripJsonWrapper(text);
     var parts = [];
     var rest = text;
     var codeBlockRe = /```(\w*)\n([\s\S]*?)```/g;
