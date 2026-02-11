@@ -32,6 +32,50 @@ def register_tool(
     }
 
 
+def _plugin_runner(plugin_path: str, tool_name: str):
+    """Retorna uma função que executa o plugin via subprocess (isolamento)."""
+    import json
+    import subprocess
+    import sys
+
+    def run(**kwargs):
+        try:
+            out = subprocess.run(
+                [sys.executable, plugin_path, "invoke", tool_name, json.dumps(kwargs)],
+                capture_output=True,
+                text=True,
+                timeout=60,
+                cwd=str(plugin_path.parent) if hasattr(plugin_path, "parent") else None,
+            )
+            if out.returncode != 0:
+                return {"ok": False, "error": out.stderr or "Plugin failed"}
+            if not out.stdout.strip():
+                return {"ok": True, "result": None}
+            return json.loads(out.stdout)
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
+
+    return run
+
+
+def register_plugin_tool(
+    name: str,
+    description: str,
+    schema: Optional[Dict[str, Any]],
+    plugin_path: str,
+) -> None:
+    """Registra uma ferramenta que será executada via subprocess (plugin isolado)."""
+    from pathlib import Path
+    path = Path(plugin_path).resolve()
+    _TOOLS[name] = {
+        "name": name,
+        "fn": _plugin_runner(path, name),
+        "description": description,
+        "schema": schema or {},
+        "plugin_path": str(path),
+    }
+
+
 def list_tools() -> List[Dict[str, Any]]:
     """Retorna metadados de todas as ferramentas registradas (sem a função)."""
     return [

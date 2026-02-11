@@ -39,10 +39,12 @@ SECRET_KEY = _get("SECRET_KEY") or "yui-dev-secret-change-in-production"
 PORT = int(os.environ.get("PORT") or "5000")
 FLASK_DEBUG = os.environ.get("FLASK_DEBUG", "false").lower() in ("1", "true", "yes")
 
-# Memória: uma fonte só — se Supabase configurado, usa cloud; senão JSON local
-USE_SUPABASE_MEMORY = bool(SUPABASE_URL and SUPABASE_KEY_BACKEND)
+# Memória: uma fonte só — USE_SUPABASE_MEMORY=true usa cloud; false usa JSON local
+_use_supabase_env = os.environ.get("USE_SUPABASE_MEMORY", "").strip().lower() in ("1", "true", "yes")
+USE_SUPABASE_MEMORY = _use_supabase_env or bool(SUPABASE_URL and SUPABASE_KEY_BACKEND)
 USE_LOCAL_MEMORY = not USE_SUPABASE_MEMORY
 
 # Pastas derivadas
 GENERATED_PROJECTS_DIR = BASE_DIR / "generated_projects"
 WEB_LEGACY_DIR = BASE_DIR / "web"
+DATA_DIR = BASE_DIR / "data"

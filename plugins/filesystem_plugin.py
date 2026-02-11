@@ -4,16 +4,26 @@ Plugin de sistema de arquivos (modo seguro, somente leitura por padrão).
 Ferramentas expostas:
 - listar_arquivos: lista arquivos em uma pasta (com limite e filtro simples).
 - ler_arquivo_texto: lê conteúdo de um arquivo de texto (até max_chars).
+
+Execução isolada: suporta --list (lista tools em JSON) e invoke <name> <args_json>.
 """
 
 import fnmatch
+import json
 import os
+import sys
+from pathlib import Path
 from typing import Dict, List
+
+# Quando executado via subprocess, a raiz do projeto deve estar no path
+_plugin_dir = Path(__file__).resolve().parent
+_root = _plugin_dir.parent
+if str(_root) not in sys.path:
+    sys.path.insert(0, str(_root))
 
 from core.tools_registry import register_tool
 
-
-PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = str(_plugin_dir)
 
 
 def _resolver_caminho(rel_path: str) -> str:
@@ -84,4 +94,24 @@ register_tool(
         "max_chars": "Número máximo de caracteres a retornar (padrão: 4000).",
     },
 )
+
+# Execução via subprocess (isolamento): --list | invoke <name> <args_json>
+if __name__ == "__main__":
+    if len(sys.argv) >= 2 and sys.argv[1] == "--list":
+        print(json.dumps([
+            {"name": "listar_arquivos", "description": "Lista arquivos em uma pasta do projeto (somente leitura).", "schema": {"pasta": "", "padrao": "", "limite": ""}},
+            {"name": "ler_arquivo_texto", "description": "Lê conteúdo de um arquivo de texto no projeto (somente leitura, limitado por max_chars).", "schema": {"caminho": "", "max_chars": ""}},
+        ]))
+    elif len(sys.argv) >= 4 and sys.argv[1] == "invoke":
+        name, args_json = sys.argv[2], sys.argv[3]
+        args = json.loads(args_json) if args_json else {}
+        if name == "listar_arquivos":
+            result = tool_listar_arquivos(**{k: v for k, v in args.items() if k in ("pasta", "padrao", "limite")})
+        elif name == "ler_arquivo_texto":
+            result = tool_ler_arquivo_texto(**{k: v for k, v in args.items() if k in ("caminho", "max_chars")})
+        else:
+            result = {"ok": False, "error": "unknown tool"}
+        print(json.dumps(result))
+    else:
+        sys.exit(1)
 

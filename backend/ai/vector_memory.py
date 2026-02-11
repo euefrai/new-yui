@@ -4,9 +4,14 @@
 # ==========================================================
 
 import os
+from pathlib import Path
 from typing import List
 
-PASTA_DB = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "yui_vector_db")
+try:
+    from config.settings import BASE_DIR
+except Exception:
+    BASE_DIR = Path(__file__).resolve().parent.parent.parent
+PASTA_DB = str(BASE_DIR / "yui_vector_db")
 EXTENSOES = (".py", ".js", ".ts", ".html", ".css", ".json", ".md", ".yaml", ".yml")
 IGNORAR = {"__pycache__", ".git", "node_modules", "venv", ".venv", "env", "dist", "build"}
 

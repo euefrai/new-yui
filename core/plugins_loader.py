@@ -1,43 +1,71 @@
 """
 Carregador de plugins da Yui.
 
-Responsável por importar dinamicamente módulos em plugins/
-que registram ferramentas adicionais via core.tools_registry.register_tool.
+Regra: não usar import direto para execução; plugins são executados via
+subprocess.run(["python", plugin_file]) para isolamento.
+
+Plugins que suportam --list: são registrados e executados via subprocess.
+Plugins legados (sem --list): ainda carregados por import (compatibilidade).
 """
 
 import importlib
-import os
-import pkgutil
+import json
+import subprocess
+import sys
+from pathlib import Path
 from typing import Optional
+
+try:
+    from config.settings import BASE_DIR
+except Exception:
+    BASE_DIR = Path(__file__).resolve().parent.parent
 
 
 def load_plugins(root_path: Optional[str] = None) -> None:
     """
-    Carrega todos os plugins encontrados na pasta plugins/ (se existir).
-
-    Cada plugin deve ser um módulo Python dentro de plugins/ que, ao ser
-    importado, chama register_tool(...) para registrar suas tools.
+    Carrega plugins da pasta plugins/.
+    Preferência: executar via subprocess (--list para listar tools, invoke para rodar).
+    Fallback: import dinâmico para plugins que ainda não suportam --list.
     """
-    try:
-        base_dir = root_path or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        plugins_dir = os.path.join(base_dir, "plugins")
-        if not os.path.isdir(plugins_dir):
-            return
-
-        # Garante que o diretório raiz esteja no sys.path
-        import sys
-
-        if base_dir not in sys.path:
-            sys.path.append(base_dir)
-
-        import plugins  # type: ignore
-
-        for info in pkgutil.iter_modules(plugins.__path__):
-            try:
-                importlib.import_module(f"plugins.{info.name}")
-            except Exception:
-                # Falha em um plugin não deve derrubar o servidor
-                continue
-    except Exception:
+    base = Path(root_path) if root_path else BASE_DIR
+    plugins_dir = base / "plugins"
+    if not plugins_dir.is_dir():
         return
 
+    if str(base) not in sys.path:
+        sys.path.insert(0, str(base))
+
+    for path in sorted(plugins_dir.glob("*.py")):
+        if path.name.startswith("_"):
+            continue
+        module_name = path.stem
+        # 1) Tenta subprocess: plugin com --list retorna JSON [{name, description, schema}]
+        try:
+            out = subprocess.run(
+                [sys.executable, str(path), "--list"],
+                capture_output=True,
+                text=True,
+                timeout=10,
+                cwd=str(base),
+            )
+            if out.returncode == 0 and out.stdout.strip():
+                tools = json.loads(out.stdout)
+                if isinstance(tools, list):
+                    from core.tools_registry import register_plugin_tool
+                    for t in tools:
+                        name = t.get("name") or t.get("tool")
+                        if name:
+                            register_plugin_tool(
+                                name,
+                                t.get("description", ""),
+                                t.get("schema"),
+                                str(path),
+                            )
+                    continue
+        except Exception:
+            pass
+        # 2) Fallback: import (comportamento antigo)
+        try:
+            importlib.import_module(f"plugins.{module_name}")
+        except Exception:
+            continue

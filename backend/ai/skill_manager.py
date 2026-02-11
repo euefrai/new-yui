@@ -3,14 +3,16 @@
 # Sistema dinâmico de habilidades: descobre, registra e executa.
 # ==========================================================
 
-import os
 import json
+import os
 from datetime import datetime
+from pathlib import Path
 from typing import Any, Dict, Tuple
 
 # Pasta de skills ao lado deste módulo
-PASTA_SKILLS = os.path.join(os.path.dirname(__file__), "skills")
-SKILL_INDEX = os.path.join(PASTA_SKILLS, "index.json")
+_BASE = Path(__file__).resolve().parent
+PASTA_SKILLS = str(_BASE / "skills")
+SKILL_INDEX = str(_BASE / "skills" / "index.json")
 
 if not os.path.exists(PASTA_SKILLS):
     os.makedirs(PASTA_SKILLS)

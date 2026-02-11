@@ -9,7 +9,7 @@ from flask import Flask
 from flask_cors import CORS
 
 from config.settings import BASE_DIR, FLASK_DEBUG, PORT, SECRET_KEY
-from routes import register_routes
+from web.routes import register_routes
 
 app = Flask(
     __name__,

@@ -7,7 +7,7 @@ import os
 from openai import OpenAI
 
 from core.chat_summarizer import summarize_chat
-from core.memory import get_messages, save_message
+from yui_ai.services.memory_service import load_history as get_messages, save_message
 from core.memory_manager import add_event, build_context_text
 from core.tool_runner import run_tool
 from core.user_profile import get_user_profile

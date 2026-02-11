@@ -11,7 +11,7 @@ from typing import Any, Dict, Generator, List
 
 from openai import OpenAI
 
-from core.memory import save_message
+from yui_ai.services.memory_service import save_message
 from core.memory_manager import add_event
 from core.tool_runner import run_tool
 from core.user_profile import get_user_profile
