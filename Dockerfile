@@ -1,0 +1,18 @@
+# Yui - Deploy Zeabur
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Instala dependências
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copia o projeto
+COPY . .
+
+# Porta (Zeabur injeta PORT)
+ENV PORT=8080
+EXPOSE 8080
+
+# Gunicorn direto (evita main.py)
+CMD gunicorn --workers 1 --threads 2 --timeout 300 --bind 0.0.0.0:${PORT} web_server:app
