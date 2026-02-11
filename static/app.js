@@ -66,8 +66,9 @@
       var before = rest.slice(lastIndex, match.index);
       if (before) parts.push(escapeHtml(before).replace(/\n/g, "<br>"));
       var lang = match[1] || "text";
-      var code = escapeHtml(match[2].replace(/\r\n/g, "\n").trim());
-      parts.push('<div class="codeBlockWrap"><div class="codeBlockHeader"><span class="codeBlockLang">' + escapeHtml(lang) + '</span><button type="button" class="codeBlockCopy" title="Copiar código">Copiar código</button></div><pre><code class="language-' + escapeHtml(lang) + '">' + code + '</code></pre></div>');
+      var rawCode = match[2].replace(/\r\n/g, "\n").trim();
+      var code = escapeHtml(rawCode);
+      parts.push('<div class="codeBlockWrap" data-lang="' + escapeHtml(lang) + '"><div class="codeBlockHeader"><span class="codeBlockLang">' + escapeHtml(lang) + '</span><button type="button" class="codeBlockCopy" title="Copiar código">Copiar código</button><button type="button" class="codeBlockToWorkspace" title="Enviar para o Workspace">Enviar para o Workspace</button></div><pre><code class="language-' + escapeHtml(lang) + '">' + code + '</code></pre></div>');
       lastIndex = match.index + match[0].length;
     }
     if (lastIndex < rest.length) parts.push(escapeHtml(rest.slice(lastIndex)).replace(/\n/g, "<br>"));
@@ -91,6 +92,19 @@
           btn.textContent = "Copiado!";
           setTimeout(function () { btn.textContent = orig; }, 1500);
         } catch (e) {}
+      });
+    });
+    container.querySelectorAll(".codeBlockToWorkspace").forEach(function (btn) {
+      if (btn._workspaceAttached) return;
+      btn._workspaceAttached = true;
+      btn.addEventListener("click", function () {
+        var wrap = btn.closest(".codeBlockWrap");
+        if (!wrap) return;
+        var codeEl = wrap.querySelector("code");
+        var lang = wrap.getAttribute("data-lang") || "text";
+        if (!codeEl) return;
+        var code = codeEl.textContent || "";
+        if (window.updateEditor) window.updateEditor(code, lang);
       });
     });
   }
@@ -177,6 +191,7 @@
   function showApp() {
     if (loginScreen) loginScreen.style.display = "none";
     if (appScreen) appScreen.style.display = "flex";
+    if (window.initYuiWorkspace) window.initYuiWorkspace();
     if (userName && user) userName.textContent = user.email || user.nome || "Usuário";
     if (userMenuName && user) userMenuName.textContent = user.email || user.nome || "Usuário";
     if (userMenuEmail && user) userMenuEmail.textContent = user.email || "";

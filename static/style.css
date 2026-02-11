@@ -500,15 +500,22 @@ body.theme-light .inputArea {
   transform: translateY(-1px);
 }
 
-/* ========== Chat Area — Centralizado ========== */
-.chatArea {
+/* ========== Split Layout: Chat (40%) + Workspace (60%) ========== */
+.mainSplit {
   flex: 1;
   display: flex;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.chatArea {
+  flex: 0 0 40%;
+  display: flex;
   flex-direction: column;
-  align-items: center;
   min-width: 0;
   background: transparent;
-  padding-right: env(safe-area-inset-right);
+  padding-right: 0;
+  border-right: 1px solid var(--glass-border);
 }
 
 .chatContainer {
@@ -516,7 +523,7 @@ body.theme-light .inputArea {
   display: flex;
   flex-direction: column;
   width: 100%;
-  max-width: 850px;
+  max-width: none;
   min-height: 0;
 }
 
@@ -722,6 +729,8 @@ body.theme-light .previewFrame {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
   padding: 10px 14px;
   background: rgba(255, 255, 255, 0.03);
   font-size: 0.76rem;
@@ -750,6 +759,28 @@ body.theme-light .previewFrame {
   box-shadow: 0 0 12px rgba(0, 242, 255, 0.2);
 }
 
+.msgContent .codeBlockToWorkspace {
+  margin-left: 8px;
+  padding: 6px 12px;
+  background: rgba(112, 0, 255, 0.2);
+  border: 1px solid rgba(112, 0, 255, 0.35);
+  border-radius: 8px;
+  color: var(--deep-violet);
+  font-size: 0.72rem;
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+
+body .msgContent .codeBlockToWorkspace {
+  color: #c084fc;
+}
+
+.msgContent .codeBlockToWorkspace:hover {
+  background: rgba(112, 0, 255, 0.3);
+  box-shadow: 0 0 12px rgba(112, 0, 255, 0.25);
+}
+
+
 .msgContent pre {
   margin: 0;
   padding: 16px 18px;
@@ -774,6 +805,12 @@ body.theme-light .msgContent .codeBlockHeader {
 body.theme-light .msgContent .codeBlockCopy {
   background: rgba(112, 0, 255, 0.15);
   border-color: rgba(112, 0, 255, 0.25);
+  color: var(--deep-violet);
+}
+
+body.theme-light .msgContent .codeBlockToWorkspace {
+  background: rgba(112, 0, 255, 0.15);
+  border-color: rgba(112, 0, 255, 0.3);
   color: var(--deep-violet);
 }
 
@@ -973,6 +1010,84 @@ body.theme-light .msgContent .codeBlockCopy {
   font-size: 1.3rem;
 }
 
+/* ========== Workspace (Monaco Editor) ========== */
+.workspacePanel {
+  flex: 0 0 60%;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-left: 1px solid rgba(0, 242, 255, 0.15);
+  border-radius: 0;
+  overflow: hidden;
+  transition: box-shadow 0.4s ease, border-color 0.4s ease;
+}
+
+.workspacePanel.editorPulse {
+  box-shadow: 0 0 24px rgba(0, 242, 255, 0.35), 0 0 48px rgba(112, 0, 255, 0.2);
+  border-color: rgba(0, 242, 255, 0.5);
+  animation: workspacePulse 1.2s ease-out;
+}
+
+@keyframes workspacePulse {
+  0% { box-shadow: 0 0 24px rgba(0, 242, 255, 0.5), 0 0 48px rgba(112, 0, 255, 0.3); }
+  100% { box-shadow: 0 0 16px rgba(0, 242, 255, 0.2), 0 0 32px rgba(112, 0, 255, 0.1); }
+}
+
+.workspaceHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: rgba(0, 0, 0, 0.2);
+  border-bottom: 1px solid var(--glass-border);
+}
+
+.workspaceTitle {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--electric-cyan);
+  letter-spacing: 0.04em;
+}
+
+.workspaceActions {
+  display: flex;
+  gap: 8px;
+}
+
+.workspaceBtn {
+  padding: 8px 14px;
+  background: rgba(0, 242, 255, 0.1);
+  border: 1px solid rgba(0, 242, 255, 0.25);
+  border-radius: 10px;
+  color: var(--electric-cyan);
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+
+.workspaceBtn:hover {
+  background: rgba(0, 242, 255, 0.2);
+  box-shadow: 0 0 12px rgba(0, 242, 255, 0.2);
+}
+
+.monacoContainer {
+  flex: 1;
+  min-height: 200px;
+}
+
+.workspaceFallback {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #6a6a76;
+  font-size: 0.9rem;
+  padding: 24px;
+  text-align: center;
+}
+
 /* ========== Barra de Saúde do Sistema ========== */
 .systemHealthBar {
   display: flex;
@@ -1017,6 +1132,19 @@ body.theme-light .msgContent .codeBlockCopy {
 
 /* Tablets e telas médias */
 @media (max-width: 1024px) {
+  .mainSplit {
+    flex-direction: column;
+  }
+  .chatArea {
+    flex: 0 0 auto;
+    max-height: 50%;
+    border-right: none;
+    border-bottom: 1px solid var(--glass-border);
+  }
+  .workspacePanel {
+    flex: 1;
+    min-height: 250px;
+  }
   .sidebar {
     width: 240px;
     min-width: 240px;
@@ -1057,6 +1185,20 @@ body.theme-light .msgContent .codeBlockCopy {
   .telemetryPanel {
     padding: 10px 12px;
     font-size: 0.72rem;
+  }
+  .mainSplit {
+    flex-direction: column;
+  }
+  .chatArea {
+    flex: 1;
+    max-height: none;
+    border-right: none;
+    border-bottom: 1px solid var(--glass-border);
+  }
+  .workspacePanel {
+    flex: 0 0 auto;
+    min-height: 180px;
+    max-height: 45%;
   }
   .btnNovoChat {
     padding: 12px;
