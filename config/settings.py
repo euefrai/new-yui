@@ -28,8 +28,9 @@ SUPABASE_ANON_KEY = (
     _get("SUPABASE_ANON_KEY")
     or _get("SUPABASE_PUBLISHABLE_KEY")
     or _get("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY")
+    or _get("SUPABASE_KEY")  # fallback: Zeabur pode usar SUPABASE_KEY como anon
 )
-SUPABASE_SERVICE_KEY = _get("SUPABASE_SERVICE_KEY") or _get("SUPABASE_KEY")  # fallback para .env antigo
+SUPABASE_SERVICE_KEY = _get("SUPABASE_SERVICE_KEY") or _get("SUPABASE_SERVICE_ROLE_KEY") or _get("SUPABASE_KEY")
 
 # Backend usa sempre service_role (nunca expor no frontend)
 SUPABASE_KEY_BACKEND = SUPABASE_SERVICE_KEY or SUPABASE_ANON_KEY
