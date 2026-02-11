@@ -556,32 +556,43 @@ body.theme-light .inputArea {
 
 .chatArea {
   flex: 0 0 40%;
+  flex-grow: 1;
   display: flex;
   flex-direction: column;
+  align-items: center;
   min-width: 0;
+  width: 100%;
   background: transparent;
   padding-right: 0;
   border-right: 1px solid var(--glass-border);
-  transition: flex 0.4s ease;
+  transition: all 0.3s ease-in-out;
 }
 
-.mainSplit.workspaceCollapsed .chatArea {
+.mainSplit.workspaceCollapsed .chatArea,
+.mainSplit.editor-hidden .chatArea {
   flex: 1 1 100%;
+  flex-grow: 1;
+  width: 100%;
   border-right: none;
 }
 
-.mainSplit.workspaceCollapsed .workspacePanel {
+.mainSplit.workspaceCollapsed .workspacePanel,
+.mainSplit.editor-hidden .workspacePanel {
   flex: 0 0 0 !important;
   min-width: 0 !important;
   max-width: 0 !important;
+  width: 0 !important;
   overflow: hidden;
   padding: 0;
+  margin: 0;
   border-width: 0;
-  transition: flex 0.4s ease, min-width 0.4s ease, max-width 0.4s ease;
+  opacity: 0;
+  pointer-events: none;
+  transition: all 0.3s ease-in-out;
 }
 
 .workspacePanel {
-  transition: flex 0.4s ease, min-width 0.4s ease, width 0.4s ease;
+  transition: all 0.3s ease-in-out;
 }
 
 .chatContainer {
@@ -589,8 +600,14 @@ body.theme-light .inputArea {
   display: flex;
   flex-direction: column;
   width: 100%;
-  max-width: none;
+  max-width: 850px;
   min-height: 0;
+  transition: all 0.3s ease-in-out;
+}
+
+.mainSplit.workspaceCollapsed .chatContainer,
+.mainSplit.editor-hidden .chatContainer {
+  max-width: 850px;
 }
 
 .chatMessages {
@@ -1320,6 +1337,15 @@ body.theme-light .msgContent .codeBlockToWorkspace {
     max-height: 50%;
     border-right: none;
     border-bottom: 1px solid var(--glass-border);
+  }
+  .mainSplit.workspaceCollapsed .chatArea,
+  .mainSplit.editor-hidden .chatArea {
+    flex: 1;
+    max-height: none;
+  }
+  .mainSplit.workspaceCollapsed .workspacePanel,
+  .mainSplit.editor-hidden .workspacePanel {
+    display: none !important;
   }
   .workspacePanel {
     flex: 1;

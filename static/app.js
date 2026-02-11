@@ -203,7 +203,10 @@
     setWorkspacePref(workspaceOpen);
     var mainSplit = document.querySelector(".mainSplit");
     var btn = document.getElementById("toggleWorkspace");
-    if (mainSplit) mainSplit.classList.toggle("workspaceCollapsed", !workspaceOpen);
+    if (mainSplit) {
+      mainSplit.classList.toggle("workspaceCollapsed", !workspaceOpen);
+      mainSplit.classList.toggle("editor-hidden", !workspaceOpen);
+    }
     if (btn) btn.classList.toggle("workspaceClosed", !workspaceOpen);
     if (workspaceOpen) setTimeout(function () { window.dispatchEvent(new Event("resize")); }, 420);
   }
@@ -211,7 +214,10 @@
     workspaceOpen = getWorkspacePref();
     var mainSplit = document.querySelector(".mainSplit");
     var btn = document.getElementById("toggleWorkspace");
-    if (mainSplit) mainSplit.classList.toggle("workspaceCollapsed", !workspaceOpen);
+    if (mainSplit) {
+      mainSplit.classList.toggle("workspaceCollapsed", !workspaceOpen);
+      mainSplit.classList.toggle("editor-hidden", !workspaceOpen);
+    }
     if (btn) btn.classList.toggle("workspaceClosed", !workspaceOpen);
     if (btn) btn.addEventListener("click", toggleWorkspace);
     document.addEventListener("keydown", function (e) {
