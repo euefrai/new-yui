@@ -29,7 +29,7 @@ Configure `OPENAI_API_KEY` no arquivo `.env` (copie de `.env.example`) para usar
 A interface principal usa **Supabase** para login e para separar chats por usuário (sidebar estilo ChatGPT, nome no rodapé).
 
 1. Crie um projeto em [supabase.com](https://supabase.com).
-2. No SQL Editor do Supabase, execute o conteúdo de **`supabase_schema.sql`** (cria as tabelas `chats` e `messages` e opcionalmente `users_profile`).
+2. No SQL Editor do Supabase, execute o conteúdo de **`supabase_schema.sql`** (cria as tabelas `chats` e `messages` e opcionalmente `users_profile`). Opcional: execute **`supabase_migration_messages_extra.sql`** para adicionar colunas `type`, `metadata` e `status` na tabela `messages` (replay de ferramentas, histórico estruturado).
 3. No `.env` (ou nas variáveis de ambiente do Render), defina:
    - `SUPABASE_URL` = URL do projeto (ex.: `https://xxxx.supabase.co`)
    - `SUPABASE_KEY` = chave **anon** (pública) para o frontend; para o backend escrever em nome dos usuários, use a chave **service_role** em `SUPABASE_KEY` (ou configure RLS no Supabase conforme o schema).
@@ -83,6 +83,21 @@ python -m yui_ai analyze ./meu-projeto
 - **Gera** relatório técnico no terminal (roadmap de melhorias)
 
 Nenhum arquivo do projeto analisado é modificado.
+
+## Fluxo do agente (chat web)
+
+O backend **não** devolve a resposta bruta do modelo. Toda mensagem passa pelo **agent controller**:
+
+1. **Context engine** monta histórico, memória vetorial, contexto do projeto e do chat.
+2. O **modelo** pode responder em JSON: `{"mode":"answer","answer":"..."}` ou `{"mode":"tools","steps":[...]}` ou `{"usar_skill":"nome","dados":{...}}`.
+3. Se for **tools**, o backend **executa as ferramentas** (analisar_arquivo, listar_arquivos, etc.), monta um texto legível e **só então** envia ao frontend.
+4. Um **tool router** remove qualquer JSON residual antes de streamar; o usuário **nunca** vê JSON cru de ferramentas.
+
+Ou seja: a Yui decide quando usar ferramenta, executa em silêncio e responde em texto. O frontend só recebe streaming de texto.
+
+## Plugins como ferramentas automáticas
+
+Ferramentas são registradas em **`core/tools_registry.py`**. Os **plugins** em `plugins/` são carregados automaticamente ao subir o servidor: cada módulo em `plugins/*.py` que chama `register_tool(name, fn, description, schema)` passa a expor essa ferramenta para o agente. Exemplo: `plugins/filesystem_plugin.py` registra `listar_arquivos` e `ler_arquivo_texto`. Para adicionar uma nova capacidade, crie um arquivo em `plugins/` e chame `register_tool` no nível do módulo; o agent controller já escolhe quando usar cada tool com base no prompt do modelo.
 
 ## Estrutura do analisador
 
