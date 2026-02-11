@@ -32,7 +32,13 @@ register_routes(app)
 
 
 if __name__ == "__main__":
+    import os
+    import threading
+
     def _indexar_memoria():
+        # No Render (memória limitada), pula indexação ChromaDB para evitar OOM
+        if os.environ.get("RENDER") == "true":
+            return
         try:
             from backend.ai.vector_memory import indexar_projeto
             qtd = indexar_projeto(str(settings.BASE_DIR))
@@ -40,6 +46,5 @@ if __name__ == "__main__":
         except Exception as e:
             print(f"⚠️ Indexação da memória vetorial ignorada: {e}")
 
-    import threading
     threading.Thread(target=_indexar_memoria, daemon=True).start()
     app.run(host="0.0.0.0", port=settings.PORT, debug=settings.FLASK_DEBUG)
