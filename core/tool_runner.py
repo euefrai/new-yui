@@ -3,11 +3,18 @@ Executor de ferramentas (tools) registradas.
 
 Fornece uma API simples para o backend:
 - run_tool(name, args) -> dict
+
+Identity-aware: valida ação antes de executar.
 """
 
 from typing import Any, Dict
 
 from core.tools_registry import get_tool
+
+try:
+    from core.identity_core import get_identity_core
+except ImportError:
+    get_identity_core = None
 
 
 def run_tool(name: str, args: Dict[str, Any]) -> Dict[str, Any]:
@@ -21,6 +28,12 @@ def run_tool(name: str, args: Dict[str, Any]) -> Dict[str, Any]:
           "error": str | None,
         }
     """
+    if get_identity_core:
+        identity = get_identity_core()
+        ok, motivo = identity.validate("execute", tool_name=name, args=args)
+        if not ok:
+            return {"ok": False, "result": None, "error": motivo or "Ação bloqueada pela identidade."}
+
     tool = get_tool(name)
     if not tool:
         return {"ok": False, "result": None, "error": f"Ferramenta '{name}' não encontrada."}

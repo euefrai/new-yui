@@ -36,6 +36,10 @@ except ImportError:
     filter_context_blocks = None
     filter_tools_by_intention = None
 try:
+    from core.identity_core import get_identity_core
+except ImportError:
+    get_identity_core = None
+try:
     from core.energy_manager import (
         get_energy_manager,
         COST_RESPONDER_IA,
@@ -387,7 +391,15 @@ def agent_controller(
         # ---------- 2) Uma chamada à IA (resposta estruturada) ----------
         if get_energy_manager:
             get_energy_manager().consume(COST_RESPONDER_IA)
-        if get_energy_manager and get_energy_manager().is_critical():
+        em = get_energy_manager() if get_energy_manager else None
+        energy = em.energy if em else None
+        if get_identity_core:
+            identity = get_identity_core()
+            identity.apply_energy_context(energy)
+            depth = identity.get_effective_response_depth(energy)
+            if depth == "short":
+                msgs.insert(-1, {"role": "system", "content": "Responda de forma resumida (máx 2-3 frases)."})
+        elif get_energy_manager and get_energy_manager().is_critical():
             msgs.insert(-1, {"role": "system", "content": "Energia baixa: responda de forma MUITO resumida (máx 2-3 frases)."})
         transition(AgentState.EXECUTING)
         response = client.chat.completions.create(model=MODEL, messages=msgs)
@@ -558,6 +570,10 @@ def agent_controller(
         transition(AgentState.IDLE)
         erro = f"Erro no Agent Controller: {str(e)}"
         set_last_error(erro)
+        if get_identity_core:
+            err_lower = str(e).lower()
+            if "token" in err_lower or "length" in err_lower or "context" in err_lower:
+                get_identity_core().learn_from_error("response_too_long", {"error": str(e)})
         print(erro)
         for c in _yield_in_chunks("⚠️ Algo deu errado ao processar sua mensagem."):
             yield c

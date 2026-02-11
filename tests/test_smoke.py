@@ -87,6 +87,18 @@ def test_attention_manager():
     assert "criar_projeto_arquivos" in tools
 
 
+def test_identity_core():
+    from core.identity_core import IdentityCore, get_identity_core
+    identity = IdentityCore()
+    assert identity.decision_style in ("pragmatic", "exploratory")
+    assert identity.risk_tolerance in ("low", "medium", "high")
+    assert identity.response_depth in ("short", "medium", "long")
+    ok, _ = identity.validate("execute", tool_name="analisar_arquivo", args={})
+    assert ok is True
+    ok2, _ = identity.validate("execute", tool_name="deletar_arquivo", args={})
+    assert ok2 is False
+
+
 def test_energy_manager():
     from core.energy_manager import EnergyManager, get_energy_manager, COST_TOOL, COST_PLANNER
     em = EnergyManager()

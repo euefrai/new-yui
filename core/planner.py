@@ -15,6 +15,10 @@ try:
     from core.energy_manager import get_energy_manager
 except ImportError:
     get_energy_manager = None
+try:
+    from core.identity_core import get_identity_core
+except ImportError:
+    get_identity_core = None
 
 if TYPE_CHECKING:
     from core.goals.goal_manager import Goal
@@ -82,6 +86,8 @@ def criar_plano_estruturado(
         return []
 
     max_steps = max_steps or LIMIT_MAX_STEPS
+    if get_identity_core:
+        max_steps = min(max_steps, get_identity_core().get_max_plan_steps())
     if get_energy_manager:
         em = get_energy_manager()
         if em.is_low():
@@ -119,6 +125,11 @@ def criar_plano_estruturado(
     if not steps:
         steps.append(PlanStep(goal="Interpretar pedido", action="responder", tool=None))
         steps.append(PlanStep(goal="Gerar resposta", action="responder", tool=None))
+
+    # Identity: risk_tolerance low → remove steps com tools pesadas
+    if get_identity_core:
+        identity = get_identity_core()
+        steps = [s for s in steps if not s.tool or identity.is_tool_allowed(s.tool)]
 
     # Fail safe: corta plano se exceder limite
     return steps[:min(max_steps, MAX_PLAN_LENGTH)]
