@@ -35,14 +35,19 @@ if __name__ == "__main__":
     import os
     import threading
 
-    # Modo LITE no Render (menos RAM, sem planner/vector/auto_debug)
-    if os.environ.get("RENDER") == "true":
+    # Modo LITE em cloud (Render, Zeabur): menos RAM, sem planner/vector/auto_debug
+    _is_cloud = (
+        os.environ.get("RENDER") == "true"
+        or os.environ.get("ZEABUR_PROJECT_ID")
+        or os.environ.get("ZEABUR_SERVICE_ID")
+    )
+    if _is_cloud:
         from core.capabilities import apply_mode
         apply_mode("lite")
 
     def _indexar_memoria():
-        # No Render (memória limitada), pula indexação ChromaDB para evitar OOM
-        if os.environ.get("RENDER") == "true":
+        # Na cloud (memória limitada), pula indexação ChromaDB para evitar OOM
+        if _is_cloud:
             return
         try:
             from backend.ai.vector_memory import indexar_projeto

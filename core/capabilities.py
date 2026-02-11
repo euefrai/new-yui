@@ -49,7 +49,7 @@ def set_capability(capability: str, value: bool) -> None:
 
 
 def apply_mode(mode: str) -> None:
-    """Aplica preset LITE ou FULL. Útil para deploy (ex: RENDER=1 -> LITE)."""
+    """Aplica preset LITE ou FULL. Útil para deploy (ex: Render, Zeabur -> LITE)."""
     preset = MODE_LITE if mode == "lite" else MODE_FULL
     for cap, val in preset.items():
         if cap in CAPABILITIES:

@@ -32,7 +32,7 @@ A interface principal usa **Supabase** para login e para separar chats por usuá
 
 1. Crie um projeto em [supabase.com](https://supabase.com).
 2. No SQL Editor do Supabase, execute o conteúdo de **`supabase_schema.sql`** (cria as tabelas `chats` e `messages` e opcionalmente `users_profile`). Opcional: execute **`supabase_migration_messages_extra.sql`** para adicionar colunas `type`, `metadata` e `status` na tabela `messages` (replay de ferramentas, histórico estruturado).
-3. No `.env` (ou nas variáveis de ambiente do Render), defina:
+3. No `.env` (ou nas variáveis de ambiente do Zeabur/Render), defina:
    - `SUPABASE_URL` = URL do projeto (ex.: `https://xxxx.supabase.co`)
    - `SUPABASE_ANON_KEY` = chave **anon** (pública) — usada só no **frontend** (login/Auth no navegador).
    - `SUPABASE_SERVICE_KEY` = chave **service_role** — usada só no **backend** (persistir chats, etc.). Nunca expor no frontend.
@@ -42,6 +42,19 @@ A interface principal usa **Supabase** para login e para separar chats por usuá
 Sem Supabase configurado, a rota `/` ainda carrega a interface, mas login e persistência de chats não funcionam (é necessário configurar as variáveis).
 
 **Memória — uma fonte só:** se `SUPABASE_URL` e `SUPABASE_SERVICE_KEY` estiverem definidos, a memória usa a nuvem (Supabase). Caso contrário, usa JSON local. Misturar os dois sem essa lógica gera conflito de “fonte de verdade” (ex.: “cadê minha conversa?”).
+
+## Deploy no Zeabur
+
+1. Faça push deste repositório para o GitHub.
+2. Acesse [zeabur.com](https://zeabur.com) e crie uma conta (ou use "Sign in with GitHub").
+3. **Add new service** → **Deploy your source code** → conecte o repositório.
+4. O Zeabur detecta Python/Flask. O `Procfile` define o start com Gunicorn.
+5. Em **Variables** adicione:
+   - `OPENAI_API_KEY` = sua chave da OpenAI (obrigatório para o chat com IA).
+   - `SUPABASE_URL`, `SUPABASE_ANON_KEY` e `SUPABASE_SERVICE_KEY` = para login e chats por usuário (opcional).
+6. Deploy automático ao fazer push no GitHub.
+
+O Zeabur gera uma URL como `https://seu-projeto.zeabur.app`. Em cloud, a Yui usa modo LITE (menos RAM, sem ChromaDB).
 
 ## Deploy no Render
 
@@ -131,6 +144,7 @@ python cli.py analyze .
 yui_ai/          # Core da assistente (memória, IA, analisador)
 web/             # Interface do chat (HTML, CSS, JS)
 web_server.py    # App Flask (chat + API)
+Procfile         # Deploy Zeabur (gunicorn)
 render.yaml      # Configuração de deploy no Render
 cli.py           # CLI (yui analyze)
 ```
