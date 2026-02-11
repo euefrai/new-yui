@@ -169,7 +169,7 @@
         showApp();
         return;
       }
-      setError("Supabase não configurado. Configure SUPABASE_URL e SUPABASE_KEY no servidor.");
+      setError("Supabase não configurado. Configure SUPABASE_URL e SUPABASE_ANON_KEY no servidor.");
       showLogin();
       return;
     }

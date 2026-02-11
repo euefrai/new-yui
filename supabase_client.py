@@ -1,22 +1,7 @@
 """
-Cliente Supabase para auth e persistência de chats por usuário.
-Variáveis de ambiente: SUPABASE_URL, SUPABASE_KEY (.env ou ambiente).
+Reexporta o cliente Supabase do core (backend usa SUPABASE_SERVICE_KEY).
+Variáveis: SUPABASE_URL, SUPABASE_ANON_KEY (frontend), SUPABASE_SERVICE_KEY (backend).
 """
-import os
-from dotenv import load_dotenv
+from core.supabase_client import supabase
 
-# Só carrega .env se existir (local); no Render usa os.environ
-_env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
-if os.path.isfile(_env_path):
-    load_dotenv(_env_path)
-
-SUPABASE_URL = (os.environ.get("SUPABASE_URL") or "").strip()
-SUPABASE_KEY = (os.environ.get("SUPABASE_KEY") or "").strip()
-
-supabase = None
-if SUPABASE_URL and SUPABASE_KEY:
-    try:
-        from supabase import create_client
-        supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
-    except Exception:
-        supabase = None
+__all__ = ["supabase"]

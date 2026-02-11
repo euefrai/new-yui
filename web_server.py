@@ -1,17 +1,14 @@
 """
 YUI Web Server — ponto de entrada enxuto.
 
-Rotas e lógica estão em:
-- routes/  (chat, file, user, tool, main)
-- services/ (chat_service, ai_service)
-
-Nada de lógica de negócio aqui; só app, CORS e registro de blueprints.
+Rotas em: routes/routes_chat.py, routes_auth.py, routes_api.py (blueprints).
+Lógica em: services/, config/settings.py.
 """
 
-import os
 from flask import Flask
 from flask_cors import CORS
 
+from config.settings import BASE_DIR, FLASK_DEBUG, PORT, SECRET_KEY
 from routes import register_routes
 
 app = Flask(
@@ -19,7 +16,7 @@ app = Flask(
     static_folder="static",
     template_folder="templates",
 )
-app.secret_key = os.environ.get("SECRET_KEY", "yui-dev-secret-change-in-production")
+app.secret_key = SECRET_KEY
 CORS(app)
 
 
@@ -38,14 +35,11 @@ if __name__ == "__main__":
     def _indexar_memoria():
         try:
             from backend.ai.vector_memory import indexar_projeto
-            raiz = os.path.dirname(os.path.abspath(__file__))
-            qtd = indexar_projeto(raiz)
+            qtd = indexar_projeto(str(BASE_DIR))
             print(f"🧠 Memória do projeto: {qtd} blocos indexados (yui_vector_db).")
         except Exception as e:
             print(f"⚠️ Indexação da memória vetorial ignorada: {e}")
 
     import threading
     threading.Thread(target=_indexar_memoria, daemon=True).start()
-    port = int(os.environ.get("PORT", 5000))
-    debug = os.environ.get("FLASK_DEBUG", "false").lower() in ("1", "true", "yes")
-    app.run(host="0.0.0.0", port=port, debug=debug)
+    app.run(host="0.0.0.0", port=PORT, debug=FLASK_DEBUG)

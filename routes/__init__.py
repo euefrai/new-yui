@@ -1,15 +1,13 @@
-# Rotas em blueprints: chat, auth/main, file, user, tool.
+# Rotas em blueprints: routes_chat, routes_auth, routes_api (Flask respira melhor).
 
 from flask import Flask
 
 
 def register_routes(app: Flask) -> None:
     """Registra todos os blueprints no app."""
-    from routes.main_routes import main_bp
-    from routes.chat_routes import chat_bp
-    from routes.file_routes import file_bp
-    from routes.user_routes import user_bp
-    from routes.tool_routes import tool_bp
+    from routes.routes_api import main_bp, file_bp, tool_bp
+    from routes.routes_chat import chat_bp
+    from routes.routes_auth import user_bp
 
     app.register_blueprint(main_bp)
     app.register_blueprint(chat_bp, url_prefix="/api")

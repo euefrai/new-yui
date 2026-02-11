@@ -16,8 +16,11 @@ os.makedirs(BASE_DATA_DIR, exist_ok=True)
 MEMORY_FILE = os.path.join(BASE_DATA_DIR, "memoria.json")
 MAX_MEMORIA_CURTA = 10
 
-# Quando Supabase está ativo (ex.: app web), não usar arquivo JSON — evita duas fontes de verdade.
-USE_LOCAL_MEMORY = not bool((os.environ.get("SUPABASE_URL") or "").strip())
+# Uma fonte só: Supabase ativo = memória na nuvem; senão = JSON local (evita "cadê minha conversa?").
+try:
+    from config.settings import USE_LOCAL_MEMORY
+except Exception:
+    USE_LOCAL_MEMORY = not bool((os.environ.get("SUPABASE_URL") or "").strip())
 _MEMORIA_RAM = None  # cache in-memory quando USE_LOCAL_MEMORY é False
 
 # =============================================================

@@ -1,0 +1,5 @@
+# Instala tudo: base + automação + voz + build (evita dependência escondida)
+-r requirements.txt
+-r requirements-automation.txt
+-r requirements-voice.txt
+-r requirements-build.txt

@@ -14,6 +14,8 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
+Para instalar todas as dependências (voz, automação, build): `pip install -r requirements-dev.txt`
+
 ## Chat web (local)
 
 ```bash
@@ -32,10 +34,14 @@ A interface principal usa **Supabase** para login e para separar chats por usuá
 2. No SQL Editor do Supabase, execute o conteúdo de **`supabase_schema.sql`** (cria as tabelas `chats` e `messages` e opcionalmente `users_profile`). Opcional: execute **`supabase_migration_messages_extra.sql`** para adicionar colunas `type`, `metadata` e `status` na tabela `messages` (replay de ferramentas, histórico estruturado).
 3. No `.env` (ou nas variáveis de ambiente do Render), defina:
    - `SUPABASE_URL` = URL do projeto (ex.: `https://xxxx.supabase.co`)
-   - `SUPABASE_KEY` = chave **anon** (pública) para o frontend; para o backend escrever em nome dos usuários, use a chave **service_role** em `SUPABASE_KEY` (ou configure RLS no Supabase conforme o schema).
+   - `SUPABASE_ANON_KEY` = chave **anon** (pública) — usada só no **frontend** (login/Auth no navegador).
+   - `SUPABASE_SERVICE_KEY` = chave **service_role** — usada só no **backend** (persistir chats, etc.). Nunca expor no frontend.
+   Usar as duas evita: se colocar só service_role no frontend quebra segurança; se colocar só anon no backend algumas operações falham.
 4. Reinicie o servidor e acesse a raiz da aplicação: tela de login → após entrar, sidebar com chats e área de mensagens.
 
 Sem Supabase configurado, a rota `/` ainda carrega a interface, mas login e persistência de chats não funcionam (é necessário configurar as variáveis).
+
+**Memória — uma fonte só:** se `SUPABASE_URL` e `SUPABASE_SERVICE_KEY` estiverem definidos, a memória usa a nuvem (Supabase). Caso contrário, usa JSON local. Misturar os dois sem essa lógica gera conflito de “fonte de verdade” (ex.: “cadê minha conversa?”).
 
 ## Deploy no Render
 
@@ -47,7 +53,7 @@ Sem Supabase configurado, a rota `/` ainda carrega a interface, mas login e pers
    - **Start command:** `gunicorn --bind 0.0.0.0:$PORT web_server:app`
 5. Em **Environment** adicione:
    - `OPENAI_API_KEY` = sua chave da OpenAI (obrigatório para o chat com IA).
-   - `SUPABASE_URL` e `SUPABASE_KEY` = para login e chats por usuário (opcional).
+   - `SUPABASE_URL`, `SUPABASE_ANON_KEY` e `SUPABASE_SERVICE_KEY` = para login e chats por usuário (opcional).
 6. Clique em **Apply** e aguarde o deploy.
 
 O Render vai gerar uma URL como `https://yui-xxxx.onrender.com`. Use essa URL no navegador para o chat. Em plano gratuito o serviço pode “dormir” após inatividade; a primeira requisição pode demorar alguns segundos.
