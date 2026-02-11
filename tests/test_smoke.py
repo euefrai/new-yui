@@ -72,6 +72,33 @@ def test_tool_router():
     assert out == "Texto sem JSON."
 
 
+def test_attention_manager():
+    from core.attention_manager import score, select, filter_tools_by_intention
+    items = [
+        {"key": "a", "priority": 1, "recent": True, "task_relevant": False},
+        {"key": "b", "priority": 3, "recent": False, "task_relevant": True},
+    ]
+    sel = select(items, top=1)
+    assert len(sel) == 1
+    tools = filter_tools_by_intention(
+        ["analisar_arquivo", "criar_projeto_arquivos", "consultar_indice_projeto"],
+        "criar calculadora"
+    )
+    assert "criar_projeto_arquivos" in tools
+
+
+def test_energy_manager():
+    from core.energy_manager import EnergyManager, get_energy_manager, COST_TOOL, COST_PLANNER
+    em = EnergyManager()
+    em.energy = 50
+    em.consume(COST_TOOL)
+    assert em.energy < 50
+    assert em.can_execute()
+    em.energy = 5
+    assert em.is_low()
+    assert em.is_critical()
+
+
 if __name__ == "__main__":
     import subprocess
     sys.exit(subprocess.run([sys.executable, "-m", "pytest", __file__, "-v"], cwd=str(ROOT)).returncode)

@@ -11,6 +11,11 @@ from core.capabilities import is_enabled
 from core.limits import MAX_STEPS as LIMIT_MAX_STEPS
 from core.tool_schema import TOOL_SCHEMAS, get_schema
 
+try:
+    from core.energy_manager import get_energy_manager
+except ImportError:
+    get_energy_manager = None
+
 if TYPE_CHECKING:
     from core.goals.goal_manager import Goal
 
@@ -70,12 +75,17 @@ def criar_plano_estruturado(
     Memory aware: usa histórico se falhou antes (ex: zip).
     Tool reasoning: escolhe tools baseado na intenção.
     Goals aware: objetivos ativos influenciam priorização.
+    Energy aware: energia < 20 → plano simples (menos steps).
     Fail safe: respeita max_steps.
     """
     if not is_enabled("planner"):
         return []
 
     max_steps = max_steps or LIMIT_MAX_STEPS
+    if get_energy_manager:
+        em = get_energy_manager()
+        if em.is_low():
+            max_steps = min(max_steps, 2)
     memory = _buscar_memoria_relevante(user_id, chat_id, mensagem)
     tools_sugeridas = _mapear_intencao_tools(mensagem)
 

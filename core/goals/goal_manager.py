@@ -4,11 +4,16 @@
 # Goal decide direção, NUNCA executa tools — quem executa é o executor.
 # ==========================================================
 
+import datetime
 import json
 from dataclasses import asdict, dataclass, field
 from enum import Enum
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+
+# Goals não usados há mais de N horas sofrem decay de prioridade
+STALE_GOAL_HOURS = 48
+STALE_GOAL_DECAY = 0.5
 
 try:
     from config import settings
@@ -75,11 +80,39 @@ def _save_memory(data: Dict[str, Any]) -> None:
         json.dump(data, f, ensure_ascii=False, indent=2)
 
 
-def get_active_goals(user_id: str = "", chat_id: str = "") -> List[Goal]:
-    """Retorna objetivos ativos, ordenados por prioridade (maior primeiro)."""
+def _decay_stale_goals(goals: List[Goal]) -> None:
+    """Attention nos Goals: objetivos não usados há muito tempo perdem prioridade."""
+    now = datetime.datetime.utcnow()
+    for g in goals:
+        if not g.last_execution:
+            continue
+        try:
+            last = datetime.datetime.fromisoformat(g.last_execution.replace("Z", "")[:19])
+            if last.tzinfo:
+                last = last.replace(tzinfo=None)
+            delta_hours = (now - last).total_seconds() / 3600
+            if delta_hours > STALE_GOAL_HOURS:
+                g.priority = max(0.1, g.priority - STALE_GOAL_DECAY)
+        except Exception:
+            pass
+
+
+def get_active_goals(user_id: str = "", chat_id: str = "", energy: Optional[float] = None) -> List[Goal]:
+    """
+    Retorna objetivos ativos, ordenados por prioridade (maior primeiro).
+    Energy-aware: energia < 20 → ignora goals com prioridade baixa (< 0.5).
+    Attention-aware: goals não usados há 48h+ têm prioridade reduzida.
+    """
     data = _load_memory()
-    goals = [Goal.from_dict(g) for g in data.get("goals", []) if g.get("status") == "active"]
-    # Ordena: SYSTEM > USER > SELF, depois por priority
+    all_goals = [Goal.from_dict(g) for g in data.get("goals", [])]
+    active_goals = [g for g in all_goals if g.status == "active"]
+    _decay_stale_goals(active_goals)
+    if active_goals:
+        data["goals"] = [g.to_dict() for g in all_goals]
+        _save_memory(data)
+    goals = active_goals
+    if energy is not None and energy < 20:
+        goals = [g for g in goals if g.priority >= 0.5]
     type_order = {GoalType.SYSTEM_GOAL: 0, GoalType.USER_GOAL: 1, GoalType.SELF_IMPROVEMENT: 2}
     goals.sort(key=lambda g: (-type_order.get(g.goal_type, 1), -g.priority))
     return goals

@@ -30,6 +30,22 @@ from backend.ai.tool_router import processar_resposta_ai
 from core.limits import MAX_STEPS as LIMIT_MAX_STEPS
 from core.goals.goal_manager import get_active_goals, update_progress
 from core.planner import criar_plano_estruturado, plan_to_prompt
+try:
+    from core.attention_manager import filter_context_blocks, filter_tools_by_intention
+except ImportError:
+    filter_context_blocks = None
+    filter_tools_by_intention = None
+try:
+    from core.energy_manager import (
+        get_energy_manager,
+        COST_RESPONDER_IA,
+        COST_TOOL,
+        COST_PLANNER,
+        COST_REFLECT,
+    )
+except ImportError:
+    get_energy_manager = None
+    COST_RESPONDER_IA = COST_TOOL = COST_PLANNER = COST_REFLECT = 0
 from core.reflection import refletir
 from core.state_machine import AgentState, transition
 from core.task_graph import build_task_graph, get_planned_steps_for_prompt, infer_intention
@@ -44,25 +60,44 @@ MODEL = os.environ.get("OPENAI_CHAT_MODEL", "gpt-4o-mini")
 MAX_HISTORY = 15
 CHUNK_SIZE = 50  # tamanho do chunk ao “streamar” a resposta final
 
-TOOL_SYSTEM = (
+TOOL_DESCRIPTIONS = {
+    "analisar_arquivo": "- analisar_arquivo(filename, content): quando o usuário COLAR ou descrever um código/arquivo específico.\n",
+    "listar_arquivos": "- listar_arquivos(pasta, padrao, limite): listar arquivos do projeto.\n",
+    "ler_arquivo_texto": "- ler_arquivo_texto(caminho, max_chars): ler conteúdo de um arquivo.\n",
+    "analisar_projeto": "- analisar_projeto(raiz?): analisar arquitetura, riscos e roadmap.\n",
+    "observar_ambiente": "- observar_ambiente(raiz?): visão rápida do projeto e sugestões.\n",
+    "criar_projeto_arquivos": "- criar_projeto_arquivos(root_dir, files): criar projeto. files = lista [{path, content}], ex: [{\"path\":\"index.html\",\"content\":\"<html>...</html>\"}].\n",
+    "criar_zip_projeto": "- criar_zip_projeto(root_dir, zip_name?): gerar script para compactar o projeto em ZIP.\n",
+    "consultar_indice_projeto": "- consultar_indice_projeto(raiz?): consultar índice de arquitetura em cache.\n",
+}
+
+TOOL_SYSTEM_HEADER = (
     "Você é a Yui, uma IA desenvolvedora que responde SEMPRE em português do Brasil.\n"
     "Você tem acesso a ferramentas internas. Use-as quando isso gerar uma resposta mais útil.\n\n"
     "Ferramentas disponíveis (nomes exatos):\n"
-    "- analisar_arquivo(filename, content): quando o usuário COLAR ou descrever um código/arquivo específico.\n"
-    "- listar_arquivos(pasta, padrao, limite): listar arquivos do projeto.\n"
-    "- ler_arquivo_texto(caminho, max_chars): ler conteúdo de um arquivo.\n"
-    "- analisar_projeto(raiz?): analisar arquitetura, riscos e roadmap.\n"
-    "- observar_ambiente(raiz?): visão rápida do projeto e sugestões.\n"
-    "- criar_projeto_arquivos(root_dir, files): criar projeto. files = lista [{path, content}], ex: [{\"path\":\"index.html\",\"content\":\"<html>...</html>\"}].\n"
-    "- criar_zip_projeto(root_dir, zip_name?): gerar script para compactar o projeto em ZIP.\n"
-    "- consultar_indice_projeto(raiz?): consultar índice de arquitetura em cache.\n\n"
-    "Planejamento:\n"
+)
+
+TOOL_SYSTEM_FOOTER = (
+    "\nPlanejamento:\n"
     "- Se resolver com texto direto, responda SOMENTE um JSON:\n"
     '  {"mode":"answer","answer":"sua resposta em português aqui"}\n'
     "- Se precisar de ferramentas, responda SOMENTE um JSON:\n"
     '  {"mode":"tools","steps":[{"tool":"NOME","args":{...}}, ...], "final_answer":"(opcional) conclusão"}\n'
     "NUNCA misture texto fora do JSON. O JSON deve ser o único conteúdo da resposta."
 )
+
+
+def _build_tool_system(user_message: str = "") -> str:
+    """Monta TOOL_SYSTEM com Attention: filtra tools por intenção (menos RAM, menos tokens)."""
+    all_tools = list(TOOL_DESCRIPTIONS.keys())
+    if filter_tools_by_intention:
+        tools = filter_tools_by_intention(all_tools, user_message)
+        if not tools:
+            tools = all_tools
+    else:
+        tools = all_tools
+    lines = [TOOL_DESCRIPTIONS.get(t, "") for t in tools if t in TOOL_DESCRIPTIONS]
+    return TOOL_SYSTEM_HEADER + "".join(lines) + TOOL_SYSTEM_FOOTER
 
 # Bloco de SKILLS (habilidades dinâmicas) — montado em tempo de execução
 def _build_skills_system() -> str:
@@ -261,8 +296,18 @@ def agent_controller(
     O frontend só recebe texto; nunca JSON cru.
     """
     try:
+        # ---------- 0) Energy check: freio cognitivo ----------
+        if get_energy_manager:
+            em = get_energy_manager()
+            if not em.can_execute():
+                for c in _yield_in_chunks("⚠️ A Yui precisa de um momento para recuperar energia. Tente novamente em instantes."):
+                    yield c
+                return
+
         # ---------- 1) Context Engine: histórico + contexto do projeto + memórias ----------
         ctx = montar_contexto_ia(user_id, chat_id, user_message, raiz_projeto=".", max_mensagens=MAX_HISTORY)
+        if filter_context_blocks:
+            ctx = filter_context_blocks(ctx, user_message=user_message)
         msgs: List[Dict[str, str]] = list(ctx.get("historico") or [])
 
         if ctx.get("contexto_projeto"):
@@ -303,15 +348,18 @@ def agent_controller(
             msgs.insert(0, {"role": "system", "content": perfil_txt})
 
         skills_system = _build_skills_system()
-        msgs.insert(0, {"role": "system", "content": TOOL_SYSTEM + skills_system})
+        msgs.insert(0, {"role": "system", "content": _build_tool_system(user_message) + skills_system})
         msgs.append({"role": "user", "content": user_message})
 
         # ---------- Planner Core (v2): planeja antes de responder ----------
         transition(AgentState.PLANNING)
+        if get_energy_manager:
+            get_energy_manager().consume(COST_PLANNER)
         goals_ativos = []
         if is_enabled("goals"):
             try:
-                goals_ativos = get_active_goals(user_id, chat_id)
+                em = get_energy_manager() if get_energy_manager else None
+                goals_ativos = get_active_goals(user_id, chat_id, energy=em.energy if em else None)
             except Exception:
                 pass
         if is_enabled("planner"):
@@ -337,6 +385,10 @@ def agent_controller(
             return
 
         # ---------- 2) Uma chamada à IA (resposta estruturada) ----------
+        if get_energy_manager:
+            get_energy_manager().consume(COST_RESPONDER_IA)
+        if get_energy_manager and get_energy_manager().is_critical():
+            msgs.insert(-1, {"role": "system", "content": "Energia baixa: responda de forma MUITO resumida (máx 2-3 frases)."})
         transition(AgentState.EXECUTING)
         response = client.chat.completions.create(model=MODEL, messages=msgs)
         raw_content = (response.choices[0].message.content or "").strip()
@@ -349,6 +401,8 @@ def agent_controller(
         # ---------- 3a) Se for skill → executar e usar resultado como resposta ----------
         reply = ""
         if isinstance(data, dict) and data.get("usar_skill") and is_enabled("skills"):
+            if get_energy_manager:
+                get_energy_manager().consume(COST_TOOL)
             nome_skill = str(data.get("usar_skill") or "").strip()
             dados_skill = data.get("dados") if isinstance(data.get("dados"), dict) else {}
             sucesso, resultado = executar_skill(nome_skill, dados_skill)
@@ -374,6 +428,11 @@ def agent_controller(
             for i, step in enumerate(steps):
                 if i >= LIMIT_MAX_STEPS:
                     break
+                if get_energy_manager and not get_energy_manager().can_execute():
+                    partes.append("Energia esgotada. Interrompendo execução.")
+                    break
+                if get_energy_manager:
+                    get_energy_manager().consume(COST_TOOL)
                 tool_name = step["tool"]
                 args = step.get("args") or {}
                 result = run_tool(tool_name, args)
@@ -399,7 +458,10 @@ def agent_controller(
                     root_dir = payload.get("root") or args.get("root_dir") or ""
                     if root_dir:
                         slug = Path(root_dir).name if root_dir else ""
-                        zip_result = run_tool("criar_zip_projeto", {"root_dir": root_dir, "zip_name": slug or None})
+                        zip_result = {}
+                        if get_energy_manager and get_energy_manager().can_execute():
+                            get_energy_manager().consume(COST_TOOL)
+                            zip_result = run_tool("criar_zip_projeto", {"root_dir": root_dir, "zip_name": slug or None})
                         if zip_result.get("ok"):
                             zpayload = zip_result.get("result") or {}
                             zip_output = zpayload.get("zip_output") or ""
@@ -444,6 +506,8 @@ def agent_controller(
         # ---------- 3c) Reflexão + Middleware: Self-Reflect + Auto Debug ----------
         transition(AgentState.REFLECTING)
         if client and reply:
+            if get_energy_manager:
+                get_energy_manager().consume(COST_REFLECT)
             try:
                 def _call_model_reflect(messages):
                     r = client.chat.completions.create(model=MODEL, messages=messages)
@@ -486,6 +550,8 @@ def agent_controller(
         add_event(user_id=user_id, chat_id=chat_id, tipo="curta", conteudo=user_message)
         add_event(user_id=user_id, chat_id=chat_id, tipo="curta", conteudo=reply)
         emit("memory_saved", chat_id=chat_id, user_id=user_id)
+        if get_energy_manager:
+            get_energy_manager().recover()
         transition(AgentState.IDLE)
 
     except Exception as e:
