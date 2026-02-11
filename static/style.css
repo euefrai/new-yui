@@ -27,6 +27,7 @@ body {
   color: #e8e8ec;
   font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
   min-height: 100vh;
+  min-height: 100dvh; /* Mobile: viewport dinâmico */
   line-height: 1.65;
 }
 
@@ -183,6 +184,7 @@ body.theme-light .inputArea {
 .app {
   display: flex;
   height: 100vh;
+  height: 100dvh; /* Mobile: evita overflow com barra de endereço */
   overflow: hidden;
 }
 
@@ -196,6 +198,7 @@ body.theme-light .inputArea {
   display: flex;
   flex-direction: column;
   padding: 16px 12px;
+  padding-left: calc(12px + env(safe-area-inset-left));
   transition: width 0.25s ease, min-width 0.25s ease, opacity 0.2s ease;
 }
 
@@ -466,6 +469,7 @@ body.theme-light .inputArea {
   align-items: center;
   min-width: 0;
   background: transparent;
+  padding-right: env(safe-area-inset-right);
 }
 
 .chatContainer {
@@ -850,6 +854,7 @@ body.theme-light .msgContent .codeBlockCopy {
   display: flex;
   gap: 12px;
   padding: 16px 20px;
+  padding-bottom: calc(16px + env(safe-area-inset-bottom));
   background: rgba(255, 255, 255, 0.02);
   border-top: 1px solid var(--glass-border);
   transition: var(--transition-fast);
@@ -930,14 +935,192 @@ body.theme-light .msgContent .codeBlockCopy {
 }
 
 /* ========== Responsive ========== */
-@media (max-width: 640px) {
+
+/* Tablets e telas médias */
+@media (max-width: 1024px) {
+  .sidebar {
+    width: 240px;
+    min-width: 240px;
+  }
+  .chatContainer {
+    max-width: 100%;
+    padding: 0 8px;
+  }
+  .chatMessages {
+    padding: 20px 16px;
+  }
+  .previewPanel {
+    width: 50%;
+    max-width: 100%;
+  }
+}
+
+/* Tablets pequenos e celulares grandes */
+@media (max-width: 768px) {
   .sidebar {
     width: 72px;
     min-width: 72px;
+    padding: 12px 8px;
+    padding-left: calc(8px + env(safe-area-inset-left));
   }
-  .logo { font-size: 1rem; }
+  .logo {
+    margin-bottom: 12px;
+  }
+  .logo .yuiLogoImg {
+    width: 56px;
+    height: 56px;
+  }
   .btnNovoChat span,
-  .chatItem span,
-  #userName { display: none; }
-  .btnNovoChat::after { content: "+"; }
+  .btnClearChat,
+  #userName {
+    display: none;
+  }
+  .btnNovoChat {
+    padding: 12px;
+    text-align: center;
+    justify-content: center;
+  }
+  .btnNovoChat::after {
+    content: "+";
+    font-size: 1.2rem;
+  }
+  .chatItem {
+    padding: 10px 12px;
+  }
+  .chatItem .chatTitle {
+    max-width: 56px;
+    font-size: 0.78rem;
+  }
+  .chatItem .deleteChatBtn {
+    opacity: 1;
+  }
+  .userFooter {
+    padding: 10px 0 0;
+  }
+  .userAvatar {
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
+  }
+  .chatContainer {
+    max-width: 100%;
+    padding: 0;
+  }
+  .chatMessages {
+    padding: 16px 12px;
+    gap: 12px;
+  }
+  .msgBubble,
+  .chat-bubble {
+    max-width: 92%;
+    padding: 12px 14px;
+    font-size: 0.9rem;
+    margin: 2px 0;
+  }
+  .inputArea {
+    padding: 12px 14px;
+    padding-bottom: calc(12px + env(safe-area-inset-bottom));
+    gap: 10px;
+  }
+  .inputArea input {
+    padding: 14px 16px;
+    font-size: 16px; /* Evita zoom no iOS */
+  }
+  .inputArea button {
+    padding: 14px 18px;
+    font-size: 0.88rem;
+  }
+  .inputArea .btnAnexo {
+    width: 44px;
+    height: 44px;
+  }
+  .userMenu {
+    width: calc(100vw - 32px);
+    max-width: 320px;
+    left: 50%;
+    transform: translateX(-50%);
+  }
+  .previewPanel {
+    width: 100%;
+    max-width: 100%;
+  }
+  .loginCard {
+    margin: 16px;
+    padding: 28px 24px;
+  }
+  .loginScreen .yuiLogoImg {
+    width: 64px;
+    height: 64px;
+  }
+}
+
+/* Celulares pequenos */
+@media (max-width: 480px) {
+  .sidebar {
+    width: 60px;
+    min-width: 60px;
+    padding-left: calc(6px + env(safe-area-inset-left));
+  }
+  .logo .yuiLogoImg {
+    width: 48px;
+    height: 48px;
+  }
+  .chatMessages {
+    padding: 12px 10px;
+    gap: 10px;
+  }
+  .msgBubble,
+  .chat-bubble {
+    max-width: 95%;
+    padding: 10px 12px;
+    font-size: 0.88rem;
+    line-height: 1.6;
+  }
+  .msgContent .codeBlockWrap {
+    margin: 10px 0;
+  }
+  .msgContent pre {
+    padding: 12px 14px;
+    font-size: 0.82rem;
+  }
+  .inputArea {
+    padding: 10px 12px;
+    padding-bottom: calc(10px + env(safe-area-inset-bottom));
+    gap: 8px;
+  }
+  .inputArea input {
+    padding: 12px 14px;
+  }
+  .inputArea button {
+    padding: 12px 16px;
+  }
+  .inputArea .btnAnexo {
+    width: 42px;
+    height: 42px;
+  }
+  .fileAttached {
+    left: 12px;
+    bottom: 60px;
+  }
+  .loginCard {
+    padding: 24px 20px;
+  }
+  .loginForm input,
+  #loginForm input {
+    padding: 12px 14px;
+  }
+  #loginForm button {
+    padding: 12px 14px;
+  }
+}
+
+/* Landscape em celulares */
+@media (max-height: 500px) and (orientation: landscape) {
+  .loginScreen {
+    padding: 12px;
+    align-items: flex-start;
+  }
+  .loginCard {
+    padding: 20px 24px;
+  }
 }
