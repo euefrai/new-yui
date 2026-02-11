@@ -5,3 +5,4 @@ flask-cors
 gunicorn
 supabase
 chromadb
+psutil>=5.9.0

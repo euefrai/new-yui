@@ -64,6 +64,21 @@ try:
 except ImportError:
     get_energy_manager = None
     COST_RESPONDER_IA = COST_TOOL = COST_PLANNER = COST_REFLECT = 0
+try:
+    from core.cognitive_budget import get_cognitive_budget, reset_budget_for_turn
+except ImportError:
+    get_cognitive_budget = None
+    reset_budget_for_turn = None
+try:
+    from core.self_monitoring import (
+        get_system_snapshot,
+        should_use_fast_mode,
+        get_system_state_for_prompt,
+    )
+except ImportError:
+    get_system_snapshot = None
+    should_use_fast_mode = None
+    get_system_state_for_prompt = None
 from core.reflection import refletir
 from core.state_machine import AgentState, transition
 from core.task_graph import build_task_graph, get_planned_steps_for_prompt, infer_intention
@@ -315,8 +330,10 @@ def agent_controller(
     """
     try:
         # ---------- 0) Energy check: freio cognitivo ----------
+        start_energy = 100.0
         if get_energy_manager:
             em = get_energy_manager()
+            start_energy = em.energy
             if not em.can_execute():
                 for c in _yield_in_chunks("⚠️ A Yui precisa de um momento para recuperar energia. Tente novamente em instantes."):
                     yield c
@@ -335,15 +352,30 @@ def agent_controller(
                 pass
 
         # ---------- 0.5) Meta-Cognition: observador interno (antes de planner) ----------
+        context_size = sum(1 for k in ("historico", "contexto_projeto", "memoria_vetorial", "contexto_chat_anterior", "memoria_eventos") if ctx.get(k))
         meta_signals = {}
         if get_metacognition and _build_state:
-            context_size = sum(1 for k in ("historico", "contexto_projeto", "memoria_vetorial", "contexto_chat_anterior", "memoria_eventos") if ctx.get(k))
             state = _build_state(context_size=context_size)
             meta_signals = get_metacognition().analyze(state)
             if meta_signals.get("loop_detected"):
                 for c in _yield_in_chunks("⚠️ Detectei repetição nas ações. Simplificando a resposta."):
                     yield c
                 return
+
+        # ---------- Cognitive Budget: tokens, tempo, memória, profundidade ----------
+        server_load_high = bool(should_use_fast_mode and should_use_fast_mode())
+        depth = "normal"
+        budget = None
+        if reset_budget_for_turn and get_cognitive_budget:
+            budget = reset_budget_for_turn()
+            em = get_energy_manager() if get_energy_manager else None
+            depth = budget.recommend_depth(
+                user_message=user_message,
+                energy=em.energy if em else None,
+                context_size=context_size,
+                meta_signals=meta_signals,
+                server_load_high=server_load_high,
+            )
 
         # ---------- Strategy Engine: escolhe como pensar ----------
         strategy = "exploration"
@@ -363,7 +395,9 @@ def agent_controller(
             )
 
         if filter_context_blocks:
-            if get_strategy_engine:
+            if budget:
+                top = budget.get_max_context_items(depth)
+            elif get_strategy_engine:
                 top = get_strategy_engine().get_attention_top(strategy)
             else:
                 top = 2 if (meta_signals.get("context_overload") or meta_signals.get("simplified_mode")) else None
@@ -409,6 +443,11 @@ def agent_controller(
 
         skills_system = _build_skills_system()
         msgs.insert(0, {"role": "system", "content": _build_tool_system(user_message) + skills_system})
+        # Autopercepção: avisa a Yui sobre carga do servidor (modo economia)
+        if get_system_state_for_prompt:
+            autopercepcao = get_system_state_for_prompt()
+            if autopercepcao:
+                msgs.insert(-1, {"role": "system", "content": autopercepcao})
         msgs.append({"role": "user", "content": user_message})
 
         # ---------- Planner Core (v2): planeja antes de responder ----------
@@ -432,8 +471,10 @@ def agent_controller(
                 plan_steps = get_planned_steps_for_prompt(task_graph)
                 if plan_steps:
                     msgs.insert(0, {"role": "system", "content": plan_steps})
-                # Planner estruturado (memory aware, tool reasoning, goals aware, meta-aware, strategy-aware)
+                # Planner estruturado (memory aware, tool reasoning, goals aware, meta-aware, strategy-aware, budget-aware)
                 max_steps = LIMIT_MAX_STEPS
+                if budget:
+                    max_steps = min(max_steps, budget.get_max_plan_steps(depth))
                 if get_strategy_engine:
                     max_steps = min(max_steps, get_strategy_engine().get_max_steps(strategy))
                 if meta_signals.get("simplified_mode") or meta_signals.get("too_many_steps"):
@@ -602,21 +643,22 @@ def agent_controller(
 
         # ---------- 3c) Reflexão + Middleware: Self-Reflect + Auto Debug ----------
         transition(AgentState.REFLECTING)
+        allow_reflection = not budget or budget.get_allow_reflection(depth)
         if client and reply:
-            if get_energy_manager:
+            if get_energy_manager and allow_reflection:
                 get_energy_manager().consume(COST_REFLECT)
             try:
                 def _call_model_reflect(messages):
                     r = client.chat.completions.create(model=MODEL, messages=messages)
                     return (r.choices[0].message.content or "").strip()
 
-                if is_enabled("self_reflection"):
+                if is_enabled("self_reflection") and allow_reflection:
                     melhorou, nova_resposta = avaliar_resposta(_call_model_reflect, msgs, reply)
                     if melhorou and nova_resposta:
                         reply = nova_resposta
                         set_confidence(0.9)
 
-                if is_enabled("auto_debug"):
+                if is_enabled("auto_debug") and allow_reflection:
                     corrigiu, resposta_debugada = auto_debug(_call_model_reflect, reply)
                     if corrigiu and resposta_debugada:
                         reply = resposta_debugada
@@ -648,7 +690,14 @@ def agent_controller(
         add_event(user_id=user_id, chat_id=chat_id, tipo="curta", conteudo=reply)
         emit("memory_saved", chat_id=chat_id, user_id=user_id)
         if get_energy_manager:
-            get_energy_manager().recover()
+            em_final = get_energy_manager()
+            consumed = max(0, start_energy - em_final.energy)
+            try:
+                from core.usage_tracker import record_consumption
+                record_consumption(consumed)
+            except Exception:
+                pass
+            em_final.recover()
         if get_strategy_engine:
             try:
                 get_strategy_engine().record_result(strategy, success=True)

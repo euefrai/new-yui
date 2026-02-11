@@ -135,6 +135,49 @@ def api_run_tool():
     return jsonify(result), status
 
 
+# --- System (saúde, telemetria) ---
+system_bp = Blueprint("system", __name__, url_prefix="/api/system")
+
+
+@system_bp.get("/health")
+def api_system_health():
+    """
+    Saúde do servidor: CPU, RAM, modo (normal/fast/critical).
+    Alimenta o painel de Saúde do Sistema na UI.
+    """
+    try:
+        from core.self_monitoring import get_system_snapshot
+        snap = get_system_snapshot(use_cache=False)
+        if snap:
+            data = snap.to_dict()
+            data["available"] = True
+        else:
+            data = {"available": False, "message": "Monitoramento não disponível (psutil)"}
+    except Exception as e:
+        data = {"available": False, "error": str(e)}
+    return jsonify(data)
+
+
+@system_bp.get("/telemetry")
+def api_system_telemetry():
+    """
+    Custo acumulado do dia (baseado em energia consumida).
+    Transparência para o usuário do SaaS.
+    """
+    try:
+        from core.usage_tracker import get_today_usage
+        try:
+            from core.energy_manager import get_energy_manager
+            energy = get_energy_manager().energy
+        except Exception:
+            energy = 100
+        usage = get_today_usage()
+        usage["energy_current"] = energy
+        return jsonify(usage)
+    except Exception as e:
+        return jsonify({"error": str(e), "energy_consumed": 0, "requests": 0, "cost_estimate": 0})
+
+
 # --- Goals (objetivos persistentes) ---
 goals_bp = Blueprint("goals", __name__, url_prefix="/api/goals")
 

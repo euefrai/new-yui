@@ -33,6 +33,17 @@
       <button type="button" id="novoChat" class="btnNovoChat">+ Novo chat</button>
       <button type="button" id="clearChat" class="btnClearChat" title="Limpar memória da sessão">Excluir Chat</button>
       <div id="listaChats" class="listaChats"></div>
+      <div class="telemetryPanel" id="telemetryPanel" title="Custo acumulado do dia">
+        <div class="telemetryTitle">Telemetria</div>
+        <div class="telemetryRow">
+          <span class="telemetryLabel">Custo hoje</span>
+          <span class="telemetryValue" id="telemetryCost">—</span>
+        </div>
+        <div class="telemetryRow">
+          <span class="telemetryLabel">Requisições</span>
+          <span class="telemetryValue" id="telemetryRequests">—</span>
+        </div>
+      </div>
       <div class="userFooter">
         <div class="userAvatar" id="userAvatar" title="Avatar"></div>
         <span id="userName">Usuário</span>
@@ -49,6 +60,10 @@
         </label>
         <input id="msg" type="text" placeholder="Digite sua mensagem..." autocomplete="off" />
         <button type="button" id="btnEnviar">Enviar</button>
+        </div>
+        <div class="systemHealthBar" id="systemHealthBar" aria-hidden="true">
+          <div class="systemHealthIndicator" id="systemHealthIndicator"></div>
+          <span class="systemHealthLabel" id="systemHealthLabel">Sistema: —</span>
         </div>
       </div>
     </main>

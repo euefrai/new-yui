@@ -17,6 +17,7 @@ build/
 .env
 *.log
 logs/
+*api*key*.txt
 
 # Memória local (opcional: descomente se não quiser versionar)
 # memoria.json

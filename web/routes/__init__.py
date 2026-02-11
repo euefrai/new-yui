@@ -6,7 +6,7 @@ from flask import Flask
 
 def register_routes(app: Flask) -> None:
     """Registra todos os blueprints no app."""
-    from web.routes.routes_api import main_bp, file_bp, tool_bp, goals_bp
+    from web.routes.routes_api import main_bp, file_bp, tool_bp, goals_bp, system_bp
     from web.routes.routes_chat import chat_bp
     from web.routes.routes_auth import user_bp
 
@@ -15,4 +15,5 @@ def register_routes(app: Flask) -> None:
     app.register_blueprint(file_bp, url_prefix="/api")
     app.register_blueprint(user_bp, url_prefix="/api/user")
     app.register_blueprint(tool_bp, url_prefix="/api/tools")
+    app.register_blueprint(system_bp)
     app.register_blueprint(goals_bp)

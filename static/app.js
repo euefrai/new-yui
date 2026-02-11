@@ -891,6 +891,7 @@
             if (isNovoChatTitulo(currentChatTitulo)) {
               atualizarTituloChat(chatId, texto);
             }
+            fetchTelemetry();
             // recarrega mensagens para aplicar botão de preview, se houver
             carregarMensagens();
           })
@@ -952,6 +953,7 @@
                   if (isNovoChatTitulo(currentChatTitulo)) {
                     atualizarTituloChat(chatId, texto);
                   }
+                  fetchTelemetry();
                   return;
                 }
                 buffer += decoder.decode(result.value, { stream: true });
@@ -1069,6 +1071,68 @@
       };
     });
   }
+
+  function fetchSystemHealth() {
+    fetch("/api/system/health")
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        var bar = document.getElementById("systemHealthBar");
+        var indicator = document.getElementById("systemHealthIndicator");
+        var label = document.getElementById("systemHealthLabel");
+        if (!bar || !indicator || !label) return;
+        if (!data.available) {
+          bar.setAttribute("data-mode", "unavailable");
+          label.textContent = "Sistema: monitoramento indisponível";
+          return;
+        }
+        var mode = data.mode || "normal";
+        bar.setAttribute("data-mode", mode);
+        var cpu = data.cpu_percent || 0;
+        var ram = data.ram_percent || 0;
+        label.textContent = "Sistema: CPU " + cpu + "% | RAM " + ram + "%" + (mode !== "normal" ? " • Modo economia" : "");
+      })
+      .catch(function () {
+        var bar = document.getElementById("systemHealthBar");
+        var label = document.getElementById("systemHealthLabel");
+        if (bar && label) {
+          bar.setAttribute("data-mode", "unavailable");
+          label.textContent = "Sistema: —";
+        }
+      });
+  }
+
+  function fetchTelemetry() {
+    fetch("/api/system/telemetry")
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        var costEl = document.getElementById("telemetryCost");
+        var reqEl = document.getElementById("telemetryRequests");
+        if (costEl) costEl.textContent = (data.cost_estimate != null ? "R$ " + data.cost_estimate.toFixed(2) : "—");
+        if (reqEl) reqEl.textContent = (data.requests != null ? data.requests : "—");
+      })
+      .catch(function () {
+        var costEl = document.getElementById("telemetryCost");
+        var reqEl = document.getElementById("telemetryRequests");
+        if (costEl) costEl.textContent = "—";
+        if (reqEl) reqEl.textContent = "—";
+      });
+  }
+
+  var systemPollingStarted = false;
+  function startSystemPolling() {
+    if (systemPollingStarted) return;
+    systemPollingStarted = true;
+    fetchSystemHealth();
+    fetchTelemetry();
+    setInterval(fetchSystemHealth, 8000);
+    setInterval(fetchTelemetry, 15000);
+  }
+
+  var originalShowApp = showApp;
+  showApp = function () {
+    originalShowApp();
+    startSystemPolling();
+  };
 
   initSupabase();
   initTheme();
