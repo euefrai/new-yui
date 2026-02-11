@@ -304,7 +304,20 @@ def agent_controller(
                     partes.append(f"Não consegui executar '{tool_name}': {result.get('error') or 'erro desconhecido.'}")
                     continue
                 payload = result.get("result") or {}
-                partes.append(_format_tool_reply(tool_name, args, payload))
+                msg = _format_tool_reply(tool_name, args, payload)
+                partes.append(msg)
+                # Ao criar projeto, gera ZIP e adiciona link de download clicável (se ainda não tiver)
+                if tool_name == "criar_projeto_arquivos" and payload.get("ok") and "[DOWNLOAD]:" not in msg:
+                    root_dir = payload.get("root") or args.get("root_dir") or ""
+                    if root_dir:
+                        slug = Path(root_dir).name if root_dir else ""
+                        zip_result = run_tool("criar_zip_projeto", {"root_dir": root_dir, "zip_name": slug or None})
+                        if zip_result.get("ok"):
+                            zpayload = zip_result.get("result") or {}
+                            zip_output = zpayload.get("zip_output") or ""
+                            zip_basename = Path(zip_output).name if zip_output else ""
+                            if zip_basename and zip_basename.endswith(".zip"):
+                                partes.append(f"Projeto compactado. [DOWNLOAD]:/download/{zip_basename}")
 
             final_answer = str(data.get("final_answer") or "").strip()
             if final_answer:

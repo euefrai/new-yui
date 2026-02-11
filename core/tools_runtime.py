@@ -5,6 +5,8 @@ Estas funções são registradas em core.tools_registry.
 """
 
 import os
+import subprocess
+import sys
 import zipfile
 from pathlib import Path
 from typing import Any, Dict, Optional
@@ -251,6 +253,17 @@ if __name__ == "__main__":
         with open(script_path, "w", encoding="utf-8") as f:
             f.write(script_code)
         command = f"python {script_path.relative_to(PROJECT_ROOT)}"
+        # Executa o script para gerar o .zip imediatamente (link de download clicável)
+        try:
+            subprocess.run(
+                [sys.executable, str(script_path)],
+                cwd=str(PROJECT_ROOT),
+                timeout=60,
+                capture_output=True,
+                check=False,
+            )
+        except Exception:
+            pass  # zip_output ainda é retornado; o usuário pode rodar o comando manualmente
         return {
             "ok": True,
             "script_path": str(script_path),
