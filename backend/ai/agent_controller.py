@@ -13,7 +13,10 @@ from typing import Any, Dict, Generator, List
 from openai import OpenAI
 
 from yui_ai.services.memory_service import save_message
+from core.capabilities import is_enabled
+from core.event_bus import emit
 from core.memory_manager import add_event
+from core.self_state import set_last_action, set_last_error, set_confidence
 from core.tool_runner import run_tool
 from core.user_profile import get_user_profile
 
@@ -24,6 +27,7 @@ from backend.ai.self_reflect import avaliar_resposta
 from backend.ai.skill_manager import executar_skill, listar_skills
 from backend.ai.task_planner import criar_plano
 from backend.ai.tool_router import processar_resposta_ai
+from core.task_graph import build_task_graph, get_planned_steps_for_prompt, infer_intention
 
 # ==========================================================
 # CONFIG
@@ -236,8 +240,10 @@ def agent_controller(
             })
         if ctx.get("memoria_eventos"):
             msgs.insert(0, {"role": "system", "content": ctx["memoria_eventos"]})
+        if ctx.get("system_state"):
+            msgs.insert(0, {"role": "system", "content": f"Estado da Yui: {ctx['system_state']}"})
 
-        profile = get_user_profile(user_id)
+        profile = ctx.get("user_profile") or get_user_profile(user_id)
         if profile:
             nivel = profile.get("nivel_tecnico") or "desconhecido"
             langs = profile.get("linguagens_pref") or ""
@@ -252,13 +258,19 @@ def agent_controller(
         msgs.insert(0, {"role": "system", "content": TOOL_SYSTEM + skills_system})
         msgs.append({"role": "user", "content": user_message})
 
-        # ---------- Task Planner: plano interno antes da resposta ----------
-        try:
-            plano_execucao = criar_plano(user_message)
-            if plano_execucao and plano_execucao.strip():
-                msgs.insert(0, {"role": "system", "content": plano_execucao.strip()})
-        except Exception:
-            pass
+        # ---------- Task Planner + Task Graph (só se capability planner ativa) ----------
+        if is_enabled("planner"):
+            try:
+                plano_execucao = criar_plano(user_message)
+                if plano_execucao and plano_execucao.strip():
+                    msgs.insert(0, {"role": "system", "content": plano_execucao.strip()})
+                intention = infer_intention(user_message)
+                task_graph = build_task_graph(intention, user_message)
+                plan_steps = get_planned_steps_for_prompt(task_graph)
+                if plan_steps:
+                    msgs.insert(0, {"role": "system", "content": plan_steps})
+            except Exception:
+                pass
 
         if not client:
             for c in _yield_in_chunks("⚠️ Configure OPENAI_API_KEY no servidor para respostas da Yui."):
@@ -276,17 +288,19 @@ def agent_controller(
 
         # ---------- 3a) Se for skill → executar e usar resultado como resposta ----------
         reply = ""
-        if isinstance(data, dict) and data.get("usar_skill"):
+        if isinstance(data, dict) and data.get("usar_skill") and is_enabled("skills"):
             nome_skill = str(data.get("usar_skill") or "").strip()
             dados_skill = data.get("dados") if isinstance(data.get("dados"), dict) else {}
             sucesso, resultado = executar_skill(nome_skill, dados_skill)
+            set_last_action(f"skill:{nome_skill}")
             if sucesso:
                 reply = json.dumps(resultado, ensure_ascii=False, indent=2) if isinstance(resultado, dict) else str(resultado)
             else:
                 reply = f"Não foi possível executar a skill '{nome_skill}': {resultado}"
+                set_last_error(reply)
 
-        # ---------- 3b) Se for tool → executar e montar resposta ----------
-        elif isinstance(data, dict) and data.get("mode") in ("tool", "tools"):
+        # ---------- 3b) Se for tool → executar e montar resposta (só se capability tools ativa) ----------
+        elif isinstance(data, dict) and data.get("mode") in ("tool", "tools") and is_enabled("tools"):
             steps: List[Dict] = []
             if data.get("mode") == "tool":
                 steps = [{"tool": str(data.get("tool") or "").strip(), "args": data.get("args") or {}}]
@@ -300,9 +314,13 @@ def agent_controller(
                 tool_name = step["tool"]
                 args = step.get("args") or {}
                 result = run_tool(tool_name, args)
+                emit("tool_executed", tool_name=tool_name, args=args, result=result)
                 if not result.get("ok"):
-                    partes.append(f"Não consegui executar '{tool_name}': {result.get('error') or 'erro desconhecido.'}")
+                    err = result.get("error") or "erro desconhecido."
+                    set_last_error(err)
+                    partes.append(f"Não consegui executar '{tool_name}': {err}")
                     continue
+                set_last_action(f"tool:{tool_name}")
                 payload = result.get("result") or {}
                 msg = _format_tool_reply(tool_name, args, payload)
                 partes.append(msg)
@@ -325,7 +343,12 @@ def agent_controller(
                 partes.append(final_answer)
             reply = "\n\n".join(p for p in partes if p) if partes else "Execução das ferramentas concluída."
 
+        elif isinstance(data, dict) and data.get("mode") in ("tool", "tools") and not is_enabled("tools"):
+            set_last_action("answer")
+            reply = "Ferramentas estão desativadas no momento. Tente descrever o que precisa em texto."
+
         elif isinstance(data, dict) and data.get("mode") == "answer":
+            set_last_action("answer")
             reply = str(data.get("answer") or "").strip() or raw_content.strip()
 
         else:
@@ -341,22 +364,26 @@ def agent_controller(
         if reply and "sandbox://" in reply:
             reply = re.sub(r"sandbox://([^\s\)\]]+)", r"/download/\1", reply)
 
-        # ---------- 3c) Self-Reflect + Auto Debug: melhora e corrige erros técnicos ----------
+        # ---------- 3c) Middleware de resposta: Self-Reflect + Auto Debug (conforme capabilities) ----------
         if client and reply:
             try:
                 def _call_model_reflect(messages):
                     r = client.chat.completions.create(model=MODEL, messages=messages)
                     return (r.choices[0].message.content or "").strip()
 
-                melhorou, nova_resposta = avaliar_resposta(_call_model_reflect, msgs, reply)
-                if melhorou and nova_resposta:
-                    reply = nova_resposta
+                if is_enabled("self_reflection"):
+                    melhorou, nova_resposta = avaliar_resposta(_call_model_reflect, msgs, reply)
+                    if melhorou and nova_resposta:
+                        reply = nova_resposta
+                        set_confidence(0.9)
 
-                corrigiu, resposta_debugada = auto_debug(_call_model_reflect, reply)
-                if corrigiu and resposta_debugada:
-                    reply = resposta_debugada
-            except Exception:
-                pass
+                if is_enabled("auto_debug"):
+                    corrigiu, resposta_debugada = auto_debug(_call_model_reflect, reply)
+                    if corrigiu and resposta_debugada:
+                        reply = resposta_debugada
+                        set_last_action("auto_debug")
+            except Exception as e:
+                set_last_error(str(e))
 
         # ---------- 4) Tool Router: intercepta JSON de tool e devolve texto limpo ----------
         reply = processar_resposta_ai(reply)
@@ -367,6 +394,8 @@ def agent_controller(
         except Exception:
             pass
 
+        emit("response_generated", reply=reply, user_message=user_message)
+
         # ---------- 5) Entregar resposta em chunks (streaming) ----------
         for chunk in _yield_in_chunks(reply):
             yield chunk
@@ -376,9 +405,11 @@ def agent_controller(
         save_message(chat_id, "assistant", reply, user_id)
         add_event(user_id=user_id, chat_id=chat_id, tipo="curta", conteudo=user_message)
         add_event(user_id=user_id, chat_id=chat_id, tipo="curta", conteudo=reply)
+        emit("memory_saved", chat_id=chat_id, user_id=user_id)
 
     except Exception as e:
         erro = f"Erro no Agent Controller: {str(e)}"
+        set_last_error(erro)
         print(erro)
         for c in _yield_in_chunks("⚠️ Algo deu errado ao processar sua mensagem."):
             yield c

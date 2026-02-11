@@ -1,7 +1,6 @@
 """
 Implementações das ferramentas (tools) executáveis pela Yui.
-
-Estas funções são registradas em core.tools_registry.
+Sempre usa Path absoluto (BASE_DIR do config) para evitar bug no Render/cwd.
 """
 
 import os
@@ -16,9 +15,13 @@ from yui_ai.project_analysis.analysis_report import executar_analise_completa
 from yui_ai.project_analysis.project_scanner import escanear_estrutura
 from yui_ai.project_analysis.project_index import get_or_compute
 
-
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
-GENERATED_ROOT = PROJECT_ROOT / "generated_projects"
+try:
+    from config import settings
+    PROJECT_ROOT = Path(settings.BASE_DIR).resolve()
+    GENERATED_ROOT = Path(settings.GENERATED_PROJECTS_DIR).resolve()
+except Exception:
+    PROJECT_ROOT = Path(__file__).resolve().parents[1]
+    GENERATED_ROOT = PROJECT_ROOT / "generated_projects"
 SCRIPTS_ROOT = PROJECT_ROOT / "scripts"
 
 
@@ -178,23 +181,46 @@ def tool_criar_projeto_arquivos(root_dir: str, files: Any) -> Dict[str, Any]:
         return {"ok": False, "root": str(base), "files": created, "error": str(e)}
 
 
+def _resolve_project_dir(root_dir: str) -> Optional[Path]:
+    """
+    Resolve root_dir para um Path absoluto da pasta do projeto.
+    Projetos gerados ficam em GENERATED_ROOT (generated_projects/).
+    No Render, cwd pode ser outro; por isso SEMPRE usamos BASE_DIR absoluto.
+    """
+    if not root_dir or not root_dir.strip():
+        return None
+    root_dir = root_dir.strip()
+    p = Path(root_dir)
+    # 1) Já é absoluto e existe
+    if p.is_absolute() and p.is_dir():
+        return p
+    # 2) Nome da pasta só (ex: sistema_calculadora) -> em generated_projects/
+    candidate = (GENERATED_ROOT / root_dir).resolve()
+    if candidate.is_dir():
+        return candidate
+    # 3) root_dir era path completo; pega só o nome (slug) e procura em generated_projects
+    slug = p.name
+    if slug:
+        candidate = (GENERATED_ROOT / slug).resolve()
+        if candidate.is_dir():
+            return candidate
+    # 4) Relativo à raiz do app (ex: generated_projects/sistema_calculadora)
+    candidate = (PROJECT_ROOT / root_dir).resolve()
+    if candidate.is_dir():
+        return candidate
+    return None
+
+
 def tool_criar_zip_projeto(root_dir: str, zip_name: Optional[str] = None) -> Dict[str, Any]:
     """
     Gera um script Python para compactar um projeto em ZIP.
-
-    Args:
-        root_dir: pasta do projeto (relativa ao PROJECT_ROOT ou generated_projects).
-        zip_name: nome opcional do zip (sem extensão).
+    Usa sempre Path absoluto (BASE_DIR) para funcionar no Render.
     """
     if not root_dir:
         return {"ok": False, "script_path": "", "zip_output": "", "command": "", "error": "root_dir obrigatório"}
-    root_path = (PROJECT_ROOT / root_dir).resolve()
-    if not root_path.is_dir():
-        alt = (GENERATED_ROOT / root_dir).resolve()
-        if alt.is_dir():
-            root_path = alt
-        else:
-            return {"ok": False, "script_path": "", "zip_output": "", "command": "", "error": "Pasta do projeto não encontrada."}
+    root_path = _resolve_project_dir(root_dir)
+    if not root_path or not root_path.is_dir():
+        return {"ok": False, "script_path": "", "zip_output": "", "command": "", "error": "Pasta do projeto não encontrada."}
 
     try:
         root_path.relative_to(PROJECT_ROOT)

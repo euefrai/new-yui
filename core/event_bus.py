@@ -1,0 +1,41 @@
+# ==========================================================
+# YUI EVENT BUS
+# Desacoplamento: componentes emitem eventos; plugins/outros reagem.
+# ==========================================================
+
+from typing import Any, Callable, Dict, List
+
+_listeners: Dict[str, List[Callable[..., None]]] = {}
+
+
+def subscribe(event: str, handler: Callable[..., None]) -> None:
+    """Registra um handler para o evento. Pode ser chamado com *args, **kwargs."""
+    if event not in _listeners:
+        _listeners[event] = []
+    _listeners[event].append(handler)
+
+
+def unsubscribe(event: str, handler: Callable[..., None]) -> None:
+    """Remove um handler do evento."""
+    if event in _listeners:
+        try:
+            _listeners[event].remove(handler)
+        except ValueError:
+            pass
+
+
+def emit(event: str, *args: Any, **kwargs: Any) -> None:
+    """Dispara o evento para todos os handlers registrados. Erros são ignorados."""
+    for fn in _listeners.get(event, []):
+        try:
+            fn(*args, **kwargs)
+        except Exception:
+            pass
+
+
+def clear(event: str | None = None) -> None:
+    """Remove todos os handlers de um evento, ou de todos se event for None."""
+    if event is None:
+        _listeners.clear()
+    elif event in _listeners:
+        _listeners[event] = []
