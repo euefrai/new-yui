@@ -730,32 +730,38 @@ def agent_controller(
                 pass
         if is_enabled("planner"):
             try:
-                plano_execucao = criar_plano(user_message)
-                if plano_execucao and plano_execucao.strip():
-                    msgs.insert(0, {"role": "system", "content": plano_execucao.strip()})
-                intention = infer_intention(user_message)
-                task_graph = build_task_graph(intention, user_message)
-                plan_steps = get_planned_steps_for_prompt(task_graph)
-                if plan_steps:
-                    msgs.insert(0, {"role": "system", "content": plan_steps})
-                # Planner estruturado (memory aware, tool reasoning, goals aware, meta-aware, strategy-aware, budget-aware)
-                max_steps = LIMIT_MAX_STEPS
-                if budget:
-                    max_steps = min(max_steps, budget.get_max_plan_steps(depth))
-                if get_strategy_engine:
-                    max_steps = min(max_steps, get_strategy_engine().get_max_steps(strategy))
-                if meta_signals.get("simplified_mode") or meta_signals.get("too_many_steps"):
-                    max_steps = min(max_steps, 2)
-                plan = criar_plano_estruturado(user_message, user_id, chat_id, max_steps=max_steps, goals_ativos=goals_ativos or None)
-                if plan:
-                    plan_txt = plan_to_prompt(plan, goals_ativos or None)
-                    if get_world_model:
-                        hint = get_world_model().get_focus_hint()
-                        if hint:
-                            plan_txt = f"[World Model] {hint}\n\n{plan_txt}"
-                    msgs.insert(0, {"role": "system", "content": plan_txt})
+                from core.resource_governor import allow_planner
+                planner_ok = allow_planner().allow
             except Exception:
-                pass
+                planner_ok = True
+            if planner_ok:
+                try:
+                    plano_execucao = criar_plano(user_message)
+                    if plano_execucao and plano_execucao.strip():
+                        msgs.insert(0, {"role": "system", "content": plano_execucao.strip()})
+                    intention = infer_intention(user_message)
+                    task_graph = build_task_graph(intention, user_message)
+                    plan_steps = get_planned_steps_for_prompt(task_graph)
+                    if plan_steps:
+                        msgs.insert(0, {"role": "system", "content": plan_steps})
+                    # Planner estruturado (memory aware, tool reasoning, goals aware, meta-aware, strategy-aware, budget-aware)
+                    max_steps = LIMIT_MAX_STEPS
+                    if budget:
+                        max_steps = min(max_steps, budget.get_max_plan_steps(depth))
+                    if get_strategy_engine:
+                        max_steps = min(max_steps, get_strategy_engine().get_max_steps(strategy))
+                    if meta_signals.get("simplified_mode") or meta_signals.get("too_many_steps"):
+                        max_steps = min(max_steps, 2)
+                    plan = criar_plano_estruturado(user_message, user_id, chat_id, max_steps=max_steps, goals_ativos=goals_ativos or None)
+                    if plan:
+                        plan_txt = plan_to_prompt(plan, goals_ativos or None)
+                        if get_world_model:
+                            hint = get_world_model().get_focus_hint()
+                            if hint:
+                                plan_txt = f"[World Model] {hint}\n\n{plan_txt}"
+                        msgs.insert(0, {"role": "system", "content": plan_txt})
+                except Exception:
+                    pass
 
         if not client:
             for c in _yield_in_chunks("⚠️ Configure OPENAI_API_KEY no servidor para respostas da Yui."):

@@ -74,7 +74,15 @@ class ExecutionGraph:
         """
         Executa todos os nós em sequência.
         ctx: contexto compartilhado entre nós (pode ser mutado).
+        Consulta Resource Governor antes de executar.
         """
+        try:
+            from core.resource_governor import allow_execution_graph
+            dec = allow_execution_graph()
+            if not dec.allow:
+                raise RuntimeError(f"Resource Governor bloqueou: {dec.reason}")
+        except ImportError:
+            pass
         try:
             from core.system_state import set_executing_graph
             set_executing_graph(True)

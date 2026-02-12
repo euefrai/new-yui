@@ -104,7 +104,23 @@ if should_enable_editor_features():
     enable_editor_features()
 ```
 
-### 6. Sandbox Executor (`core/sandbox_executor/runner.py`)
+### 6. Resource Governor (`core/resource_governor.py`)
+
+**Controle inteligente de recursos** — decide "posso executar isso agora?".
+
+- `allow_preview(ram)` — preview só se RAM < 75%
+- `allow_heavy_agent(cpu, ram)` — agent pesado só se CPU < 85%, RAM < 80%
+- `allow_planner(cpu)` — planner só se CPU < 90%
+- `allow_watchers(ram)` — watchers só se RAM < 70%
+
+```python
+from core.resource_governor import get_governor
+
+if get_governor().allow_preview().allow:
+    start_live_preview()
+```
+
+### 7. Sandbox Executor (`core/sandbox_executor/runner.py`)
 
 Execução isolada — anti-SIGKILL:
 - subprocess isolado
@@ -118,7 +134,7 @@ from core.sandbox_executor import run_code
 result = run_code("print(1+1)", lang="python", timeout=30)
 ```
 
-### 7. Plugin Loader (`core/plugins_loader.py`)
+### 8. Plugin Loader (`core/plugins_loader.py`)
 
 - **scan**: descobre plugins em `plugins/`
 - **register**: registra tools no `tools_registry`

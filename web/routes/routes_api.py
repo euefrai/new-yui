@@ -222,6 +222,45 @@ def api_system_cleanup():
         return jsonify({"ok": False, "error": str(e)}), 500
 
 
+@system_bp.get("/governor")
+def api_system_governor():
+    """
+    Resource Governor — decisões permitir/bloquear por feature.
+    Frontend pode consultar para decidir (ex: enable preview só se allow_preview).
+    """
+    try:
+        from core.resource_governor import allow_preview, allow_planner, allow_heavy_agent, allow_watchers
+        ram, cpu = 0.0, 0.0
+        try:
+            from core.self_monitoring import get_system_snapshot
+            snap = get_system_snapshot(use_cache=True)
+            if snap:
+                ram, cpu = snap.ram_percent, snap.cpu_percent
+        except Exception:
+            pass
+        d_preview = allow_preview(ram)
+        d_planner = allow_planner(cpu)
+        d_heavy = allow_heavy_agent(cpu_usage=cpu, ram_usage=ram)
+        d_watchers = allow_watchers(ram)
+        return jsonify({
+            "ok": True,
+            "ram": round(ram, 1),
+            "cpu": round(cpu, 1),
+            "allow_preview": d_preview.allow,
+            "allow_planner": d_planner.allow,
+            "allow_heavy_agent": d_heavy.allow,
+            "allow_watchers": d_watchers.allow,
+            "reasons": {
+                "preview": d_preview.reason,
+                "planner": d_planner.reason,
+                "heavy_agent": d_heavy.reason,
+                "watchers": d_watchers.reason,
+            },
+        })
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
 @system_bp.get("/state")
 def api_system_state():
     """
