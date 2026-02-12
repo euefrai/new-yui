@@ -35,7 +35,7 @@
         white: "#e8e8ec",
       },
       fontSize: 13,
-      fontFamily: "'Fira Code', 'JetBrains Mono', Consolas, monospace",
+      fontFamily: "'JetBrains Mono', 'Fira Code', Consolas, monospace",
     });
     try {
       if (window.FitAddon) {

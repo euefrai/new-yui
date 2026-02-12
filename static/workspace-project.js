@@ -430,6 +430,25 @@
       if (wrap) wrap.classList.remove("has-content");
       return;
     }
+    var linkedCssHrefs = [];
+    html.replace(/<link\s+[^>]*href=["']([^"']+\.css)["'][^>]*>/gi, function (_, href) {
+      var h = href.replace(/^\//, "").replace(/^\.\//, "").toLowerCase();
+      linkedCssHrefs.push(h);
+      linkedCssHrefs.push(h.split("/").pop());
+    });
+    var htmlFolder = path ? path.replace(/\/[^/]+$/, "").replace(/\/$/, "") : "";
+    var htmlFolderPrefix = htmlFolder ? htmlFolder + "/" : "";
+    var injectedCss = [];
+    Object.keys(projectFiles).forEach(function (p) {
+      if (!/\.css$/i.test(p)) return;
+      var fileFolder = p.replace(/\/[^/]+$/, "").replace(/\/$/, "");
+      var fileFolderPrefix = fileFolder ? fileFolder + "/" : "";
+      var inSameFolder = fileFolderPrefix === htmlFolderPrefix || (htmlFolder === "" && fileFolder === "");
+      if (!inSameFolder) return;
+      var baseName = p.split("/").pop().toLowerCase();
+      if (linkedCssHrefs.indexOf(baseName) >= 0 || linkedCssHrefs.indexOf(p.toLowerCase()) >= 0) return;
+      injectedCss.push(projectFiles[p] || "");
+    });
     html = html.replace(/<link\s+[^>]*href=["']([^"']+\.css)["'][^>]*>/gi, function (m, href) {
       var cssPath = href.replace(/^\//, "");
       var css = projectFiles[cssPath] || projectFiles["style.css"] || "";
@@ -442,6 +461,16 @@
       }
       return css ? "<style>" + css + "</style>" : m;
     });
+    if (injectedCss.length > 0) {
+      var cssBlock = "<style>" + injectedCss.join("\n") + "</style>";
+      if (/<head[^>]*>/i.test(html)) {
+        html = html.replace(/<head([^>]*)>/i, "<head$1>" + cssBlock);
+      } else if (/<html[^>]*>/i.test(html)) {
+        html = html.replace(/<html([^>]*)>/i, "<html$1><head>" + cssBlock + "</head>");
+      } else {
+        html = cssBlock + html;
+      }
+    }
     try {
       frame.srcdoc = html;
       frame.style.display = "block";

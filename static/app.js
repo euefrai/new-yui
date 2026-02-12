@@ -387,7 +387,12 @@
 
   function openPreview(url, title) {
     if (!previewPanel || !previewFrame) return;
-    previewFrame.src = url || "about:blank";
+    var src = url || "about:blank";
+    if (src !== "about:blank" && src.indexOf("http") !== 0) {
+      var origin = window.location.origin || (window.location.protocol + "//" + window.location.host);
+      src = origin + (src.indexOf("/") === 0 ? src : "/" + src);
+    }
+    previewFrame.src = src;
     if (previewTitle) previewTitle.textContent = title || "Preview";
     previewPanel.classList.add("open");
   }

@@ -52,7 +52,7 @@
         automaticLayout: true,
         minimap: { enabled: false },
         fontSize: 14,
-        fontFamily: "'Fira Code', 'JetBrains Mono', Consolas, monospace",
+        fontFamily: "'JetBrains Mono', 'Fira Code', Consolas, monospace",
         scrollBeyondLastLine: false,
         padding: { top: 12 },
       });
