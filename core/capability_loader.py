@@ -1,7 +1,7 @@
 # ==========================================================
 # YUI CAPABILITY LOADER — Sistema de Plugins Dinâmicos
 #
-# Qualquer arquivo cap_*.py dentro core/capabilities/ vira uma skill automaticamente.
+# Qualquer arquivo cap_*.py dentro core/capability_plugins/ vira uma skill automaticamente.
 # Sem hardcode. Core = estável. Capabilities = experimentais.
 #
 # Inicialização: carregar_capabilities(task_engine)
@@ -16,7 +16,7 @@ try:
 except Exception:
     BASE_DIR = Path(__file__).resolve().parent.parent
 
-_CAPABILITIES_DIR = Path(__file__).resolve().parent / "capabilities"
+_CAPABILITIES_DIR = Path(__file__).resolve().parent / "capability_plugins"
 _LOADED: List[str] = []
 
 
@@ -27,7 +27,7 @@ def get_capabilities_dir() -> Path:
 
 def carregar_capabilities(task_engine: Any) -> List[str]:
     """
-    Escaneia core/capabilities/ e chama register(task_engine) em cada módulo.
+    Escaneia core/capability_plugins/ e chama register(task_engine) em cada módulo.
     Retorna lista de capabilities carregadas.
     """
     global _LOADED
@@ -44,7 +44,7 @@ def carregar_capabilities(task_engine: Any) -> List[str]:
             continue
         module_name = path.stem
         try:
-            mod = importlib.import_module(f"core.capabilities.{module_name}")
+            mod = importlib.import_module(f"core.capability_plugins.{module_name}")
             if hasattr(mod, "register"):
                 mod.register(task_engine)
                 loaded.append(module_name)

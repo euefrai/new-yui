@@ -2,12 +2,12 @@
   "use strict";
 
   function apiUrl(path) {
-    var origin = window.location.origin || "";
-    if (!origin && window.location.protocol && window.location.host) {
-      origin = window.location.protocol + "//" + window.location.host;
-    }
-    if (window.location.protocol === "http:" && window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1") {
-      origin = "https://" + window.location.host;
+    var host = window.location.host || "";
+    var hostname = (window.location.hostname || "").toLowerCase();
+    var isLocal = hostname === "localhost" || hostname === "127.0.0.1" || hostname === "";
+    var origin = window.location.origin || (window.location.protocol + "//" + host);
+    if (!isLocal && origin.indexOf("https://") !== 0) {
+      origin = "https://" + host;
     }
     return origin + (path.charAt(0) === "/" ? path : "/" + path);
   }
