@@ -172,7 +172,19 @@ URLs de arquivos gerados em background (ex: ZIP). Frontend faz poll para saber q
 - `add_ready(url)` — registra download pronto
 - `get_recent(since?)` — retorna URLs prontas (TTL 5 min)
 
-### 11. Sandbox Executor (`core/sandbox_executor/runner.py`)
+### 11. Observability Layer (`core/observability.py`)
+
+**Consciência interna** — rastreamento de ações e timeline.
+
+- `trace(name, meta?)` — context manager para medir execução
+- `record_activity(kind, label, detail)` — registra para System Activity
+- `get_timeline()` — spans com duração (ms)
+- `get_system_activity()` — atividade recente (graph, task, governor, event)
+- `wire_observability()` — conecta Event Bus, Scheduler, Governor
+
+Integrado em: Execution Graph (Trace por nó), Task Scheduler (Trace por task), Resource Governor (bloqueios).
+
+### 12. Sandbox Executor (`core/sandbox_executor/runner.py`)
 
 Execução isolada — anti-SIGKILL:
 - subprocess isolado
@@ -186,7 +198,7 @@ from core.sandbox_executor import run_code
 result = run_code("print(1+1)", lang="python", timeout=30)
 ```
 
-### 12. Plugin Loader (`core/plugins_loader.py`)
+### 13. Plugin Loader (`core/plugins_loader.py`)
 
 - **scan**: descobre plugins em `plugins/`
 - **register**: registra tools no `tools_registry`
@@ -212,6 +224,7 @@ tools = inject_into_engine()  # lista de tools disponíveis
 | `GET /telemetry` | Custo acumulado, energia |
 | `GET /governor` | allow_preview, allow_planner, allow_heavy_agent |
 | `GET /scheduler` | queue_size da fila de tarefas |
+| `GET /observability` | timeline (spans com ms) + activity (System Activity) |
 | `GET /pending_downloads` | URLs de downloads prontos (?since=timestamp) |
 | `GET /state` | mode, workspace_open, executing_graph |
 | `GET /execution` | Nós do Execution Graph para UI |

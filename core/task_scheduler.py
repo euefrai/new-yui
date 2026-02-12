@@ -66,8 +66,11 @@ class TaskScheduler:
         while True:
             try:
                 fn, data, task_id = self._queue.get()
+                fn_name = getattr(fn, "__name__", "unknown")
                 try:
-                    result = fn(data) if data is not None else fn()
+                    from core.observability import trace
+                    with trace(f"task_{fn_name}", meta={"task_id": task_id}):
+                        result = fn(data) if data is not None else fn()
                     emit("task_done", task_id=task_id, result=result)
                 except Exception as e:
                     emit("task_failed", task_id=task_id, error=str(e))

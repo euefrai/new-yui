@@ -1623,6 +1623,50 @@
       });
   }
 
+  function fetchActivity() {
+    fetch("/api/system/observability")
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        var ul = document.getElementById("activityList");
+        if (ul) {
+          var items = (data && data.activity) || [];
+          if (items.length === 0) {
+            ul.innerHTML = "<li class=\"activityEmpty\">—</li>";
+          } else {
+            var sym = { graph: "⚡", task: "⏳", governor: "🛡️", event: "📡" };
+            ul.innerHTML = items.slice(0, 6).map(function (a) {
+              var s = sym[a.kind] || "•";
+              var txt = a.label + (a.detail ? " (" + a.detail + ")" : "");
+              return "<li><span class=\"activityKind\">" + s + "</span> " + txt + "</li>";
+            }).join("");
+          }
+        }
+        var tlUl = document.getElementById("activityTimelineList");
+        if (tlUl) {
+          var timeline = (data && data.timeline) || [];
+          if (timeline.length === 0) {
+            tlUl.innerHTML = "<li class=\"activityEmpty\">—</li>";
+          } else {
+            var symMap = { done: "✓", failed: "✗", running: "⚡" };
+            tlUl.innerHTML = timeline.slice(0, 8).map(function (t) {
+              var s = symMap[t.status] || "○";
+              var dur = t.duration_ms != null ? t.duration_ms + "ms" : (t.status === "running" ? "…" : "—");
+              if (t.duration_ms != null && t.duration_ms >= 1000) {
+                dur = (t.duration_ms / 1000).toFixed(1) + "s";
+              }
+              return "<li><span class=\"timelineSymbol\">" + s + "</span><span class=\"timelineName\">" + (t.name || "—") + "</span><span class=\"timelineDuration\">" + dur + "</span></li>";
+            }).join("");
+          }
+        }
+      })
+      .catch(function () {
+        var ul = document.getElementById("activityList");
+        if (ul) ul.innerHTML = "<li class=\"activityEmpty\">—</li>";
+        var tlUl = document.getElementById("activityTimelineList");
+        if (tlUl) tlUl.innerHTML = "<li class=\"activityEmpty\">—</li>";
+      });
+  }
+
   function fetchMission() {
     if (!user || !user.id) return;
     var uid = encodeURIComponent(user.id);
@@ -1667,12 +1711,14 @@
     fetchSystemHealth();
     fetchTelemetry();
     fetchCognitive();
+    fetchActivity();
     fetchMission();
     setInterval(function () {
       if (isChatActive()) {
         fetchSystemHealth();
         fetchTelemetry();
         fetchCognitive();
+        fetchActivity();
         fetchMission();
       }
     }, 30000);

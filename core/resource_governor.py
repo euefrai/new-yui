@@ -42,8 +42,11 @@ def allow_preview(ram_usage: Optional[float] = None) -> GovernorDecision:
     """
     ram = ram_usage if ram_usage is not None else _get_telemetry()[0]
     if ram >= RAM_PREVIEW_MAX:
-        return GovernorDecision(False, f"RAM {ram:.0f}% >= {RAM_PREVIEW_MAX}%")
-    return GovernorDecision(True, f"RAM {ram:.0f}% ok")
+        d = GovernorDecision(False, f"RAM {ram:.0f}% >= {RAM_PREVIEW_MAX}%")
+    else:
+        d = GovernorDecision(True, f"RAM {ram:.0f}% ok")
+    _record_governor("preview", d)
+    return d
 
 
 def allow_heavy_agent(cpu_usage: Optional[float] = None, ram_usage: Optional[float] = None) -> GovernorDecision:
@@ -54,10 +57,13 @@ def allow_heavy_agent(cpu_usage: Optional[float] = None, ram_usage: Optional[flo
     ram = ram_usage if ram_usage is not None else ram_t
     cpu = cpu_usage if cpu_usage is not None else cpu_t
     if cpu >= CPU_HEAVY_AGENT_MAX:
-        return GovernorDecision(False, f"CPU {cpu:.0f}% >= {CPU_HEAVY_AGENT_MAX}%")
-    if ram >= RAM_HEAVY_AGENT_MAX:
-        return GovernorDecision(False, f"RAM {ram:.0f}% >= {RAM_HEAVY_AGENT_MAX}%")
-    return GovernorDecision(True, f"CPU {cpu:.0f}%, RAM {ram:.0f}% ok")
+        d = GovernorDecision(False, f"CPU {cpu:.0f}% >= {CPU_HEAVY_AGENT_MAX}%")
+    elif ram >= RAM_HEAVY_AGENT_MAX:
+        d = GovernorDecision(False, f"RAM {ram:.0f}% >= {RAM_HEAVY_AGENT_MAX}%")
+    else:
+        d = GovernorDecision(True, f"CPU {cpu:.0f}%, RAM {ram:.0f}% ok")
+    _record_governor("heavy_agent", d)
+    return d
 
 
 def allow_planner(cpu_usage: Optional[float] = None) -> GovernorDecision:
@@ -66,8 +72,11 @@ def allow_planner(cpu_usage: Optional[float] = None) -> GovernorDecision:
     """
     cpu = cpu_usage if cpu_usage is not None else _get_telemetry()[1]
     if cpu >= CPU_PLANNER_MAX:
-        return GovernorDecision(False, f"CPU {cpu:.0f}% >= {CPU_PLANNER_MAX}%")
-    return GovernorDecision(True, f"CPU {cpu:.0f}% ok")
+        d = GovernorDecision(False, f"CPU {cpu:.0f}% >= {CPU_PLANNER_MAX}%")
+    else:
+        d = GovernorDecision(True, f"CPU {cpu:.0f}% ok")
+    _record_governor("planner", d)
+    return d
 
 
 def allow_watchers(ram_usage: Optional[float] = None) -> GovernorDecision:
@@ -76,8 +85,11 @@ def allow_watchers(ram_usage: Optional[float] = None) -> GovernorDecision:
     """
     ram = ram_usage if ram_usage is not None else _get_telemetry()[0]
     if ram >= RAM_WATCHERS_MAX:
-        return GovernorDecision(False, f"RAM {ram:.0f}% >= {RAM_WATCHERS_MAX}%")
-    return GovernorDecision(True, f"RAM {ram:.0f}% ok")
+        d = GovernorDecision(False, f"RAM {ram:.0f}% >= {RAM_WATCHERS_MAX}%")
+    else:
+        d = GovernorDecision(True, f"RAM {ram:.0f}% ok")
+    _record_governor("watchers", d)
+    return d
 
 
 def allow_execution_graph(ram_usage: Optional[float] = None, cpu_usage: Optional[float] = None) -> GovernorDecision:
@@ -85,6 +97,16 @@ def allow_execution_graph(ram_usage: Optional[float] = None, cpu_usage: Optional
     Execution Graph só quando recursos permitirem.
     """
     return allow_heavy_agent(cpu_usage=cpu_usage, ram_usage=ram_usage)
+
+
+def _record_governor(feature: str, d: GovernorDecision) -> None:
+    """Registra decisão no Observability (apenas quando bloqueia)."""
+    if not d.allow:
+        try:
+            from core.observability import record_activity
+            record_activity("governor", f"Governor: {feature}", d.reason)
+        except Exception:
+            pass
 
 
 # ==========================================================

@@ -40,6 +40,13 @@ try:
 except Exception as e:
     print(f"⚠️ Event wiring: {e}")
 
+# Observability: auto-trace de eventos (Graph, Scheduler, Governor)
+try:
+    from core.observability import wire_observability
+    wire_observability()
+except Exception as e:
+    print(f"⚠️ Observability wiring: {e}")
+
 # Core Engine: injeta plugins no startup
 try:
     from core.plugins_loader import inject_into_engine

@@ -37,7 +37,9 @@ class Node:
         self.status = NodeStatus.RUNNING
         emit("execution_node_start", node_name=self.name, ctx=ctx)
         try:
-            self.result = self.action(ctx)
+            from core.observability import trace
+            with trace(self.name, meta={"intention": ctx.get("intention", "")}):
+                self.result = self.action(ctx)
             self.status = NodeStatus.DONE
             self.error = None
             emit("execution_node_done", node_name=self.name, result=self.result, ctx=ctx)

@@ -300,6 +300,21 @@ def api_system_scheduler():
         return jsonify({"ok": False, "error": str(e)}), 500
 
 
+@system_bp.get("/observability")
+def api_system_observability():
+    """
+    Observability Layer — timeline de execução e System Activity.
+    timeline: spans com duração (ms)
+    activity: eventos recentes (graph, task, governor, event)
+    """
+    try:
+        from core.observability import get_observability_snapshot
+        snap = get_observability_snapshot()
+        return jsonify({"ok": True, **snap})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e), "timeline": [], "activity": []}), 500
+
+
 @system_bp.get("/pending_downloads")
 def api_system_pending_downloads():
     """
