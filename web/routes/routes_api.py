@@ -150,7 +150,7 @@ def api_system_health():
     """
     try:
         from core.self_monitoring import get_system_snapshot
-        snap = get_system_snapshot(use_cache=False)
+        snap = get_system_snapshot(use_cache=True)
         if snap:
             data = snap.to_dict()
             data["available"] = True
@@ -185,9 +185,15 @@ def api_system_telemetry():
 def api_system_cleanup():
     """
     Limpeza: generated_projects + arquivos temporários do sandbox.
+    Também encerra terminais sem interação há > 2 min (kill switch).
     Chamar periodicamente (ex: cron) para reduzir carga no Zeabur.
     """
     import shutil
+    try:
+        from web.routes.routes_terminal import cleanup_processes
+        cleanup_processes()
+    except Exception:
+        pass
     try:
         from config import settings
         deleted = 0
@@ -348,6 +354,58 @@ def api_sandbox_generate_map():
         return jsonify({"ok": False, "error": result.get("error", "erro desconhecido")}), 400
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@sandbox_bp.get("/read")
+def api_sandbox_read():
+    """Lê conteúdo de um arquivo no sandbox. Query: path."""
+    path_arg = (request.args.get("path") or "").strip()
+    if not path_arg or ".." in path_arg or path_arg.startswith("/"):
+        return jsonify({"ok": False, "error": "path inválido"}), 400
+    sandbox = Path(settings.SANDBOX_DIR)
+    try:
+        target = _safe_path(sandbox, path_arg)
+    except ValueError:
+        return jsonify({"ok": False, "error": "path inválido"}), 400
+    if not target.exists() or not target.is_file():
+        return jsonify({"ok": False, "error": "arquivo não encontrado"}), 404
+    try:
+        content = target.read_text(encoding="utf-8", errors="replace")
+        return jsonify({"ok": True, "path": path_arg, "content": content})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@sandbox_bp.get("/list")
+def api_sandbox_list():
+    """
+    Lazy File Listing: lista apenas o conteúdo direto de uma pasta (não recursivo).
+    Query: path (opcional, default "."). Use para expandir pastas sob demanda.
+    """
+    path_arg = (request.args.get("path") or ".").strip()
+    if ".." in path_arg or path_arg.startswith("/"):
+        return jsonify({"ok": False, "error": "path inválido"}), 400
+    sandbox = Path(settings.SANDBOX_DIR)
+    sandbox.mkdir(parents=True, exist_ok=True)
+    try:
+        target = _safe_path(sandbox, path_arg)
+    except ValueError:
+        return jsonify({"ok": False, "error": "path inválido"}), 400
+    if not target.exists():
+        return jsonify({"ok": False, "error": "pasta não existe"}), 404
+    if not target.is_dir():
+        return jsonify({"ok": False, "error": "não é pasta"}), 400
+    ignore = {"__pycache__", ".git", ".venv", "venv", "env", "node_modules", ".mypy_cache", ".pytest_cache", "build", "dist", ".DS_Store", "Thumbs.db", ".yui_map.json"}
+    entries = []
+    for child in sorted(target.iterdir(), key=lambda p: (not p.is_dir(), p.name.lower())):
+        if child.name in ignore or (child.name.startswith(".") and child.name not in (".env", ".env.example")):
+            continue
+        entries.append({
+            "name": child.name,
+            "path": str(child.relative_to(sandbox)).replace("\\", "/"),
+            "is_dir": child.is_dir(),
+        })
+    return jsonify({"ok": True, "entries": entries})
 
 
 @sandbox_bp.get("/map")

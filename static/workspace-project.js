@@ -11,6 +11,8 @@
   var currentFilePath = null;
   var projectName = "projeto";
   var lastConsoleError = null;
+  var sandboxMode = false;
+  var sandboxExpandedChildren = {};
 
   var ICON_FOLDER = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>';
   var ICON_FILE = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>';
@@ -97,10 +99,29 @@
   }
 
   function loadFile(path) {
-    if (!projectFiles.hasOwnProperty(path)) return;
     saveCurrentToCache();
+    if (!projectFiles.hasOwnProperty(path)) {
+      if (sandboxMode) {
+        fetch("/api/sandbox/read?path=" + encodeURIComponent(path))
+          .then(function (r) { return r.json(); })
+          .then(function (data) {
+            if (data.ok) {
+              projectFiles[path] = data.content || "";
+              if (!originalFileContents[path]) originalFileContents[path] = projectFiles[path];
+              doLoadFile(path);
+            }
+          })
+          .catch(function () {});
+        return;
+      }
+      return;
+    }
+    doLoadFile(path);
+  }
+
+  function doLoadFile(path) {
     currentFilePath = path;
-    var content = projectFiles[path];
+    var content = projectFiles[path] || "";
     if (!originalFileContents[path]) originalFileContents[path] = content;
     var lang = window.getLangFromPath ? window.getLangFromPath(path) : "plaintext";
     if (window.updateEditor) window.updateEditor(content, lang);
@@ -135,6 +156,77 @@
     return Promise.all(promises);
   }
 
+  function loadFromSandbox() {
+    sandboxMode = true;
+    sandboxExpandedChildren = {};
+    projectFiles = {};
+    originalFileContents = {};
+    projectTree = [];
+    currentFilePath = null;
+    var list = document.getElementById("fileTreeList");
+    var empty = document.getElementById("fileTreeEmpty");
+    if (list) list.innerHTML = "<div class='fileTreeLoading'>Carregando...</div>";
+    if (empty) empty.style.display = "none";
+    if (list) list.style.display = "block";
+    fetch("/api/sandbox/list?path=.")
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (!data.ok) {
+          if (list) list.innerHTML = "<div class='fileTreeLoading'>" + (data.error || "Erro") + "</div>";
+          return;
+        }
+        renderSandboxTree(data.entries || [], list, 0, "");
+      })
+      .catch(function () {
+        if (list) list.innerHTML = "<div class='fileTreeLoading'>Erro ao carregar sandbox</div>";
+      });
+  }
+
+  function renderSandboxTree(entries, container, depth, parentPath) {
+    container.innerHTML = "";
+    entries.forEach(function (e) {
+      var path = e.path || (parentPath ? parentPath + "/" + e.name : e.name);
+      if (e.is_dir) {
+        var folderEl = document.createElement("div");
+        folderEl.className = "fileTreeItem fileTreeFolder";
+        folderEl.style.paddingLeft = (depth * 12 + 8) + "px";
+        folderEl.dataset.path = path;
+        folderEl.innerHTML = '<span class="folderArrowWrap">' + ICON_ARROW_RIGHT + '</span>' + ICON_FOLDER + "<span>" + escapeHtml(e.name) + "</span>";
+        var childWrap = document.createElement("div");
+        childWrap.className = "fileTreeChildren collapsed";
+        childWrap.dataset.path = path;
+        folderEl.addEventListener("click", function (ev) {
+          ev.stopPropagation();
+          var isOpen = folderEl.classList.toggle("open");
+          var arrowWrap = folderEl.querySelector(".folderArrowWrap");
+          if (arrowWrap) arrowWrap.innerHTML = isOpen ? ICON_ARROW_DOWN : ICON_ARROW_RIGHT;
+          childWrap.classList.toggle("collapsed", !isOpen);
+          if (isOpen && !sandboxExpandedChildren[path]) {
+            sandboxExpandedChildren[path] = true;
+            childWrap.innerHTML = "<div class='fileTreeLoading'>Carregando...</div>";
+            fetch("/api/sandbox/list?path=" + encodeURIComponent(path))
+              .then(function (r) { return r.json(); })
+              .then(function (data) {
+                if (data.ok) renderSandboxTree(data.entries || [], childWrap, depth + 1, path);
+                else childWrap.innerHTML = "";
+              })
+              .catch(function () { childWrap.innerHTML = ""; });
+          }
+        });
+        container.appendChild(folderEl);
+        container.appendChild(childWrap);
+      } else {
+        var fileEl = document.createElement("div");
+        fileEl.className = "fileTreeItem fileTreeFile" + (path === currentFilePath ? " active" : "");
+        fileEl.dataset.path = path;
+        fileEl.style.paddingLeft = (depth * 12 + 8) + "px";
+        fileEl.innerHTML = ICON_FILE + "<span>" + escapeHtml(e.name) + "</span>";
+        fileEl.addEventListener("click", function () { loadFile(path); });
+        container.appendChild(fileEl);
+      }
+    });
+  }
+
   function importProject() {
     var input = document.getElementById("workspaceImportInput");
     if (!input) return;
@@ -142,6 +234,7 @@
     input.onchange = function () {
       var files = input.files;
       if (!files || files.length === 0) return;
+      sandboxMode = false;
       projectFiles = {};
       originalFileContents = {};
       var paths = [];
@@ -413,6 +506,8 @@
     var syncBtn = document.getElementById("workspaceSyncSandbox");
     var diffBtn = document.getElementById("workspaceDiff");
     var suggestBtn = document.getElementById("workspaceSuggestFix");
+    var loadSbBtn = document.getElementById("workspaceLoadSandbox");
+    if (loadSbBtn) loadSbBtn.addEventListener("click", loadFromSandbox);
     if (importBtn) importBtn.addEventListener("click", importProject);
     if (exportBtn) exportBtn.addEventListener("click", exportZip);
     if (feedBtn) feedBtn.addEventListener("click", feedToYui);

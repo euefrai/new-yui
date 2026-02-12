@@ -6,6 +6,7 @@ Arquivos ativos + erros do console + histórico do chat + estado do workspace.
 Permite que Heathcliff entenda o projeto em tempo real.
 """
 
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -15,6 +16,10 @@ try:
 except Exception:
     SANDBOX_DIR = Path(__file__).resolve().parents[2] / "sandbox"
     BASE_DIR = Path(__file__).resolve().parents[2]
+
+_WORKSPACE_FILES_CACHE: List[str] = []
+_WORKSPACE_FILES_CACHE_TS = 0.0
+_WORKSPACE_CACHE_SEC = 10.0
 
 
 @dataclass
@@ -31,18 +36,26 @@ class ContextSnapshot:
 
 
 def _get_workspace_files() -> List[str]:
-    """Lista arquivos no sandbox (raiz do workspace)."""
+    """Lista arquivos no sandbox (raiz do workspace). Cache de 10s para reduzir CPU."""
+    global _WORKSPACE_FILES_CACHE, _WORKSPACE_FILES_CACHE_TS
+    now = time.time()
+    if now - _WORKSPACE_FILES_CACHE_TS < _WORKSPACE_CACHE_SEC:
+        return _WORKSPACE_FILES_CACHE
     try:
         sandbox = Path(SANDBOX_DIR)
         if not sandbox.is_dir():
+            _WORKSPACE_FILES_CACHE = []
+            _WORKSPACE_FILES_CACHE_TS = now
             return []
         out: List[str] = []
         for p in sandbox.rglob("*"):
             if p.is_file() and not any(x in p.parts for x in ("__pycache__", ".git", "node_modules")):
                 out.append(str(p.relative_to(sandbox)))
-        return out[:100]
+        _WORKSPACE_FILES_CACHE = out[:100]
+        _WORKSPACE_FILES_CACHE_TS = now
+        return _WORKSPACE_FILES_CACHE
     except Exception:
-        return []
+        return _WORKSPACE_FILES_CACHE
 
 
 def get_context_snapshot(

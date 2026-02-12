@@ -21,8 +21,8 @@ RAM_HIGH_THRESHOLD = 85.0   # % → entra em modo econômico
 CPU_CRITICAL = 95.0
 RAM_CRITICAL = 95.0
 
-# Cache curto para não sobrecarregar
-_CACHE_SEC = 2.0
+# Cache para reduzir CPU: 10s em produção (Zeabur)
+_CACHE_SEC = 10.0
 _last_snapshot: Optional[Dict[str, Any]] = None
 _last_snapshot_time: float = 0
 
@@ -64,7 +64,7 @@ def get_system_snapshot(use_cache: bool = True) -> Optional[SystemSnapshot]:
         return _last_snapshot
 
     try:
-        cpu = psutil.cpu_percent(interval=0.1)
+        cpu = psutil.cpu_percent(interval=None)
         mem = psutil.virtual_memory()
         ram_pct = mem.percent
         ram_used = mem.used / (1024 * 1024)

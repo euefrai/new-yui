@@ -69,4 +69,9 @@ if __name__ == "__main__":
             print(f"⚠️ Indexação da memória vetorial ignorada: {e}")
 
     threading.Thread(target=_indexar_memoria, daemon=True).start()
-    app.run(host="0.0.0.0", port=settings.PORT, debug=settings.FLASK_DEBUG)
+    _debug = settings.FLASK_DEBUG and not (
+        os.environ.get("RENDER") == "true"
+        or os.environ.get("ZEABUR_PROJECT_ID")
+        or os.environ.get("ZEABUR_SERVICE_ID")
+    )
+    app.run(host="0.0.0.0", port=settings.PORT, debug=_debug)
