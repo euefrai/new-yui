@@ -673,6 +673,7 @@ def agent_controller(
             msgs.insert(0, {"role": "system", "content": mission_context})
 
         # ---------- Action Engine: sugestão de tool (roteamento de intenção) ----------
+        intent = None
         try:
             from core.self_state import get as get_self_state
             last_tool = (get_self_state("last_action") or "").replace("tool:", "")
@@ -688,6 +689,23 @@ def agent_controller(
                     "role": "system",
                     "content": f"[Action Engine] Sugestão: considere usar a ferramenta '{intent.tool_hint}' para esta tarefa (confiança {intent.confidence:.0%}).",
                 })
+        except Exception:
+            pass
+
+        # ---------- Capability Router: antes do planner ----------
+        route_decision = None
+        intention = None
+        try:
+            intention = infer_intention(user_message)
+            from core.capability_router import route, get_routing_display
+            route_decision = route(
+                user_message,
+                intention=intention,
+                action=intent.action if intent else None,
+                tool_hint=intent.tool_hint if intent else None,
+            )
+            from core.observability import record_activity
+            record_activity("routing", get_routing_display(route_decision))
         except Exception:
             pass
 
@@ -747,7 +765,9 @@ def agent_controller(
                     plano_execucao = criar_plano(user_message)
                     if plano_execucao and plano_execucao.strip():
                         msgs.insert(0, {"role": "system", "content": plano_execucao.strip()})
-                    intention = infer_intention(user_message)
+                    # intention já obtido pelo Capability Router
+                    if intention is None:
+                        intention = infer_intention(user_message)
                     task_graph = build_task_graph(intention, user_message)
                     plan_steps = get_planned_steps_for_prompt(task_graph)
                     if plan_steps:
@@ -759,6 +779,9 @@ def agent_controller(
                     if get_strategy_engine:
                         max_steps = min(max_steps, get_strategy_engine().get_max_steps(strategy))
                     if meta_signals.get("simplified_mode") or meta_signals.get("too_many_steps"):
+                        max_steps = min(max_steps, 2)
+                    # Capability Router: skip_planner reduz planner pesado
+                    if route_decision and route_decision.skip_planner:
                         max_steps = min(max_steps, 2)
                     plan = criar_plano_estruturado(user_message, user_id, chat_id, max_steps=max_steps, goals_ativos=goals_ativos or None)
                     if plan:

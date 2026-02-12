@@ -172,7 +172,25 @@ URLs de arquivos gerados em background (ex: ZIP). Frontend faz poll para saber q
 - `add_ready(url)` — registra download pronto
 - `get_recent(since?)` — retorna URLs prontas (TTL 5 min)
 
-### 11. Observability Layer (`core/observability.py`)
+### 11. Capability Router (`core/capability_router.py`)
+
+**Roteador de habilidades** — decide qual módulo resolve antes do planner.
+
+- `route(user_message, intention?, action?, tool_hint?)` → RouteDecision
+- target: heathcliff | yui | rag_engine | execution_graph
+- capability_type: code_generation | memory_query | system_action | analysis | lightweight
+- skip_planner: True = fluxo direto (max_steps reduzido)
+
+Integrado no agent_controller antes do planner. Registra routing no Observability.
+
+```python
+from core.capability_router import route, get_routing_display
+
+dec = route(user_message, intention="analisar_projeto")
+# dec.target = "heathcliff", dec.skip_planner = True
+```
+
+### 12. Observability Layer (`core/observability.py`)
 
 **Consciência interna** — rastreamento de ações e timeline.
 
@@ -184,7 +202,7 @@ URLs de arquivos gerados em background (ex: ZIP). Frontend faz poll para saber q
 
 Integrado em: Execution Graph (Trace por nó), Task Scheduler (Trace por task), Resource Governor (bloqueios).
 
-### 12. Sandbox Executor (`core/sandbox_executor/runner.py`)
+### 13. Sandbox Executor (`core/sandbox_executor/runner.py`)
 
 Execução isolada — anti-SIGKILL:
 - subprocess isolado
@@ -198,7 +216,7 @@ from core.sandbox_executor import run_code
 result = run_code("print(1+1)", lang="python", timeout=30)
 ```
 
-### 13. Plugin Loader (`core/plugins_loader.py`)
+### 14. Plugin Loader (`core/plugins_loader.py`)
 
 - **scan**: descobre plugins em `plugins/`
 - **register**: registra tools no `tools_registry`
@@ -215,6 +233,19 @@ tools = inject_into_engine()  # lista de tools disponíveis
 - **API**: `/api/sandbox/execute` usa `run_code` do sandbox_executor
 - **Startup**: `web_server.py` chama `wire_events()` (event_wiring) e `inject_into_engine()`
 - **Agent**: `action_router` e `context_kernel` podem ser usados no `agent_controller` para enriquecer contexto e decisões
+
+## Fluxo Capability Router
+
+```
+user_message
+    → Action Engine (route_action)
+    → Capability Router (route)
+    → skip_planner? → max_steps=2
+    → Planner (se habilitado)
+    → IA (Heathcliff/Yui)
+```
+
+Routing exibido em System Activity: "→ Heathcliff (Engineering) (skip planner)"
 
 ## API System (`/api/system/*`)
 

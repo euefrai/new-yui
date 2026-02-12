@@ -1633,7 +1633,7 @@
           if (items.length === 0) {
             ul.innerHTML = "<li class=\"activityEmpty\">—</li>";
           } else {
-            var sym = { graph: "⚡", task: "⏳", governor: "🛡️", event: "📡" };
+            var sym = { graph: "⚡", task: "⏳", governor: "🛡️", event: "📡", routing: "🧠" };
             ul.innerHTML = items.slice(0, 6).map(function (a) {
               var s = sym[a.kind] || "•";
               var txt = a.label + (a.detail ? " (" + a.detail + ")" : "");
