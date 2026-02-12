@@ -408,6 +408,7 @@
   }
 
   function updateWorkspacePreview() {
+    if (document.hidden) return;
     saveCurrentToCache();
     var frame = document.getElementById("workspacePreviewFrame");
     var empty = document.getElementById("workspacePreviewEmpty");
@@ -498,7 +499,15 @@
         });
       });
     }
-    document.addEventListener("workspacePreviewUpdate", updateWorkspacePreview);
+    document.addEventListener("workspacePreviewUpdate", function () {
+      if (!document.hidden) updateWorkspacePreview();
+    });
+    document.addEventListener("visibilitychange", function () {
+      if (document.hidden) {
+        var f = document.getElementById("workspacePreviewFrame");
+        if (f) { f.srcdoc = ""; f.style.display = "none"; }
+      }
+    });
     var importBtn = document.getElementById("workspaceImport");
     var exportBtn = document.getElementById("workspaceExport");
     var feedBtn = document.getElementById("workspaceFeedYui");

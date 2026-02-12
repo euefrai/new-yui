@@ -17,11 +17,11 @@ from backend.ai.context_memory import buscar_contexto as buscar_contexto_chat
 from backend.ai.vector_memory import buscar_contexto as buscar_contexto_vetorial
 from core.memoria_ia import buscar_memoria as buscar_memoria_ia
 
-# Limites padrão (ajustáveis)
-MAX_MENSAGENS_HISTORICO = 15
-LIMITE_CURTA = 8
-LIMITE_LONGA = 8
-VETORIAL_LIMITE = 5
+# Limites para servidores 2GB (contexto gigante drena RAM)
+MAX_MENSAGENS_HISTORICO = 12
+LIMITE_CURTA = 6
+LIMITE_LONGA = 6
+VETORIAL_LIMITE = 4
 
 
 def _build_short_term(historico: List[Dict[str, Any]], ultimas: int = 6) -> str:
@@ -83,7 +83,7 @@ def montar_contexto_ia(
     # Histórico do chat (limitado) = base para short_term
     raw = get_messages(chat_id, user_id) or []
     if raw:
-        window = raw[-max_mensagens * 2 :] if len(raw) > max_mensagens * 2 else raw
+        window = raw[-max_mensagens:]
         out["historico"] = [
             {"role": m.get("role", "user"), "content": (m.get("content") or "")}
             for m in window
@@ -104,7 +104,7 @@ def montar_contexto_ia(
 
     # Memória de longo prazo (RAG): decisões anteriores do projeto
     try:
-        out["memoria_ia"] = buscar_memoria_ia(user_id, query=user_message, chat_id=chat_id, limite=8) or ""
+        out["memoria_ia"] = buscar_memoria_ia(user_id, query=user_message, chat_id=chat_id, limite=6) or ""
     except Exception:
         out["memoria_ia"] = ""
 

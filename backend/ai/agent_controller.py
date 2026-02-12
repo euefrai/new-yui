@@ -85,6 +85,11 @@ except ImportError:
 from core.reflection import refletir
 from core.state_machine import AgentState, transition
 from core.task_graph import build_task_graph, get_planned_steps_for_prompt, infer_intention
+try:
+    from core.arbitration_engine import decide_leader, get_hybrid_modifier
+except ImportError:
+    decide_leader = None
+    get_hybrid_modifier = None
 
 # ==========================================================
 # CONFIG
@@ -93,7 +98,7 @@ from core.task_graph import build_task_graph, get_planned_steps_for_prompt, infe
 OPENAI_API_KEY = (os.environ.get("OPENAI_API_KEY") or "").strip()
 client = OpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY else None
 MODEL = os.environ.get("OPENAI_CHAT_MODEL", "gpt-4o-mini")
-MAX_HISTORY = 15
+MAX_HISTORY = 12
 CHUNK_SIZE = 50  # tamanho do chunk ao “streamar” a resposta final
 
 TOOL_DESCRIPTIONS = {
@@ -500,7 +505,7 @@ def agent_controller(
     5) Salva memória
 
     O frontend só recebe texto; nunca JSON cru.
-    model: "yui" (padrão) ou "heathcliff" (modo engenheiro).
+    model: "yui" | "heathcliff" | "auto" (Arbitration Engine decide o líder).
     """
     import time
     turn_start = time.time()
@@ -527,6 +532,19 @@ def agent_controller(
             set_agent_context(user_id, chat_id)
         except Exception:
             pass
+
+        # ---------- Arbitration Engine: model "auto" → decide_leader ----------
+        effective_model = model
+        is_hybrid = False
+        if model == "auto" and decide_leader:
+            arb = decide_leader(
+                user_message,
+                user_preference=None,
+                active_files=active_files,
+                has_console_errors=bool(console_errors),
+            )
+            effective_model = arb.leader if arb.leader != "hybrid" else "heathcliff"
+            is_hybrid = arb.leader == "hybrid"
 
         # ---------- 1) Context Engine: histórico + contexto do projeto + memórias + Context Kernel ----------
         context_snapshot = {
@@ -678,8 +696,10 @@ def agent_controller(
 
         skills_system = _build_skills_system()
         msgs.insert(0, {"role": "system", "content": _build_tool_system(user_message) + skills_system})
-        if model == "heathcliff":
+        if effective_model == "heathcliff":
             msgs.insert(0, {"role": "system", "content": HEATHCLIFF_SYSTEM_PROMPT})
+            if is_hybrid and get_hybrid_modifier:
+                msgs.insert(0, {"role": "system", "content": get_hybrid_modifier()})
             deps = _get_dependencies_context()
             if deps:
                 msgs.insert(0, {"role": "system", "content": deps})

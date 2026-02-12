@@ -40,9 +40,20 @@ Desativa planner, vector_memory, auto_debug e goals — reduz RAM e CPU.
 - Desativa animações neon e sombras pesadas (CSS).
 - Reduz processamento no navegador.
 
-### 8. Client-Side Processing
+### 8. Limite de contexto (RAM)
+- **MAX_CONTEXT = 12** mensagens em SessionMemory, context_engine, context_memory.
+- Histórico do chat limitado a 12 (evita crescimento infinito em servidores 2GB).
+
+### 9. Preview só quando aba ativa
+- `updateWorkspacePreview` retorna cedo se `document.hidden`.
+- `visibilitychange`: esvazia iframe ao trocar de aba (reduz CPU/JS).
+
+### 10. Gunicorn enxuto
+- `workers=1`, `threads=2` no Procfile (Zeabur/Heroku).
+- Para 2GB: `WEB_CONCURRENCY=1` (evita duplicar memória).
+
+### 11. Client-Side Processing
 - **Highlight.js** formata código no navegador.
-- **Preview** (iframe) no Workspace é 100% client-side.
 - Servidor atua como roteador de mensagens e storage.
 
 ## Deploy no Tencent Cloud (VPS)

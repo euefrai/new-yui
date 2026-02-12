@@ -93,7 +93,7 @@ def load_plugins(root_path: Optional[str] = None) -> None:
                     continue
         except Exception:
             pass
-        # 2) Fallback: import (comportamento antigo)
+        # 2) Fallback: import (plugins sem --list). filesystem_plugin tem --list → subprocess.
         try:
             importlib.import_module(f"plugins.{module_name}")
             _PLUGIN_TOOLS.append({"name": module_name, "plugin": str(path), "source": "import"})

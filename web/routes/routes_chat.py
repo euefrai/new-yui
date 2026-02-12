@@ -67,7 +67,7 @@ def api_send():
     chat_id = data.get("chat_id")
     message = (data.get("message") or "").strip()
     model = (data.get("model") or "yui").strip().lower()
-    if model not in ("yui", "heathcliff"):
+    if model not in ("yui", "heathcliff", "auto"):
         model = "yui"
     if not user_id or not chat_id:
         return jsonify({"error": "user_id e chat_id obrigatórios"}), 400
@@ -95,7 +95,7 @@ def api_chat_stream():
         confirm_high_cost = bool(data.get("confirm_high_cost"))
         active_files = data.get("active_files") or []
         console_errors = data.get("console_errors") or []
-        if model not in ("yui", "heathcliff"):
+        if model not in ("yui", "heathcliff", "auto"):
             model = "yui"
         if not chat_id:
             return jsonify({"error": "chat_id obrigatório"}), 400

@@ -6,7 +6,11 @@ A Yui não é chatbot nem IDE. É uma **mini DevOS** baseada em IA:
 ## Arquitetura
 
 ```
-[Usuário] → Action Engine → Context Kernel → Agent Controller
+[Usuário] → Agent Controller
+                ↓
+           [model="auto" → Arbitration Engine decide_leader]
+                ↓
+           Action Engine → Context Kernel → Persona (Yui/Heathcliff/Hybrid)
                 ↓                ↓                ↓
            [editor]        [arquivos]        [tools]
            [terminal]      [erros]          [RAG]
@@ -33,7 +37,22 @@ intent = route_action("executar o main.py", last_tool="analisar_projeto")
 # intent.tool_hint = "execute_sandbox"
 ```
 
-### 2. Context Kernel (`core/engine/context_kernel.py`)
+### 2. Arbitration Engine (`core/arbitration_engine.py`)
+
+**Decision Layer** — decide qual persona lidera (Yui, Heathcliff ou Hybrid).
+
+- model="auto" → heurística decide: refatorar/backend/arquitetura → Heathcliff; ui/texto/fluxo → Yui; else → Hybrid
+- model="yui" | "heathcliff" → preferência manual
+- Reduz inconsistência; Planner e Self-Critic ficam mais previsíveis
+
+```python
+from core.arbitration_engine import decide_leader
+
+arb = decide_leader("refatorar o backend", has_console_errors=True)
+# arb.leader = "heathcliff"
+```
+
+### 3. Context Kernel (`core/engine/context_kernel.py`)
 
 Unifica o contexto em tempo real:
 - arquivos ativos
@@ -48,7 +67,7 @@ snapshot = get_context_snapshot()
 prompt_text = snapshot_to_prompt(snapshot)
 ```
 
-### 3. Sandbox Executor (`core/sandbox_executor/runner.py`)
+### 4. Sandbox Executor (`core/sandbox_executor/runner.py`)
 
 Execução isolada — anti-SIGKILL:
 - subprocess isolado
@@ -62,7 +81,7 @@ from core.sandbox_executor import run_code
 result = run_code("print(1+1)", lang="python", timeout=30)
 ```
 
-### 4. Plugin Loader (`core/plugins_loader.py`)
+### 5. Plugin Loader (`core/plugins_loader.py`)
 
 - **scan**: descobre plugins em `plugins/`
 - **register**: registra tools no `tools_registry`

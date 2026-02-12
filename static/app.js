@@ -1471,9 +1471,9 @@
     });
     var saved = "";
     try { saved = localStorage.getItem("yui_model") || ""; } catch (e) {}
-    if (saved === "heathcliff") {
-      modelSwitcher.value = "heathcliff";
-      applyModelVisual("heathcliff");
+    if (saved === "yui" || saved === "heathcliff" || saved === "auto") {
+      modelSwitcher.value = saved;
+      applyModelVisual(saved);
     }
   }
 

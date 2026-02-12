@@ -1,9 +1,12 @@
 # =============================================================
 # SessionMemory — memória por usuário (não global)
 # Evita vazamento entre sessões; cada user_id tem sua própria lista.
+# MAX_CONTEXT = 12 para evitar RAM infinito em servidores 2GB.
 # =============================================================
 
 from typing import Any, Dict, List
+
+MAX_CONTEXT = 12
 
 
 class SessionMemory:
@@ -14,10 +17,9 @@ class SessionMemory:
         return self.sessions.setdefault(user_id, [])
 
     def add(self, user_id: str, role: str, content: str) -> None:
-        self.sessions.setdefault(user_id, []).append({
-            "role": role,
-            "content": content,
-        })
+        lst = self.sessions.setdefault(user_id, [])
+        lst.append({"role": role, "content": content})
+        self.sessions[user_id] = lst[-MAX_CONTEXT:]
 
     def clear(self, user_id: str) -> None:
         if user_id in self.sessions:

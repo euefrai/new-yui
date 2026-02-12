@@ -12,7 +12,7 @@ from typing import Dict
 # session_id = chat_id (um deque por conversa)
 MEMORIA_SESSAO: Dict[str, deque] = {}
 
-MAX_ITENS = 30  # quantidade máxima guardada por chat
+MAX_ITENS = 12  # quantidade máxima por chat (evita RAM infinito)
 
 
 def salvar_memoria(session_id: str, conteudo: str) -> None:
