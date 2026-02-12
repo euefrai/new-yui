@@ -1417,6 +1417,9 @@
                         } else if (state === "analyzing_code") {
                           sLine.textContent = "🔎 Analisando código...";
                           aBubble.setAttribute("data-status", "streaming");
+                        } else if (state === "executing_tools") {
+                          sLine.textContent = "🔧 Executando ferramentas...";
+                          aBubble.setAttribute("data-status", "streaming");
                         } else if (state === "done") {
                           sLine.remove();
                           if (cur && cur.parentNode) cur.remove();

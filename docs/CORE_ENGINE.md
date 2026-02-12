@@ -337,6 +337,18 @@ Cache de respostas curtas (oi, obrigado, etc). Evita chamar IA de novo.
 - `should_cache(prompt)` — prompts ≤ 80 chars
 - Respostas padrão para: oi, olá, obrigado, tchau, etc
 
+### Session Manager — `core/session_manager.py`
+
+Sessão inteligente — pensamento atual por usuário (RAM).
+
+- `get_session(user_id, chat_id?)` — sessão do usuário
+- `update_session(user_id, data, chat_id?)` — atualiza
+- `get_contexto(user_id, chat_id?)` — contexto pronto para prompt
+- `append_turn(user_id, user_msg, assistant_msg, chat_id?)` — adiciona troca
+- `clear_session(user_id, chat_id?)` — limpa (chamado em clear_chat)
+
+Memória = banco histórico. Sessão = pensamento atual. Menos tokenização, respostas mais rápidas.
+
 ### Job Queue — `core/job_queue.py`
 
 Quando `USE_ASYNC_QUEUE=true`:
@@ -346,8 +358,19 @@ Quando `USE_ASYNC_QUEUE=true`:
 
 API fica leve; processamento pesado no worker (task_scheduler).
 
+## Streaming de Resposta (SSE)
+
+- **Rota**: `POST /api/chat/stream` — SSE (Server-Sent Events)
+- **Formato**: `data: {json}\n\n` — chunks de texto ou `__STATUS__:thinking|executing_tools|done`
+- **Frontend**: fetch + ReadableStream, parseia eventos, renderiza token por token
+- **Chunks**: tamanho 12 chars (reduz pico de RAM, streaming mais fluido)
+- **Status**: "🧠 Pensando...", "🔧 Executando ferramentas...", "🔎 Analisando código..."
+
+Resposta em tempo real, sem travar o servidor. Menos buffer, menos SIGKILL.
+
 ## Próximos passos
 
 1. **Frontend**: enviar `active_files` e `console_errors` no chat para o Context Kernel
 2. **Agent**: usar `route_action` para sugerir tool_hint ao planner
 3. **Plugins**: adicionar mais plugins em `plugins/`; suportam `--list` e `invoke`
+4. **Streaming**: OpenAI `stream=True` para respostas diretas (mode answer)

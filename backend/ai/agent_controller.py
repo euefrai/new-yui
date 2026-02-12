@@ -99,7 +99,7 @@ OPENAI_API_KEY = (os.environ.get("OPENAI_API_KEY") or "").strip()
 client = OpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY else None
 MODEL = os.environ.get("OPENAI_CHAT_MODEL", "gpt-4o-mini")
 MAX_HISTORY = 12
-CHUNK_SIZE = 50  # tamanho do chunk ao “streamar” a resposta final
+CHUNK_SIZE = 12  # chunks menores = streaming mais fluido  # tamanho do chunk ao “streamar” a resposta final
 
 TOOL_DESCRIPTIONS = {
     "analisar_arquivo": "- analisar_arquivo(filename, content): quando o usuário COLAR ou descrever um código/arquivo específico.\n",
@@ -652,6 +652,11 @@ def agent_controller(
                     + ctx["memoria_vetorial"]
                 )
             })
+        if ctx.get("session_context"):
+            msgs.insert(0, {
+                "role": "system",
+                "content": ctx["session_context"],
+            })
         if ctx.get("contexto_chat_anterior"):
             msgs.insert(0, {
                 "role": "system",
@@ -860,6 +865,7 @@ def agent_controller(
 
         # ---------- 3b) Se for tool → executar e montar resposta (só se capability tools ativa) ----------
         elif isinstance(data, dict) and data.get("mode") in ("tool", "tools") and is_enabled("tools"):
+            yield "__STATUS__:executing_tools"
             steps: List[Dict] = []
             if data.get("mode") == "tool":
                 steps = [{"tool": str(data.get("tool") or "").strip(), "args": data.get("args") or {}}]
@@ -1052,6 +1058,12 @@ def agent_controller(
         # ---------- 6) Salvar memória ----------
         save_message(chat_id, "user", user_message, user_id)
         save_message(chat_id, "assistant", reply, user_id)
+        # Session Manager: atualiza pensamento atual (RAM)
+        try:
+            from core.session_manager import append_turn
+            append_turn(user_id, user_message, reply, chat_id)
+        except Exception:
+            pass
         add_event(user_id=user_id, chat_id=chat_id, tipo="curta", conteudo=user_message)
         add_event(user_id=user_id, chat_id=chat_id, tipo="curta", conteudo=reply)
         # Salvar em memoria_ia quando for comando importante ou código finalizado

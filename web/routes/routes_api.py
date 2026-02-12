@@ -52,6 +52,8 @@ def clear_chat():
     try:
         from yui_ai.memory.session_memory import memory
         memory.clear(user_id)
+        from core.session_manager import clear_session
+        clear_session(user_id)
         return jsonify({"status": "ok"}), 200
     except Exception as e:
         return jsonify({"status": "error", "error": str(e)}), 500

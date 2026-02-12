@@ -78,6 +78,7 @@ def montar_contexto_ia(
         "short_term_context": "",
         "long_term_memory": "",
         "system_state": "",
+        "session_context": "",
         "user_profile": {},
     }
 
@@ -131,6 +132,13 @@ def montar_contexto_ia(
         out["memoria_eventos"],
     )
     out["system_state"] = _build_system_state()
+
+    # Session Manager: pensamento atual (RAM, não DB)
+    try:
+        from core.session_manager import get_contexto as get_session_contexto
+        out["session_context"] = get_session_contexto(user_id, chat_id) or ""
+    except Exception:
+        out["session_context"] = ""
 
     # Context Kernel: snapshot unificado (arquivos ativos, erros do console)
     if context_snapshot:
