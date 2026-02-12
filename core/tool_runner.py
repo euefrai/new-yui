@@ -40,6 +40,13 @@ def run_tool(name: str, args: Dict[str, Any]) -> Dict[str, Any]:
 
     tool = get_tool(name)
     if not tool:
+        try:
+            from core.plugins_loader import ensure_plugins_loaded
+            ensure_plugins_loaded()
+            tool = get_tool(name)
+        except Exception:
+            pass
+    if not tool:
         return {"ok": False, "result": None, "error": f"Ferramenta '{name}' não encontrada."}
     fn = tool.get("fn")
     if not fn:

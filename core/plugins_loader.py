@@ -22,6 +22,7 @@ except Exception:
     BASE_DIR = Path(__file__).resolve().parent.parent
 
 _PLUGIN_TOOLS: List[Dict[str, Any]] = []
+_PLUGINS_LOADED = False
 
 
 def scan_plugins_folder(root_path: Optional[str] = None) -> List[Path]:
@@ -40,16 +41,25 @@ def get_registered_plugin_tools() -> List[Dict[str, Any]]:
 
 def inject_into_engine() -> List[str]:
     """
-    Carrega plugins e injeta no engine.
-    Retorna lista de nomes de tools disponíveis (para action_router/agent).
+    Registra plugins no engine (lazy: só carrega quando first tool é invocado).
+    Retorna lista de nomes de tools padrão (plugins carregam sob demanda).
     """
-    load_plugins()
     from core.tools_registry import list_tools
     tools = list_tools()
     return [t["name"] for t in tools]
 
 
+def ensure_plugins_loaded() -> None:
+    """Carrega plugins na primeira invocação (lazy load — evita RAM no startup)."""
+    global _PLUGINS_LOADED
+    if _PLUGINS_LOADED:
+        return
+    _PLUGINS_LOADED = True
+    load_plugins()
+
+
 def load_plugins(root_path: Optional[str] = None) -> None:
+    """Carrega plugins (chamado sob demanda por ensure_plugins_loaded)."""
     """
     Carrega plugins da pasta plugins/.
     Preferência: executar via subprocess (--list para listar tools, invoke para rodar).

@@ -14,5 +14,8 @@ COPY . .
 ENV PORT=8080
 EXPOSE 8080
 
+# 1 worker para 2GB RAM (cada worker duplica memória)
+ENV WEB_CONCURRENCY=1
+
 # Gunicorn direto (evita main.py)
 CMD gunicorn --workers 1 --threads 2 --timeout 300 --bind 0.0.0.0:${PORT} web_server:app

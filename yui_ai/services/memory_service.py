@@ -63,15 +63,19 @@ def save_message(
 def load_history(
     chat_id: str,
     user_id: Optional[str] = None,
+    limit: Optional[int] = 100,
 ) -> List[Dict[str, Any]]:
-    """Carrega histórico de mensagens do chat. Interface única."""
+    """Carrega histórico de mensagens do chat. Interface única. limit=100 reduz RAM."""
     if USE_SUPABASE_MEMORY:
         from core.memory import get_messages
-        return get_messages(chat_id, user_id) or []
+        return get_messages(chat_id, user_id, limit=limit) or []
     data = _read_local()
     if user_id and data.get("chats", {}).get(chat_id, {}).get("user_id") != user_id:
         return []
-    return data.get("messages_by_chat", {}).get(chat_id, [])
+    msgs = data.get("messages_by_chat", {}).get(chat_id, [])
+    if limit and len(msgs) > limit:
+        return msgs[-limit:]
+    return msgs
 
 
 def chat_belongs_to_user(chat_id: str, user_id: str) -> bool:

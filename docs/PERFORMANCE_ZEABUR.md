@@ -40,19 +40,25 @@ Desativa planner, vector_memory, auto_debug e goals — reduz RAM e CPU.
 - Desativa animações neon e sombras pesadas (CSS).
 - Reduz processamento no navegador.
 
-### 8. Limite de contexto (RAM)
-- **MAX_CONTEXT = 12** mensagens em SessionMemory, context_engine, context_memory.
-- Histórico do chat limitado a 12 (evita crescimento infinito em servidores 2GB).
+### 8. Limite de histórico (RAM)
+- `get_messages(limit=50)` — query Supabase retorna só últimas 50 mensagens
+- `load_history(limit=100)` — API retorna últimas 100
+- context_engine: MAX_MENSAGENS_DB=50, MAX_MENSAGENS_HISTORICO=12
 
-### 9. Preview só quando aba ativa
-- `updateWorkspacePreview` retorna cedo se `document.hidden`.
-- `visibilitychange`: esvazia iframe ao trocar de aba (reduz CPU/JS).
+### 9. Plugins lazy load
+- Plugins carregam na primeira invocação de tool (não no startup)
+- Reduz RAM inicial em servidores 2GB
 
-### 10. Gunicorn enxuto
+### 10. Preview só quando aba ativa
+- `updateWorkspacePreview` retorna cedo se `document.hidden`
+- `visibilitychange`: esvazia iframe ao trocar de aba
+- Debounce 400ms em `workspacePreviewUpdate` (evita re-render a cada tecla)
+
+### 11. Gunicorn enxuto
 - `workers=1`, `threads=2` no Procfile (Zeabur/Heroku).
 - Para 2GB: `WEB_CONCURRENCY=1` (evita duplicar memória).
 
-### 11. Client-Side Processing
+### 12. Client-Side Processing
 - **Highlight.js** formata código no navegador.
 - Servidor atua como roteador de mensagens e storage.
 

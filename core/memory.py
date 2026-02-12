@@ -47,12 +47,19 @@ def save_message(chat_id, role, content, user_id=None):
     }).execute()
 
 
-def get_messages(chat_id, user_id=None):
-    """Lista mensagens do chat. Se user_id for passado, só retorna se o chat pertencer ao usuário."""
+def get_messages(chat_id, user_id=None, limit=None):
+    """
+    Lista mensagens do chat. Se user_id for passado, só retorna se o chat pertencer ao usuário.
+    limit: se informado, retorna só as últimas N mensagens (reduz RAM em servidores 2GB).
+    """
     if not supabase:
         return []
     if user_id is not None and not chat_belongs_to_user(chat_id, user_id):
         return []
+    if limit:
+        data = supabase.table("messages").select("*").eq("chat_id", chat_id).order("created_at", desc=True).limit(limit).execute()
+        msgs = (data.data or [])[::-1]
+        return msgs
     data = supabase.table("messages").select("*").eq("chat_id", chat_id).order("created_at", desc=False).execute()
     return data.data or []
 

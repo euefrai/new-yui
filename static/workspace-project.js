@@ -499,8 +499,14 @@
         });
       });
     }
+    var previewDebounce = null;
     document.addEventListener("workspacePreviewUpdate", function () {
-      if (!document.hidden) updateWorkspacePreview();
+      if (document.hidden) return;
+      if (previewDebounce) clearTimeout(previewDebounce);
+      previewDebounce = setTimeout(function () {
+        previewDebounce = null;
+        updateWorkspacePreview();
+      }, 400);
     });
     document.addEventListener("visibilitychange", function () {
       if (document.hidden) {

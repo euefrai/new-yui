@@ -109,7 +109,6 @@ def _init_default_tools() -> None:
         tool_fs_delete_file,
         tool_generate_project_map,
     )
-    from core.plugins_loader import load_plugins
 
     register_tool(
         name="analisar_arquivo",
@@ -277,8 +276,7 @@ def _init_default_tools() -> None:
         },
     )
 
-    # Carrega plugins externos (se houver)
-    load_plugins()
+    # Plugins: lazy load (ensure_plugins_loaded no tool_runner)
 
 
 # Inicializa tools padrão no import

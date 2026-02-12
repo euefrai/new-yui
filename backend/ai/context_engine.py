@@ -19,6 +19,7 @@ from core.memoria_ia import buscar_memoria as buscar_memoria_ia
 
 # Limites para servidores 2GB (contexto gigante drena RAM)
 MAX_MENSAGENS_HISTORICO = 12
+MAX_MENSAGENS_DB = 50  # limite na query Supabase (evita carregar 10k msgs)
 LIMITE_CURTA = 6
 LIMITE_LONGA = 6
 VETORIAL_LIMITE = 4
@@ -80,8 +81,8 @@ def montar_contexto_ia(
         "user_profile": {},
     }
 
-    # Histórico do chat (limitado) = base para short_term
-    raw = get_messages(chat_id, user_id) or []
+    # Histórico do chat (limitado na query — evita RAM infinita)
+    raw = get_messages(chat_id, user_id, limit=MAX_MENSAGENS_DB) or []
     if raw:
         window = raw[-max_mensagens:]
         out["historico"] = [
