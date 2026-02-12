@@ -86,6 +86,23 @@ class SkillRegistry:
                 for s in self._skills.values()
             ]
 
+    def get_all(self) -> List[Dict[str, Any]]:
+        """
+        Retorna todas as skills para o Confidence Engine (ranking).
+        Inclui meta (context, priority) para scoring.
+        """
+        with self._lock:
+            return [
+                {
+                    "name": s.name,
+                    "agent": s.agent,
+                    "tags": s.tags,
+                    "skip_planner": s.skip_planner,
+                    "meta": s.meta or {},
+                }
+                for s in self._skills.values()
+            ]
+
 
 _registry: Optional[SkillRegistry] = None
 
@@ -133,3 +150,8 @@ def find_skill(capability_type: str) -> Optional[Skill]:
 def list_skills() -> List[Dict[str, Any]]:
     """Retorna skills ativas para UI."""
     return get_registry().list_skills()
+
+
+def get_all_skills() -> List[Dict[str, Any]]:
+    """Retorna todas as skills para o Confidence Engine."""
+    return get_registry().get_all()

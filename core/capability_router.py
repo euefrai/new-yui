@@ -126,23 +126,34 @@ def route(
     best_type = max(scores, key=lambda k: scores[k])
     conf = scores[best_type]
 
-    # Consulta Skill Registry
+    # Confidence Engine — ranking de skills
     if conf >= 0.3:
         try:
-            from core.skills.registry import find_skill
-            skill = find_skill(best_type)
-            if skill:
+            from core.skills.registry import get_all_skills
+            from core.router.confidence_engine import get_confidence_engine, Intent
+
+            skills = get_all_skills()
+            engine = get_confidence_engine(threshold=0.4)
+            intent = Intent(
+                type=best_type,
+                context=tool_hint,
+                priority_hint=None,
+            )
+            ranked = engine.score(intent, skills)
+            best = engine.best_agent(ranked, threshold=0.4, fallback="yui")
+
+            if not best["used_fallback"]:
                 return RouteDecision(
-                    target=skill.agent,
+                    target=best["agent"],
                     capability_type=best_type,
-                    skip_planner=skill.skip_planner,
-                    confidence=conf,
-                    reason=f"Registry: {skill.name}",
+                    skip_planner=best["skip_planner"],
+                    confidence=max(conf, best["score"]),
+                    reason=f"Confidence: {best.get('name', best['agent'])} (score={best['score']:.2f})",
                 )
         except Exception:
             pass
 
-    # Fallback: default mapping (quando registry não tem match)
+    # Fallback: default mapping (quando confidence < threshold)
     _fallback = {
         "lightweight": ("yui", True),
         "memory_query": ("rag_engine", True),
