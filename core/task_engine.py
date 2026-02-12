@@ -11,6 +11,8 @@
 # - UI: "🟡 Heathcliff está editando 3 arquivos..."
 # ==========================================================
 
+from __future__ import annotations
+
 import time
 import uuid
 from dataclasses import dataclass, field
