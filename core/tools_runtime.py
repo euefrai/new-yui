@@ -309,10 +309,15 @@ def _resolve_project_dir(root_dir: str) -> Optional[Path]:
     return None
 
 
-def tool_criar_zip_projeto(root_dir: str, zip_name: Optional[str] = None) -> Dict[str, Any]:
+def tool_criar_zip_projeto(
+    root_dir: str,
+    zip_name: Optional[str] = None,
+    background: bool = True,
+) -> Dict[str, Any]:
     """
     Gera um script Python para compactar um projeto em ZIP.
     Usa sempre Path absoluto (BASE_DIR) para funcionar no Render.
+    background=True (padrão): agenda no scheduler, não bloqueia o chat.
     """
     if not root_dir:
         return {"ok": False, "script_path": "", "zip_output": "", "command": "", "error": "root_dir obrigatório"}
@@ -329,6 +334,8 @@ def tool_criar_zip_projeto(root_dir: str, zip_name: Optional[str] = None) -> Dic
     SCRIPTS_ROOT.mkdir(parents=True, exist_ok=True)
     script_path = SCRIPTS_ROOT / f"make_zip_{slug}.py"
     zip_output = root_path.parent / f"{slug}.zip"
+    zip_basename = zip_output.name
+    download_url = f"/download/{zip_basename}"
 
     ignore_names = {".env", ".env.example", "venv", ".venv", "__pycache__", "node_modules"}
     ignore_suffixes = {".key", ".pem", ".pfx"}
@@ -377,7 +384,43 @@ if __name__ == "__main__":
         with open(script_path, "w", encoding="utf-8") as f:
             f.write(script_code)
         command = f"python {script_path.relative_to(PROJECT_ROOT)}"
-        # Executa o script para gerar o .zip imediatamente (link de download clicável)
+        base_result = {
+            "ok": True,
+            "script_path": str(script_path),
+            "zip_output": str(zip_output),
+            "command": command,
+            "error": None,
+        }
+        if background:
+            # Agenda no scheduler — não bloqueia o chat
+            def _run_zip(data):
+                spath = data["script_path"]
+                durl = data["download_url"]
+                try:
+                    subprocess.run(
+                        [sys.executable, str(spath)],
+                        cwd=str(PROJECT_ROOT),
+                        timeout=60,
+                        capture_output=True,
+                        check=False,
+                    )
+                    try:
+                        from core.event_bus import emit
+                        from core.pending_downloads import add_ready
+                        add_ready(durl)
+                        emit("zip_ready", download_url=durl)
+                    except Exception:
+                        pass
+                except Exception:
+                    pass
+
+            try:
+                from core.task_scheduler import get_scheduler
+                get_scheduler().add(_run_zip, data={"script_path": str(script_path), "download_url": download_url})
+            except Exception:
+                pass  # fallback: executa síncrono
+            return {**base_result, "zip_pending": True, "download_url": download_url}
+        # Síncrono (background=False)
         try:
             subprocess.run(
                 [sys.executable, str(script_path)],
@@ -387,14 +430,8 @@ if __name__ == "__main__":
                 check=False,
             )
         except Exception:
-            pass  # zip_output ainda é retornado; o usuário pode rodar o comando manualmente
-        return {
-            "ok": True,
-            "script_path": str(script_path),
-            "zip_output": str(zip_output),
-            "command": command,
-            "error": None,
-        }
+            pass
+        return base_result
     except Exception as e:  # noqa: BLE001
         return {"ok": False, "script_path": "", "zip_output": "", "command": "", "error": str(e)}
 

@@ -310,12 +310,13 @@ def _format_tool_reply(tool_name: str, args: Dict, payload: Dict) -> str:
         script_path = payload.get("script_path") or ""
         zip_output = payload.get("zip_output") or ""
         command = payload.get("command") or ""
+        zip_pending = payload.get("zip_pending") is True
         linhas = [
-            "Script de compactação criado com sucesso.",
+            "Projeto compactado (gerando em background)." if zip_pending else "Script de compactação criado com sucesso.",
             f"Script: {script_path}",
-            f"ZIP de saída (após executar): {zip_output or 'definido no script'}",
+            f"ZIP de saída: {zip_output or 'definido no script'}",
         ]
-        if command:
+        if command and not zip_pending:
             linhas.append(f"Para gerar o ZIP, execute no terminal:\n{command}")
         zip_basename = Path(zip_output).name if zip_output else ""
         if zip_basename and zip_basename.endswith(".zip"):
@@ -911,7 +912,7 @@ def agent_controller(
                         zip_result = {}
                         if get_energy_manager and get_energy_manager().can_execute():
                             get_energy_manager().consume(COST_TOOL)
-                            zip_result = run_tool("criar_zip_projeto", {"root_dir": root_dir, "zip_name": slug or None})
+                            zip_result = run_tool("criar_zip_projeto", {"root_dir": root_dir, "zip_name": slug or None, "background": True})
                         if zip_result.get("ok"):
                             zpayload = zip_result.get("result") or {}
                             zip_output = zpayload.get("zip_output") or ""

@@ -91,6 +91,44 @@
     return parts.join("");
   }
 
+  function setupDownloadButton(link, url) {
+    link.href = url;
+    link.innerText = "⬇️ Baixar Projeto";
+    link.className = "download-btn btn-download";
+    link.setAttribute("download", url.split("/").pop() || "projeto.zip");
+    link.addEventListener("click", function (e) {
+      e.preventDefault();
+      fetch(url).then(function (r) {
+        if (!r.ok) throw new Error(" ainda gerando");
+        return r.blob();
+      }).then(function (blob) {
+        var a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = url.split("/").pop() || "projeto.zip";
+        a.click();
+        URL.revokeObjectURL(a.href);
+      }).catch(function () {
+        if (link.getAttribute("data-ready") === "1") {
+          window.open(url, "_blank");
+        } else {
+          alert("ZIP ainda gerando. Clique novamente em alguns segundos.");
+        }
+      });
+    });
+    var pollCount = 0;
+    var pollInterval = setInterval(function () {
+      pollCount++;
+      if (pollCount > 30) { clearInterval(pollInterval); return; }
+      fetch("/api/system/pending_downloads").then(function (r) { return r.json(); }).then(function (data) {
+        if (data.ok && (data.urls || []).indexOf(url) >= 0) {
+          clearInterval(pollInterval);
+          link.setAttribute("data-ready", "1");
+          link.innerText = "✓ Baixar Projeto";
+        }
+      }).catch(function () {});
+    }, 2000);
+  }
+
   function initDownloadButtons(container, rawText) {
     if (!container) return;
     var text = rawText || (container.textContent || "").replace(/\s+/g, " ");
@@ -100,20 +138,7 @@
     var existing = container.querySelector(".download-btn, .btn-download");
     if (existing) return;
     var link = document.createElement("a");
-    link.href = url;
-    link.innerText = "⬇️ Baixar Projeto";
-    link.className = "download-btn btn-download";
-    link.setAttribute("download", url.split("/").pop() || "projeto.zip");
-    link.addEventListener("click", function (e) {
-      e.preventDefault();
-      fetch(url).then(function (r) { return r.blob(); }).then(function (blob) {
-        var a = document.createElement("a");
-        a.href = URL.createObjectURL(blob);
-        a.download = url.split("/").pop() || "projeto.zip";
-        a.click();
-        URL.revokeObjectURL(a.href);
-      }).catch(function () { window.open(url, "_blank"); });
-    });
+    setupDownloadButton(link, url);
     container.appendChild(link);
   }
 
@@ -924,20 +949,7 @@
 
       if (downloadUrl) {
         var link = document.createElement("a");
-        link.href = downloadUrl;
-        link.innerText = "⬇️ Baixar Projeto";
-        link.className = "download-btn btn-download";
-        link.setAttribute("download", downloadUrl.split("/").pop() || "projeto.zip");
-        link.addEventListener("click", function (e) {
-          e.preventDefault();
-          fetch(downloadUrl).then(function (r) { return r.blob(); }).then(function (blob) {
-            var a = document.createElement("a");
-            a.href = URL.createObjectURL(blob);
-            a.download = downloadUrl.split("/").pop() || "projeto.zip";
-            a.click();
-            URL.revokeObjectURL(a.href);
-          }).catch(function () { window.open(downloadUrl, "_blank"); });
-        });
+        setupDownloadButton(link, downloadUrl);
         div.appendChild(link);
       }
       if (previewUrl) {

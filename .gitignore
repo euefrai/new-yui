@@ -46,6 +46,9 @@ sandbox/
 # Mapa do projeto (gerado pelo Project Mapper)
 .yui_map.json
 
+# Scripts ZIP gerados pela tool criar_zip_projeto
+scripts/make_zip_*.py
+
 # Minificados (gerados por scripts/minify_static.py no build)
 static/*.min.js
 static/*.min.css

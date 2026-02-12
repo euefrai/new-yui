@@ -26,6 +26,11 @@ EVENTS = (
     "agent_requested",     # {model, user_message}
     "preview_started",     # {}
     "memory_updated",      # {chat_id, user_id}
+    "memory_update_requested",  # {root?} → scheduler adiciona indexar
+    "task_queued",         # {task_id, fn_name}
+    "task_done",           # {task_id, result}
+    "task_failed",         # {task_id, error}
+    "zip_ready",           # {download_url} — ZIP gerado em background
 )
 
 

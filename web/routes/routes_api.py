@@ -287,6 +287,34 @@ def api_system_governor():
         return jsonify({"ok": False, "error": str(e)}), 500
 
 
+@system_bp.get("/scheduler")
+def api_system_scheduler():
+    """
+    Task Scheduler — status da fila de tarefas em background.
+    """
+    try:
+        from core.task_scheduler import get_scheduler
+        s = get_scheduler()
+        return jsonify({"ok": True, "queue_size": s.queue_size()})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@system_bp.get("/pending_downloads")
+def api_system_pending_downloads():
+    """
+    URLs de downloads prontos (ex: ZIP gerado em background).
+    Query: since (opcional) — timestamp para retornar só os novos.
+    """
+    try:
+        from core.pending_downloads import get_recent
+        since = request.args.get("since", type=float)
+        urls = get_recent(since=since)
+        return jsonify({"ok": True, "urls": urls})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e), "urls": []}), 500
+
+
 @system_bp.get("/state")
 def api_system_state():
     """

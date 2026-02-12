@@ -71,9 +71,8 @@ if __name__ == "__main__":
         if _is_cloud:
             return
         try:
-            from backend.ai.vector_memory import indexar_projeto
-            qtd = indexar_projeto(str(settings.BASE_DIR))
-            print(f"🧠 Memória do projeto: {qtd} blocos indexados (yui_vector_db).")
+            from core.event_bus import emit
+            emit("memory_update_requested", root=str(settings.BASE_DIR))
         except Exception as e:
             print(f"⚠️ Indexação da memória vetorial ignorada: {e}")
 

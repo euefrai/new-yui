@@ -82,6 +82,7 @@ from core.execution_graph import ExecutionGraph, Node, graph_from_planner_steps
 g = ExecutionGraph(intention="criar_api_zip")
 g.add_step("Parse Intent", lambda ctx: ctx)
 g.add_step("Generate Files", lambda ctx: {"files": [...]})
+# Zip Builder usa Task Scheduler (background); link [DOWNLOAD] aparece logo
 g.add_step("Zip Builder", lambda ctx: "/download/projeto.zip")
 g.add_step("Download Link", lambda ctx: ctx.get("_result_Zip Builder"))
 
@@ -126,7 +127,14 @@ if get_governor().allow_preview().allow:
 
 - `on(event, fn)` / `subscribe(event, fn)`
 - `emit(event, **kwargs)`
-- Eventos: workspace_toggled, file_changed, agent_requested, preview_started, memory_updated
+- Eventos principais:
+  - `workspace_toggled` (open: bool)
+  - `file_changed` (path, action)
+  - `agent_requested` (model, user_message)
+  - `preview_started`, `memory_updated`
+  - `memory_update_requested` (root?) → scheduler adiciona indexar
+  - `task_queued`, `task_done`, `task_failed`
+  - `zip_ready` (download_url) — ZIP gerado em background
 
 ```python
 from core.event_bus import emit, on
@@ -135,7 +143,36 @@ emit("workspace_toggled", open=True)
 on("file_changed", lambda path, action: invalidate_cache(path))
 ```
 
-### 8. Sandbox Executor (`core/sandbox_executor/runner.py`)
+### 8. Event Wiring (`core/event_wiring.py`)
+
+Conecta eventos aos módulos no startup. Chamado por `web_server.py`.
+
+- `workspace_toggled` → `system_state.set_workspace_open()`
+- `memory_update_requested` → `scheduler.add(indexar_projeto)`
+
+### 9. Task Scheduler (`core/task_scheduler.py`)
+
+**Ações assíncronas** — separa imediato vs fila vs background.
+
+- `add(fn, data)` → entra na fila, executa em background
+- `add_now(fn, data)` → executa em thread separada (não bloqueia)
+- Eventos: `task_queued`, `task_done`, `task_failed`
+- **Usos**: indexação RAG, geração de ZIP (não bloqueia o chat)
+
+```python
+from core.task_scheduler import get_scheduler
+
+get_scheduler().add(lambda d: indexar_projeto(d), data=raiz)
+```
+
+### 10. Pending Downloads (`core/pending_downloads.py`)
+
+URLs de arquivos gerados em background (ex: ZIP). Frontend faz poll para saber quando está pronto.
+
+- `add_ready(url)` — registra download pronto
+- `get_recent(since?)` — retorna URLs prontas (TTL 5 min)
+
+### 11. Sandbox Executor (`core/sandbox_executor/runner.py`)
 
 Execução isolada — anti-SIGKILL:
 - subprocess isolado
@@ -149,7 +186,7 @@ from core.sandbox_executor import run_code
 result = run_code("print(1+1)", lang="python", timeout=30)
 ```
 
-### 9. Plugin Loader (`core/plugins_loader.py`)
+### 12. Plugin Loader (`core/plugins_loader.py`)
 
 - **scan**: descobre plugins em `plugins/`
 - **register**: registra tools no `tools_registry`
@@ -164,8 +201,35 @@ tools = inject_into_engine()  # lista de tools disponíveis
 ## Integração
 
 - **API**: `/api/sandbox/execute` usa `run_code` do sandbox_executor
-- **Startup**: `web_server.py` chama `inject_into_engine()`    
+- **Startup**: `web_server.py` chama `wire_events()` (event_wiring) e `inject_into_engine()`
 - **Agent**: `action_router` e `context_kernel` podem ser usados no `agent_controller` para enriquecer contexto e decisões
+
+## API System (`/api/system/*`)
+
+| Endpoint | Descrição |
+|----------|-----------|
+| `GET /health` | CPU, RAM, modo (normal/fast/critical) |
+| `GET /telemetry` | Custo acumulado, energia |
+| `GET /governor` | allow_preview, allow_planner, allow_heavy_agent |
+| `GET /scheduler` | queue_size da fila de tarefas |
+| `GET /pending_downloads` | URLs de downloads prontos (?since=timestamp) |
+| `GET /state` | mode, workspace_open, executing_graph |
+| `GET /execution` | Nós do Execution Graph para UI |
+| `POST /events` | Frontend emite: workspace_toggled, file_changed, preview_started |
+
+## Fluxo assíncrono (Scheduler)
+
+```
+evento                    →  listener              →  ação
+────────────────────────────────────────────────────────────────
+memory_update_requested   →  event_wiring          →  scheduler.add(indexar)
+criar_projeto_arquivos    →  agent_controller      →  run_tool(criar_zip, background=True)
+task_done (zip)           →  _run_zip interno      →  add_ready(url), emit(zip_ready)
+frontend [DOWNLOAD]       →  poll pending_downloads→  mostra "✓ Baixar Projeto"
+```
+
+**Antes**: Yui pensa → trava → responde  
+**Depois**: Yui responde → continua trabalhando em silêncio
 
 ## Próximos passos
 

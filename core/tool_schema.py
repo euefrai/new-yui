@@ -60,9 +60,9 @@ TOOL_SCHEMAS: List[Dict[str, Any]] = [
     },
     {
         "name": "criar_zip_projeto",
-        "description": "Gera script para compactar o projeto em ZIP.",
-        "inputs": {"root_dir": "str", "zip_name": "str"},
-        "outputs": ["script_path", "zip_output", "command", "ok"],
+        "description": "Gera script para compactar o projeto em ZIP. Padrão: background.",
+        "inputs": {"root_dir": "str", "zip_name": "str", "background": "bool"},
+        "outputs": ["script_path", "zip_output", "command", "ok", "zip_pending", "download_url"],
         "cost": "low",
         "risk": "low",
     },

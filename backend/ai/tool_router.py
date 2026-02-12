@@ -75,7 +75,8 @@ def _format_tool_result(tool_name: str, args: Dict, payload: Dict) -> str:
         zip_output = payload.get("zip_output") or ""
         zip_basename = Path(zip_output).name if zip_output else ""
         if zip_basename and zip_basename.endswith(".zip"):
-            return f"Projeto compactado. [DOWNLOAD]:/download/{zip_basename}"
+            pend = " (gerando em background)" if payload.get("zip_pending") else ""
+            return f"Projeto compactado{pend}. [DOWNLOAD]:/download/{zip_basename}"
         return "Script de compactação criado. Execute o comando indicado no terminal."
     if tool_name == "listar_arquivos":
         arquivos = payload.get("arquivos") or []
