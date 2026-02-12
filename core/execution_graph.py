@@ -75,21 +75,33 @@ class ExecutionGraph:
         Executa todos os nós em sequência.
         ctx: contexto compartilhado entre nós (pode ser mutado).
         """
+        try:
+            from core.system_state import set_executing_graph
+            set_executing_graph(True)
+        except Exception:
+            pass
         self._ctx = dict(ctx or {})
         results = []
 
-        for node in self.nodes:
-            try:
-                out = node.run(self._ctx)
-                results.append({"node": node.name, "status": node.status.value, "result": out})
-                self._ctx[f"_result_{node.name}"] = out
-            except Exception:
-                results.append({"node": node.name, "status": node.status.value, "error": node.error})
-                emit("execution_graph_failed", graph=self, node=node)
-                raise
+        try:
+            for node in self.nodes:
+                try:
+                    out = node.run(self._ctx)
+                    results.append({"node": node.name, "status": node.status.value, "result": out})
+                    self._ctx[f"_result_{node.name}"] = out
+                except Exception:
+                    results.append({"node": node.name, "status": node.status.value, "error": node.error})
+                    emit("execution_graph_failed", graph=self, node=node)
+                    raise
 
-        emit("execution_graph_done", graph=self, results=results)
-        return {"results": results, "ctx": self._ctx}
+            emit("execution_graph_done", graph=self, results=results)
+            return {"results": results, "ctx": self._ctx}
+        finally:
+            try:
+                from core.system_state import set_executing_graph
+                set_executing_graph(False)
+            except Exception:
+                pass
 
     def to_ui_status(self) -> List[Dict[str, str]]:
         """

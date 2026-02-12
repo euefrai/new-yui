@@ -89,7 +89,22 @@ result = g.run(ctx={"user_message": "cria API de login"})
 status = g.to_ui_status()  # [{"name": "Parse Intent", "status": "done", "symbol": "✓"}, ...]
 ```
 
-### 5. Sandbox Executor (`core/sandbox_executor/runner.py`)
+### 5. System State Engine (`core/system_state.py`)
+
+**Cérebro de estado** — consistência operacional.
+
+- `mode`, `workspace_open`, `executing_graph`, `terminal_sessions_alive`
+- `should_enable_editor_features()`: só quando workspace aberto
+- `should_activate_observer()`: só quando Execution Graph rodando
+
+```python
+from core.system_state import get_state, should_enable_editor_features
+
+if should_enable_editor_features():
+    enable_editor_features()
+```
+
+### 6. Sandbox Executor (`core/sandbox_executor/runner.py`)
 
 Execução isolada — anti-SIGKILL:
 - subprocess isolado
@@ -103,7 +118,7 @@ from core.sandbox_executor import run_code
 result = run_code("print(1+1)", lang="python", timeout=30)
 ```
 
-### 6. Plugin Loader (`core/plugins_loader.py`)
+### 7. Plugin Loader (`core/plugins_loader.py`)
 
 - **scan**: descobre plugins em `plugins/`
 - **register**: registra tools no `tools_registry`

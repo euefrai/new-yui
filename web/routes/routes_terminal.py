@@ -58,6 +58,12 @@ def cleanup_processes():
                     os.close(master)
                 except Exception:
                     pass
+    try:
+        from core.system_state import set_terminal_sessions_alive
+        with _terminal_lock:
+            set_terminal_sessions_alive(len(_terminal_processes) > 0)
+    except Exception:
+        pass
 
 
 def _spawn_shell():
@@ -157,6 +163,11 @@ def register_terminal_sock(app, sock_instance):
                 "last_activity": time.time(),
             }
         try:
+            from core.system_state import set_terminal_sessions_alive
+            set_terminal_sessions_alive(True)
+        except Exception:
+            pass
+        try:
             t = threading.Thread(target=_run_reader, args=(ws, proc, master, use_pty), daemon=True)
             t.start()
             while True:
@@ -177,6 +188,12 @@ def register_terminal_sock(app, sock_instance):
         finally:
             with _terminal_lock:
                 _terminal_processes.pop(tid, None)
+                alive = len(_terminal_processes) > 0
+            try:
+                from core.system_state import set_terminal_sessions_alive
+                set_terminal_sessions_alive(alive)
+            except Exception:
+                pass
             try:
                 proc.terminate()
                 proc.wait(timeout=2)

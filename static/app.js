@@ -440,6 +440,7 @@
   }
 
   var workspaceOpen = true;
+  window.getWorkspaceOpen = function () { return workspaceOpen; };
   function getWorkspacePref() {
     try {
       var v = localStorage.getItem("yui_workspace_open");
@@ -1345,6 +1346,7 @@
             body.active_files = ctx.active_files || [];
             body.console_errors = ctx.console_errors || [];
           }
+          body.workspace_open = window.getWorkspaceOpen ? window.getWorkspaceOpen() : false;
           fetch("/api/chat/stream", {
             method: "POST",
             headers: { "Content-Type": "application/json" },

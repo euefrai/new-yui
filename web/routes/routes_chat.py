@@ -95,6 +95,12 @@ def api_chat_stream():
         confirm_high_cost = bool(data.get("confirm_high_cost"))
         active_files = data.get("active_files") or []
         console_errors = data.get("console_errors") or []
+        workspace_open = bool(data.get("workspace_open"))
+        try:
+            from core.system_state import set_workspace_open
+            set_workspace_open(workspace_open)
+        except Exception:
+            pass
         if model not in ("yui", "heathcliff", "auto"):
             model = "yui"
         if not chat_id:

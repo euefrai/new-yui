@@ -222,6 +222,19 @@ def api_system_cleanup():
         return jsonify({"ok": False, "error": str(e)}), 500
 
 
+@system_bp.get("/state")
+def api_system_state():
+    """
+    System State — estado global para consistência operacional.
+    mode, workspace_open, executing_graph, terminal_sessions_alive.
+    """
+    try:
+        from core.system_state import get_state
+        return jsonify({"ok": True, "state": get_state().to_dict()})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
 @system_bp.get("/execution")
 def api_system_execution():
     """
