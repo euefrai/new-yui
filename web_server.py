@@ -33,6 +33,13 @@ def add_cors_headers(response):
 
 register_routes(app)
 
+# Event Bus: wiring (workspace_toggled → system_state etc.)
+try:
+    from core.event_wiring import wire_events
+    wire_events()
+except Exception as e:
+    print(f"⚠️ Event wiring: {e}")
+
 # Core Engine: injeta plugins no startup
 try:
     from core.plugins_loader import inject_into_engine

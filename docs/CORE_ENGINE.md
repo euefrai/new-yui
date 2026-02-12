@@ -120,7 +120,22 @@ if get_governor().allow_preview().allow:
     start_live_preview()
 ```
 
-### 7. Sandbox Executor (`core/sandbox_executor/runner.py`)
+### 7. Event Bus (`core/event_bus.py`)
+
+**Sistema Nervoso** — nenhum módulo chama outro direto. Tudo vira eventos.
+
+- `on(event, fn)` / `subscribe(event, fn)`
+- `emit(event, **kwargs)`
+- Eventos: workspace_toggled, file_changed, agent_requested, preview_started, memory_updated
+
+```python
+from core.event_bus import emit, on
+
+emit("workspace_toggled", open=True)
+on("file_changed", lambda path, action: invalidate_cache(path))
+```
+
+### 8. Sandbox Executor (`core/sandbox_executor/runner.py`)
 
 Execução isolada — anti-SIGKILL:
 - subprocess isolado
@@ -134,7 +149,7 @@ from core.sandbox_executor import run_code
 result = run_code("print(1+1)", lang="python", timeout=30)
 ```
 
-### 8. Plugin Loader (`core/plugins_loader.py`)
+### 9. Plugin Loader (`core/plugins_loader.py`)
 
 - **scan**: descobre plugins em `plugins/`
 - **register**: registra tools no `tools_registry`

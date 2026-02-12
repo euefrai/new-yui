@@ -454,6 +454,13 @@
   function toggleWorkspace() {
     workspaceOpen = !workspaceOpen;
     setWorkspacePref(workspaceOpen);
+    try {
+      fetch("/api/system/events", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ event: "workspace_toggled", data: { open: workspaceOpen } })
+      }).catch(function () {});
+    } catch (e) {}
     if (workspaceOpen && !workspaceEverInitialized) {
       workspaceEverInitialized = true;
       if (window.loadWorkspaceLibs) {

@@ -97,10 +97,14 @@ def api_chat_stream():
         console_errors = data.get("console_errors") or []
         workspace_open = bool(data.get("workspace_open"))
         try:
-            from core.system_state import set_workspace_open
-            set_workspace_open(workspace_open)
+            from core.event_bus import emit
+            emit("workspace_toggled", open=workspace_open)
         except Exception:
-            pass
+            try:
+                from core.system_state import set_workspace_open
+                set_workspace_open(workspace_open)
+            except Exception:
+                pass
         if model not in ("yui", "heathcliff", "auto"):
             model = "yui"
         if not chat_id:

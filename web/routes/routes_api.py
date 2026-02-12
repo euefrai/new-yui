@@ -222,6 +222,32 @@ def api_system_cleanup():
         return jsonify({"ok": False, "error": str(e)}), 500
 
 
+@system_bp.post("/events")
+def api_system_events():
+    """
+    Frontend emite eventos no Event Bus.
+    Body: { event: str, data?: dict }
+    Ex: { "event": "workspace_toggled", "data": { "open": true } }
+    """
+    data = request.get_json(silent=True) or {}
+    evt = (data.get("event") or "").strip()
+    payload = data.get("data") or data
+    if not evt:
+        return jsonify({"ok": False, "error": "event obrigatório"}), 400
+    allow = {"workspace_toggled", "file_changed", "preview_started"}
+    if evt not in allow:
+        return jsonify({"ok": False, "error": f"evento não permitido: {evt}"}), 400
+    try:
+        from core.event_bus import emit
+        if isinstance(payload, dict):
+            emit(evt, **payload)
+        else:
+            emit(evt, payload)
+        return jsonify({"ok": True})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
 @system_bp.get("/governor")
 def api_system_governor():
     """
@@ -362,6 +388,11 @@ def api_sandbox_files():
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_text(content, encoding="utf-8", errors="replace")
             _record_disk_write()
+            try:
+                from core.event_bus import emit
+                emit("file_changed", path=path, action="create_file")
+            except Exception:
+                pass
             return jsonify({"ok": True, "action": "create_file", "path": path})
         if action == "create_folder":
             target.mkdir(parents=True, exist_ok=True)
@@ -409,6 +440,12 @@ def api_sandbox_save():
             _record_disk_write()
         except Exception as e:
             return jsonify({"ok": False, "error": str(e), "saved": saved}), 400
+    for path in saved:
+        try:
+            from core.event_bus import emit
+            emit("file_changed", path=path, action="save")
+        except Exception:
+            pass
     return jsonify({"ok": True, "saved": saved})
 
 
@@ -567,6 +604,12 @@ def api_sandbox_multi_save():
                 errors.append(f"{path}: {e}")
             except Exception as e:
                 errors.append(f"{path}: {e}")
+    for path in saved + deleted:
+        try:
+            from core.event_bus import emit
+            emit("file_changed", path=path, action="multi_save")
+        except Exception:
+            pass
     return jsonify({"ok": True, "saved": saved, "deleted": deleted, "errors": errors})
 
 

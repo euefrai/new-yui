@@ -533,6 +533,13 @@ def agent_controller(
         except Exception:
             pass
 
+        # ---------- Event Bus: agent_requested (Governor/observers podem reagir) ----------
+        try:
+            from core.event_bus import emit
+            emit("agent_requested", model=model, user_message=user_message)
+        except Exception:
+            pass
+
         # ---------- Arbitration Engine: model "auto" → decide_leader ----------
         effective_model = model
         is_hybrid = False

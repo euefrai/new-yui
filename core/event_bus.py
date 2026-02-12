@@ -1,7 +1,8 @@
 # ==========================================================
-# YUI EVENT BUS
-# Desacoplamento: componentes emitem eventos; plugins/outros reagem.
-# Eventos conhecidos: memory_saved, tool_executed, response_generated.
+# YUI EVENT BUS — Sistema Nervoso
+# Nenhum módulo chama outro direto. Tudo vira eventos.
+#
+# emit("evento") → listeners reagem (state, governor, preview).
 # ==========================================================
 
 from typing import Any, Callable, Dict, List
@@ -19,6 +20,12 @@ EVENTS = (
     "execution_node_failed",
     "execution_graph_done",
     "execution_graph_failed",
+    # Sistema Nervoso (event-driven)
+    "workspace_toggled",   # {open: bool}
+    "file_changed",        # {path: str, action: str}
+    "agent_requested",     # {model, user_message}
+    "preview_started",     # {}
+    "memory_updated",      # {chat_id, user_id}
 )
 
 
@@ -58,3 +65,8 @@ def clear(event: str | None = None) -> None:
 def list_events() -> tuple:
     """Retorna a lista de eventos conhecidos (para plugins)."""
     return EVENTS
+
+
+def on(event: str, handler: Callable[..., None]) -> None:
+    """Alias para subscribe (API mais intuitiva)."""
+    subscribe(event, handler)
