@@ -22,6 +22,21 @@ except ImportError:
     emit = lambda e, *a, **k: None
 
 
+def _emit_task_finished(info: TaskInfo) -> None:
+    """Emite task_finished para Reflection Loop (telemetria pós-execução)."""
+    duration = (info.ended_at or time.time()) - info.started_at
+    success = info.status == "done"
+    emit(
+        "task_finished",
+        task_id=info.id,
+        task_type=info.tipo,
+        duration=duration,
+        success=success,
+        error=info.error,
+        meta=info.meta,
+    )
+
+
 @dataclass
 class TaskInfo:
     """Status de uma tarefa em execução ou recente."""
@@ -88,6 +103,7 @@ class TaskEngine:
         self._prune_active()
 
         emit("task_queued", task_id=tid, fn_name=nome)
+        emit("task_iniciada", task=nome, task_id=tid, fn_name=nome)
         try:
             try:
                 from core.execution_guard import get_guard
@@ -104,10 +120,12 @@ class TaskEngine:
             info.ended_at = time.time()
             info.error = str(e)
             emit("task_failed", task_id=tid, error=str(e))
+            emit("erro_detectado", source="task_engine", error=str(e), task_id=tid, task_type=nome)
             raise
         finally:
             self._move_to_recent(info)
             self._active.pop(tid, None)
+            _emit_task_finished(info)
 
     def executar_tool(self, tool_name: str, args: Dict[str, Any], **kwargs: Any) -> Dict[str, Any]:
         """
@@ -127,6 +145,7 @@ class TaskEngine:
         self._prune_active()
 
         emit("task_queued", task_id=tid, fn_name=tool_name)
+        emit("task_iniciada", task=_tool_to_tipo(tool_name), task_id=tid, fn_name=tool_name)
         try:
             try:
                 from core.execution_guard import get_guard
@@ -143,10 +162,12 @@ class TaskEngine:
             info.ended_at = time.time()
             info.error = str(e)
             emit("task_failed", task_id=tid, error=str(e))
+            emit("erro_detectado", source="task_engine", error=str(e), task_id=tid, task_type=tool_name)
             return {"ok": False, "result": None, "error": str(e)}
         finally:
             self._move_to_recent(info)
             self._active.pop(tid, None)
+            _emit_task_finished(info)
 
     def _prune_active(self) -> None:
         """Limita tarefas ativas e recentes."""

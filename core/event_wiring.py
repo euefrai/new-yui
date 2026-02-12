@@ -43,3 +43,29 @@ def wire_events() -> None:
             pass
 
     on("memory_update_requested", _on_memory_update_requested)
+
+    # task_finished → Reflection Loop (avaliar contexto e armazenar estado_reflexao)
+    def _on_task_finished(
+        task_id: str = "",
+        task_type: str = "",
+        duration: float = 0,
+        success: bool = True,
+        error: str = "",
+        meta: dict = None,
+        **kwargs,
+    ):
+        try:
+            from core.execution_guard import get_guard
+            from core.reflection_loop import avaliar_e_armazenar
+            d = get_guard().pode_executar()
+            contexto = {
+                "task": task_type or "unknown",
+                "tempo_execucao": duration,
+                "memoria_usada": d.ram_used_mb,
+                "sucesso": success,
+            }
+            avaliar_e_armazenar(contexto)
+        except Exception:
+            pass
+
+    on("task_finished", _on_task_finished)

@@ -70,6 +70,22 @@ class ContextEngine:
             parts.append(f"Task em foco: {state['task_ativa']}")
         if state.get("workspace_open") is True:
             parts.append("Workspace aberto (evite recriar estrutura)")
+        # Persona Router: quem está ativo (Yui ou Heathcliff)
+        persona = state.get("persona_ativa")
+        if persona == "heathcliff":
+            parts.append("Persona: Heathcliff (respostas técnicas e concisas)")
+        elif persona == "yui":
+            parts.append("Persona: Yui (respostas amigáveis e didáticas)")
+        # Reflection Loop: estado do servidor (modo economia, dividir tasks)
+        try:
+            from core.reflection_loop import get_estado_reflexao
+            reflexao = get_estado_reflexao()
+            if reflexao == "modo_economia":
+                parts.append("Servidor em modo economia (RAM alta): gere menos código por vez.")
+            elif reflexao == "dividir_tasks":
+                parts.append("Servidor lento: prefira tarefas menores e sequenciais.")
+        except Exception:
+            pass
         out = "[Estado operacional] " + ". ".join(parts) + "\n\n" if parts else ""
         # Workspace Index: mapa do projeto (quando disponível)
         mapa = state.get("workspace_map")

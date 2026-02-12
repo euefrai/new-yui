@@ -19,6 +19,10 @@ try:
     from core.identity_core import get_identity_core
 except ImportError:
     get_identity_core = None
+try:
+    from core.reflection_loop import get_estado_reflexao
+except ImportError:
+    get_estado_reflexao = lambda: "ok"
 
 if TYPE_CHECKING:
     from core.goals.goal_manager import Goal
@@ -92,11 +96,20 @@ def criar_plano_estruturado(
         em = get_energy_manager()
         if em.is_low():
             max_steps = min(max_steps, 2)
+    # Reflection Loop: adapta ao estado do servidor
+    estado_reflexao = get_estado_reflexao()
+    if estado_reflexao == "modo_economia":
+        max_steps = min(max_steps, 2)
+    elif estado_reflexao == "dividir_tasks":
+        max_steps = min(max_steps, 3)
     memory = _buscar_memoria_relevante(user_id, chat_id, mensagem)
     tools_sugeridas = _mapear_intencao_tools(mensagem)
 
     # Ajuste por memória: se falhou antes em zip, evita dependência
     skip_zip = "zip" in (memory or "").lower() and "falhou" in (memory or "").lower()
+    # Reflection Loop: modo economia → evita zip (pesado)
+    if estado_reflexao == "modo_economia":
+        skip_zip = True
 
     steps: List[PlanStep] = []
     t = (mensagem or "").lower()

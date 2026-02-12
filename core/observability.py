@@ -177,6 +177,15 @@ def wire_observability() -> None:
         def _on_workspace_toggled(open: bool = False, **kwargs):
             record_activity("event", "Workspace", "opened" if open else "closed")
 
+        def _on_task_iniciada(task: str = "", **kwargs):
+            record_activity("task", task or "unknown", "started")
+
+        def _on_erro_detectado(source: str = "", error: str = "", **kwargs):
+            record_activity("event", f"Erro ({source})", (error or "")[:80])
+
+        def _on_memoria_alta(ram_mb: float = 0, threshold: float = 0, **kwargs):
+            record_activity("event", "Memória alta", f"RAM {ram_mb:.0f}MB > {threshold:.0f}MB")
+
         on("execution_node_start", _on_execution_node_start)
         on("execution_node_done", _on_execution_node_done)
         on("execution_node_failed", _on_execution_node_failed)
@@ -186,6 +195,9 @@ def wire_observability() -> None:
         on("memory_update_requested", _on_memory_update_requested)
         on("zip_ready", _on_zip_ready)
         on("workspace_toggled", _on_workspace_toggled)
+        on("task_iniciada", _on_task_iniciada)
+        on("erro_detectado", _on_erro_detectado)
+        on("memoria_alta", _on_memoria_alta)
     except Exception:
         pass
 

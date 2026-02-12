@@ -544,6 +544,20 @@ def agent_controller(
         except Exception:
             pass
 
+        # ---------- Persona Router: Intent → Context → persona_ativa ----------
+        try:
+            from core.context_engine import get_context
+            from core.reflection_loop import get_estado_reflexao
+            from core.persona_router import decidir_persona
+            ctx = get_context(user_id, chat_id)
+            ctx_dict = ctx.to_dict()
+            ctx_dict["estado_reflexao"] = get_estado_reflexao()
+            intent = get_action_planner().inferir_intencao(user_message)
+            decision = decidir_persona(intent, ctx_dict, user_preference=None)
+            ctx.set("persona_ativa", decision.persona)
+        except Exception:
+            pass
+
         # ---------- Event Bus: agent_requested (Governor/observers podem reagir) ----------
         try:
             from core.event_bus import emit
@@ -551,18 +565,36 @@ def agent_controller(
         except Exception:
             pass
 
-        # ---------- Arbitration Engine: model "auto" → decide_leader ----------
+        # ---------- Persona Router + Arbitration: model "auto" → decide quem age ----------
         effective_model = model
         is_hybrid = False
-        if model == "auto" and decide_leader:
-            arb = decide_leader(
-                user_message,
-                user_preference=None,
-                active_files=active_files,
-                has_console_errors=bool(console_errors),
-            )
-            effective_model = arb.leader if arb.leader != "hybrid" else "heathcliff"
-            is_hybrid = arb.leader == "hybrid"
+        if model == "auto":
+            # Persona Router (intent + context) tem prioridade quando disponível
+            try:
+                from core.context_engine import get_context
+                ctx = get_context(user_id, chat_id)
+                persona_ativa = ctx.get("persona_ativa")
+                if persona_ativa in ("yui", "heathcliff"):
+                    effective_model = persona_ativa
+                elif decide_leader:
+                    arb = decide_leader(
+                        user_message,
+                        user_preference=None,
+                        active_files=active_files,
+                        has_console_errors=bool(console_errors),
+                    )
+                    effective_model = arb.leader if arb.leader != "hybrid" else "heathcliff"
+                    is_hybrid = arb.leader == "hybrid"
+            except Exception:
+                if decide_leader:
+                    arb = decide_leader(
+                        user_message,
+                        user_preference=None,
+                        active_files=active_files,
+                        has_console_errors=bool(console_errors),
+                    )
+                    effective_model = arb.leader if arb.leader != "hybrid" else "heathcliff"
+                    is_hybrid = arb.leader == "hybrid"
 
         # ---------- 1) Context Engine: histórico + contexto do projeto + memórias + Context Kernel ----------
         context_snapshot = {

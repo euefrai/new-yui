@@ -8,7 +8,7 @@ A Yui não é chatbot nem IDE. É uma **mini DevOS** baseada em IA:
 ```
 [Usuário] → Agent Controller
                 ↓
-           [model="auto" → Arbitration Engine decide_leader]
+           [model="auto" → Persona Router + Arbitration Engine]
                 ↓
            Action Engine → Context Kernel → Persona (Yui/Heathcliff/Hybrid)
                 ↓                ↓                ↓
@@ -17,6 +17,18 @@ A Yui não é chatbot nem IDE. É uma **mini DevOS** baseada em IA:
            [analyzer]      [chat]           [executor]
            [RAG]           [workspace]
 ```
+
+## Event Bus — Sistema Nervoso Central
+
+```
+        emit                    on
+Planner ────────► Event Bus ◄─── Reflection Loop
+  Task Engine ────────► Event Bus ◄─── Observability
+  Reflection ────────► Event Bus ◄─── UI (stream)
+```
+
+Antes: Planner chama Task → Task chama Context → acoplamento.
+Depois: módulos emitem e escutam; nenhum chama outro direto.
 
 ## Módulos
 
@@ -123,24 +135,42 @@ if get_governor().allow_preview().allow:
 
 ### 7. Event Bus (`core/event_bus.py`)
 
-**Sistema Nervoso** — nenhum módulo chama outro direto. Tudo vira eventos.
+**Sistema Nervoso Central** — nenhum módulo chama outro direto. Tudo vira eventos.
 
-- `on(event, fn)` / `subscribe(event, fn)`
-- `emit(event, **kwargs)`
-- Eventos principais:
-  - `workspace_toggled` (open: bool)
-  - `file_changed` (path, action)
-  - `agent_requested` (model, user_message)
-  - `preview_started`, `memory_updated`
-  - `memory_update_requested` (root?) → scheduler adiciona indexar
-  - `task_queued`, `task_done`, `task_failed`
-  - `zip_ready` (download_url) — ZIP gerado em background
+Sem Event Bus: Planner chama Task → Task chama Context → emaranhado.
+Com Event Bus: Planner emite | Task emite | Reflection escuta | UI escuta.
+
+| API | Descrição |
+|-----|-----------|
+| `on(event, fn)` / `subscribe(event, fn)` | Registra listener |
+| `emit(event, **kwargs)` | Dispara evento para todos os listeners |
+| `unsubscribe(event, fn)` | Remove listener |
+| `list_events()` | Lista eventos conhecidos |
+
+**Eventos principais:**
+
+| Evento | Payload | Quem emite | Quem escuta |
+|--------|---------|------------|-------------|
+| `workspace_toggled` | open: bool | routes | system_state |
+| `file_changed` | path, action | routes | — |
+| `task_iniciada` | task, task_id, fn_name | task_engine | observability |
+| `task_queued` | task_id, fn_name | task_engine | observability |
+| `task_done` | task_id, result | task_engine | observability |
+| `task_failed` | task_id, error | task_engine | observability |
+| `task_finished` | task_id, duration, success, ... | task_engine | reflection_loop |
+| `erro_detectado` | source, error | task_engine | observability |
+| `memoria_alta` | ram_mb, threshold | reflection_loop | observability |
+| `memory_update_requested` | root? | web_server | scheduler |
+| `agent_requested` | model, user_message | agent_controller | — |
+| `zip_ready` | download_url | tools_runtime | observability |
 
 ```python
 from core.event_bus import emit, on
 
 emit("workspace_toggled", open=True)
 on("file_changed", lambda path, action: invalidate_cache(path))
+on("task_iniciada", lambda task, **kw: ui_stream(task))
+on("memoria_alta", lambda ram_mb, **kw: log_warning(f"RAM {ram_mb}MB"))
 ```
 
 ### 8. Event Wiring (`core/event_wiring.py`)
@@ -149,6 +179,7 @@ Conecta eventos aos módulos no startup. Chamado por `web_server.py`.
 
 - `workspace_toggled` → `system_state.set_workspace_open()`
 - `memory_update_requested` → `scheduler.add(indexar_projeto)`
+- `task_finished` → `reflection_loop.avaliar_e_armazenar()`
 
 ### 9. Task Engine (`core/task_engine.py`)
 
@@ -254,6 +285,48 @@ else:
 ```
 
 Env: `YUI_GUARD_RAM_MB=1500`, `YUI_GUARD_CPU_PCT=85`, `YUI_GUARD_RAM_PCT=85` (alternativo %).
+
+### 13.1 Reflection Loop (`core/reflection_loop.py`)
+
+**Autoavaliação interna** — Planeja → Executa → Avalia → Ajusta.
+
+Após cada task, telemetria leve (tempo, RAM, sucesso) é avaliada e retorna estado:
+- `ok` — normal
+- `modo_economia` — RAM > limite → Planner reduz steps, evita zip
+- `dividir_tasks` — tempo > limite → Planner usa steps menores
+
+O Planner e o Context Engine leem `get_estado_reflexao()` e adaptam. Sem IA extra; só telemetria inteligente.
+
+```python
+from core.reflection_loop import get_reflection_loop, get_estado_reflexao
+
+loop = get_reflection_loop()
+estado = loop.avaliar({"memoria": 1100, "tempo": 1.2, "sucesso": True})  # "ok"
+estado = get_estado_reflexao()  # último armazenado
+```
+
+Env: `YUI_REFLECTION_RAM_MB=1200`, `YUI_REFLECTION_TEMPO_SEC=3`
+
+### 13.2 Persona Router (`core/persona_router.py`)
+
+**Cérebro que decide quem age** — Intent → Context → Persona Router → Planner.
+
+Não é "uma IA com duas skins". É duas inteligências cooperando:
+- **Yui**: criativo, UX, suporte, respostas amplas
+- **Heathcliff**: engenharia, código, respostas técnicas e concisas
+
+Integra com Reflection Loop: RAM alta → Heathcliff assume (respostas mais curtas).
+
+```python
+from core.persona_router import decidir_persona, get_persona_router
+
+decision = decidir_persona("refatorar_codigo", {"modo": "workspace", "estado_reflexao": "ok"})
+# decision.persona = "heathcliff"
+# decision.reason = "Intent de engenharia: refatorar_codigo."
+ctx.set("persona_ativa", decision.persona)
+```
+
+Lógica: preferência do usuário > modo economia > workspace + intent > intent explícita > fallback Yui.
 
 ### 14. Capability Loader (`core/capability_loader.py`)
 
