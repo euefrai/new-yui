@@ -1623,6 +1623,28 @@
       });
   }
 
+  function fetchSkills() {
+    fetch("/api/system/skills")
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        var ul = document.getElementById("skillsList");
+        if (ul) {
+          var skills = (data && data.skills) || [];
+          if (skills.length === 0) {
+            ul.innerHTML = "<li class=\"activityEmpty\">—</li>";
+          } else {
+            ul.innerHTML = skills.map(function (s) {
+              return "<li class=\"skillItem\"><span class=\"skillCheck\">✔</span> " + (s.name || "—") + "</li>";
+            }).join("");
+          }
+        }
+      })
+      .catch(function () {
+        var ul = document.getElementById("skillsList");
+        if (ul) ul.innerHTML = "<li class=\"activityEmpty\">—</li>";
+      });
+  }
+
   function fetchActivity() {
     fetch("/api/system/observability")
       .then(function (r) { return r.json(); })
@@ -1711,12 +1733,14 @@
     fetchSystemHealth();
     fetchTelemetry();
     fetchCognitive();
+    fetchSkills();
     fetchActivity();
     fetchMission();
     setInterval(function () {
       if (isChatActive()) {
         fetchSystemHealth();
         fetchTelemetry();
+        fetchSkills();
         fetchCognitive();
         fetchActivity();
         fetchMission();

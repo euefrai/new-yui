@@ -2,8 +2,8 @@
 # YUI CAPABILITY ROUTER
 # Roteador de habilidades — decide qual módulo deve resolver.
 #
-# Antes do planner: Intent → Capability Router → melhor módulo
-# Evita que tarefas simples cheguem ao agente pesado.
+# Antes do planner: Intent → Capability Router → Skill Registry → melhor módulo
+# Router NÃO conhece agentes. Router consulta Registry.
 # ==========================================================
 
 from dataclasses import dataclass, field
@@ -54,33 +54,29 @@ def _score_signals(text: str, signals: List[str]) -> float:
 
 
 def _route_by_intention(intention: str) -> Optional[RouteDecision]:
-    """Roteamento rápido por intenção (infer_intention)."""
+    """Roteamento rápido por intenção (infer_intention). Consulta Skill Registry."""
     if not intention or intention == "chat":
         return None
-    if intention == "criar_projeto":
-        return RouteDecision(
-            target="heathcliff",
-            capability_type="code_generation",
-            skip_planner=False,
-            confidence=0.9,
-            reason="criar_projeto → Heathcliff + Execution Graph",
-        )
-    if intention == "analisar_codigo":
-        return RouteDecision(
-            target="heathcliff",
-            capability_type="analysis",
-            skip_planner=True,
-            confidence=0.85,
-            reason="analisar_codigo → Heathcliff (tool direto)",
-        )
-    if intention == "analisar_projeto":
-        return RouteDecision(
-            target="heathcliff",
-            capability_type="analysis",
-            skip_planner=True,
-            confidence=0.85,
-            reason="analisar_projeto → Heathcliff (tool direto)",
-        )
+    cap_type = {
+        "criar_projeto": "code_generation",
+        "analisar_codigo": "analysis",
+        "analisar_projeto": "analysis",
+    }.get(intention)
+    if not cap_type:
+        return None
+    try:
+        from core.skills.registry import find_skill
+        skill = find_skill(cap_type)
+        if skill:
+            return RouteDecision(
+                target=skill.agent,
+                capability_type=cap_type,
+                skip_planner=skill.skip_planner,
+                confidence=0.9 if intention == "criar_projeto" else 0.85,
+                reason=f"{intention} → Registry: {skill.name}",
+            )
+    except Exception:
+        pass
     return None
 
 
@@ -130,63 +126,37 @@ def route(
     best_type = max(scores, key=lambda k: scores[k])
     conf = scores[best_type]
 
-    # Lightweight: conversa simples
-    if best_type == "lightweight" and conf >= 0.3:
-        return RouteDecision(
-            target="yui",
-            capability_type="lightweight",
-            skip_planner=True,
-            confidence=conf,
-            reason="Conversa simples → Yui (sem planner)",
-        )
+    # Consulta Skill Registry
+    if conf >= 0.3:
+        try:
+            from core.skills.registry import find_skill
+            skill = find_skill(best_type)
+            if skill:
+                return RouteDecision(
+                    target=skill.agent,
+                    capability_type=best_type,
+                    skip_planner=skill.skip_planner,
+                    confidence=conf,
+                    reason=f"Registry: {skill.name}",
+                )
+        except Exception:
+            pass
 
-    # Memory: RAG direto
-    if best_type == "memory_query" and conf >= 0.3:
-        return RouteDecision(
-            target="rag_engine",
-            capability_type="memory_query",
-            skip_planner=True,
-            confidence=conf,
-            reason="Consulta de memória → RAG Engine",
-        )
-
-    # System: execution graph
-    if best_type == "system_action" and conf >= 0.3:
-        return RouteDecision(
-            target="execution_graph",
-            capability_type="system_action",
-            skip_planner=False,
-            confidence=conf,
-            reason="Ação de sistema → Execution Graph",
-        )
-
-    # Analysis: Heathcliff
-    if best_type == "analysis" and conf >= 0.3:
-        return RouteDecision(
-            target="heathcliff",
-            capability_type="analysis",
-            skip_planner=True,
-            confidence=conf,
-            reason="Análise → Heathcliff (tool direto)",
-        )
-
-    # Code: Heathcliff
-    if best_type == "code_generation" and conf >= 0.3:
-        return RouteDecision(
-            target="heathcliff",
-            capability_type="code_generation",
-            skip_planner=False,
-            confidence=conf,
-            reason="Geração de código → Heathcliff",
-        )
-
-    # Default: Yui com planner
+    # Fallback: default mapping (quando registry não tem match)
+    _fallback = {
+        "lightweight": ("yui", True),
+        "memory_query": ("rag_engine", True),
+        "system_action": ("execution_graph", False),
+        "analysis": ("heathcliff", True),
+        "code_generation": ("heathcliff", False),
+    }
+    target, skip = _fallback.get(best_type, ("yui", False))
     return RouteDecision(
-        target="yui",
-        capability_type="general",
-        skip_planner=False,
-        confidence=0.5,
-        reason="Sem match claro → Yui (general)",
+        target=target,
+        capability_type=best_type if conf >= 0.3 else "general",
+        skip_planner=skip,
+        confidence=conf,
+        reason=("Registry fallback" if conf >= 0.3 else "Sem match") + f" → {target}",
     )
 
 

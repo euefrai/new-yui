@@ -172,14 +172,30 @@ URLs de arquivos gerados em background (ex: ZIP). Frontend faz poll para saber q
 - `add_ready(url)` — registra download pronto
 - `get_recent(since?)` — retorna URLs prontas (TTL 5 min)
 
-### 11. Capability Router (`core/capability_router.py`)
+### 11. Skill Registry (`core/skills/registry.py`)
+
+**Registro dinâmico de habilidades** — Router NÃO conhece agentes. Router consulta Registry.
+
+- `register(name, agent, tags, skip_planner?)` — registra skill
+- `find(capability_type)` — retorna Skill ou None (match por tag)
+- `list_skills()` — skills ativas para UI (auto-descoberta)
+
+Bootstrap padrão: code-edit, analysis, general, memory-search, live-preview, terminal-exec, zip-builder.
+
+```python
+from core.skills.registry import find_skill, register_skill, list_skills
+
+skill = find_skill("code_generation")  # → Skill(agent="heathcliff", ...)
+register_skill("design-mockup", "design_agent", ["design", "ui"])  # plugin novo
+```
+
+### 12. Capability Router (`core/capability_router.py`)
 
 **Roteador de habilidades** — decide qual módulo resolve antes do planner.
 
 - `route(user_message, intention?, action?, tool_hint?)` → RouteDecision
-- target: heathcliff | yui | rag_engine | execution_graph
-- capability_type: code_generation | memory_query | system_action | analysis | lightweight
-- skip_planner: True = fluxo direto (max_steps reduzido)
+- **Consulta Skill Registry** para obter target e skip_planner (sem if/else de agentes)
+- Fallback: mapping padrão quando registry não tem match
 
 Integrado no agent_controller antes do planner. Registra routing no Observability.
 
@@ -187,10 +203,10 @@ Integrado no agent_controller antes do planner. Registra routing no Observabilit
 from core.capability_router import route, get_routing_display
 
 dec = route(user_message, intention="analisar_projeto")
-# dec.target = "heathcliff", dec.skip_planner = True
+# dec.target = "heathcliff", dec.skip_planner = True (via registry.find)
 ```
 
-### 12. Observability Layer (`core/observability.py`)
+### 13. Observability Layer (`core/observability.py`)
 
 **Consciência interna** — rastreamento de ações e timeline.
 
@@ -202,7 +218,7 @@ dec = route(user_message, intention="analisar_projeto")
 
 Integrado em: Execution Graph (Trace por nó), Task Scheduler (Trace por task), Resource Governor (bloqueios).
 
-### 13. Sandbox Executor (`core/sandbox_executor/runner.py`)
+### 14. Sandbox Executor (`core/sandbox_executor/runner.py`)
 
 Execução isolada — anti-SIGKILL:
 - subprocess isolado
@@ -216,7 +232,7 @@ from core.sandbox_executor import run_code
 result = run_code("print(1+1)", lang="python", timeout=30)
 ```
 
-### 14. Plugin Loader (`core/plugins_loader.py`)
+### 15. Plugin Loader (`core/plugins_loader.py`)
 
 - **scan**: descobre plugins em `plugins/`
 - **register**: registra tools no `tools_registry`
@@ -234,16 +250,19 @@ tools = inject_into_engine()  # lista de tools disponíveis
 - **Startup**: `web_server.py` chama `wire_events()` (event_wiring) e `inject_into_engine()`
 - **Agent**: `action_router` e `context_kernel` podem ser usados no `agent_controller` para enriquecer contexto e decisões
 
-## Fluxo Capability Router
+## Fluxo Capability Router + Skill Registry
 
 ```
 user_message
     → Action Engine (route_action)
-    → Capability Router (route)
+    → Capability Router (route) — heurísticas → capability_type
+    → Skill Registry (find) — obtém target e skip_planner
     → skip_planner? → max_steps=2
     → Planner (se habilitado)
-    → IA (Heathcliff/Yui)
+    → IA (Heathcliff/Yui/RAG/Execution Graph)
 ```
+
+Router não conhece agentes. Registry decide quem sabe fazer o quê. Qualquer módulo vira plugin.
 
 Routing exibido em System Activity: "→ Heathcliff (Engineering) (skip planner)"
 
@@ -256,6 +275,7 @@ Routing exibido em System Activity: "→ Heathcliff (Engineering) (skip planner)
 | `GET /governor` | allow_preview, allow_planner, allow_heavy_agent |
 | `GET /scheduler` | queue_size da fila de tarefas |
 | `GET /observability` | timeline (spans com ms) + activity (System Activity) |
+| `GET /skills` | Skill Registry — skills ativas (auto-descoberta) |
 | `GET /pending_downloads` | URLs de downloads prontos (?since=timestamp) |
 | `GET /state` | mode, workspace_open, executing_graph |
 | `GET /execution` | Nós do Execution Graph para UI |

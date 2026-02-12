@@ -315,6 +315,20 @@ def api_system_observability():
         return jsonify({"ok": False, "error": str(e), "timeline": [], "activity": []}), 500
 
 
+@system_bp.get("/skills")
+def api_system_skills():
+    """
+    Skill Registry — skills ativas (auto-descoberta de capacidades).
+    UI pode mostrar: ✔ code-edit, ✔ terminal-exec, etc.
+    """
+    try:
+        from core.skills.registry import list_skills
+        skills = list_skills()
+        return jsonify({"ok": True, "skills": skills})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e), "skills": []}), 500
+
+
 @system_bp.get("/pending_downloads")
 def api_system_pending_downloads():
     """
