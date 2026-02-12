@@ -67,6 +67,7 @@ def api_send():
     chat_id = data.get("chat_id")
     message = (data.get("message") or "").strip()
     model = (data.get("model") or "yui").strip().lower()
+    use_async = data.get("async") or request.args.get("async") == "1"
     if model not in ("yui", "heathcliff", "auto"):
         model = "yui"
     if not user_id or not chat_id:
@@ -76,10 +77,28 @@ def api_send():
     if not chat_pertence_usuario(chat_id, user_id):
         return jsonify({"error": "Chat não encontrado ou não pertence ao usuário"}), 403
     try:
+        from config import settings
+        if use_async and getattr(settings, "USE_ASYNC_QUEUE", False):
+            from core.job_queue import enqueue_chat
+            job_id = enqueue_chat(user_id, chat_id, message, model=model)
+            return jsonify({"status": "processando", "job_id": job_id})
         reply = processar_mensagem_sync(user_id, chat_id, message, model=model)
         return jsonify({"reply": reply})
     except Exception as e:
         return jsonify({"error": str(e), "reply": None}), 500
+
+
+@chat_bp.route("/chat/job/<job_id>")
+def api_chat_job(job_id):
+    """Poll do resultado de job assíncrono (quando USE_ASYNC_QUEUE=true)."""
+    try:
+        from core.job_queue import get_job_result
+        result = get_job_result(job_id)
+        if not result:
+            return jsonify({"error": "job_id não encontrado"}), 404
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 @chat_bp.route("/chat/stream", methods=["POST", "OPTIONS"])

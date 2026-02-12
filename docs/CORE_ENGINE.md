@@ -316,6 +316,36 @@ frontend [DOWNLOAD]       →  poll pending_downloads→  mostra "✓ Baixar Pro
 **Antes**: Yui pensa → trava → responde  
 **Depois**: Yui responde → continua trabalhando em silêncio
 
+## API Leve + Worker
+
+### AI Loader (Lazy Loading) — `core/ai_loader.py`
+
+Não carrega OpenAI, planner, agent no start do servidor. Carrega só na primeira requisição.
+
+- `get_agent_controller()` — agent_controller
+- `get_gerar_titulo_chat()` — título do chat
+- `get_detect_intent()`, `get_tool_executor()`, `get_session_memory()`
+
+Reduz memória inicial e evita SIGKILL no startup.
+
+### Response Cache — `core/response_cache.py`
+
+Cache de respostas curtas (oi, obrigado, etc). Evita chamar IA de novo.
+
+- `get(prompt)` — retorna cache ou resposta padrão
+- `set(prompt, response)` — armazena
+- `should_cache(prompt)` — prompts ≤ 80 chars
+- Respostas padrão para: oi, olá, obrigado, tchau, etc
+
+### Job Queue — `core/job_queue.py`
+
+Quando `USE_ASYNC_QUEUE=true`:
+
+- `POST /api/send` com `async: true` → retorna `{job_id}`
+- `GET /api/chat/job/<job_id>` → poll até `{status: "done", result: "..."}`
+
+API fica leve; processamento pesado no worker (task_scheduler).
+
 ## Próximos passos
 
 1. **Frontend**: enviar `active_files` e `console_errors` no chat para o Context Kernel

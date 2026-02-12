@@ -3,15 +3,12 @@ AI Service — orquestração da IA (streaming, título, mensagem síncrona).
 
 Rotas chamam o serviço; o serviço usa agent_controller, engine, yui_ai.
 Route -> Service -> Core; rotas NÃO importam yui_ai.
+
+Lazy loading: IA carrega só na primeira requisição (reduz RAM no startup).
+Cache: respostas curtas (oi, obrigado) evitam chamar IA de novo.
 """
 
 from typing import Any, Generator, Optional, Tuple
-
-from backend.ai.agent_controller import agent_controller
-from yui_ai.agent.router import detect_intent
-from yui_ai.agent.tool_executor import executor as tool_executor
-from yui_ai.core.ai_engine import gerar_titulo_chat as _gerar_titulo_chat
-from yui_ai.memory.session_memory import memory as session_memory
 
 
 def stream_resposta(
@@ -23,8 +20,19 @@ def stream_resposta(
     active_files: Optional[list] = None,
     console_errors: Optional[list] = None,
 ) -> Generator[str, None, None]:
-    """Streaming da resposta da YUI (Agent Controller)."""
-    yield from agent_controller(
+    """Streaming da resposta da YUI (Agent Controller). Lazy loading + cache."""
+    try:
+        from core.response_cache import get as cache_get, should_cache, set as cache_set
+        cached = cache_get(message)
+        if cached:
+            yield cached
+            return
+    except Exception:
+        pass
+
+    from core.ai_loader import get_agent_controller
+    agent = get_agent_controller()
+    yield from agent(
         user_id, chat_id, message,
         model=model,
         confirm_high_cost=confirm_high_cost,
@@ -34,18 +42,38 @@ def stream_resposta(
 
 
 def gerar_titulo_chat(first_message: str) -> str:
-    """Gera título do chat a partir da primeira mensagem."""
-    return (_gerar_titulo_chat(first_message) or "").strip() or "Novo chat"
+    """Gera título do chat a partir da primeira mensagem. Lazy loading."""
+    from core.ai_loader import get_gerar_titulo_chat
+    fn = get_gerar_titulo_chat()
+    return (fn(first_message) or "").strip() or "Novo chat"
 
 
 def processar_mensagem_sync(
     user_id: str, chat_id: str, message: str, model: str = "yui"
 ) -> str:
-    """Resposta síncrona; usa agent_controller para consistência com stream."""
+    """Resposta síncrona; usa agent_controller. Lazy loading + cache."""
+    try:
+        from core.response_cache import get as cache_get, should_cache, set as cache_set
+        cached = cache_get(message)
+        if cached:
+            return cached
+    except Exception:
+        pass
+
+    from core.ai_loader import get_agent_controller
+    agent = get_agent_controller()
     full: list[str] = []
-    for chunk in agent_controller(user_id, chat_id, message, model=model):
+    for chunk in agent(user_id, chat_id, message, model=model):
         full.append(chunk)
-    return "".join(full).strip()
+    reply = "".join(full).strip()
+
+    try:
+        from core.response_cache import should_cache, set as cache_set
+        if should_cache(message) and reply:
+            cache_set(message, reply)
+    except Exception:
+        pass
+    return reply
 
 
 def handle_chat_stream(
@@ -58,18 +86,36 @@ def handle_chat_stream(
     console_errors: Optional[list] = None,
 ) -> Generator[str, None, None]:
     """
-    Orquestra o stream do chat: intent, tool ou IA, session_memory.
-    Retorna gerador de chunks (texto); a rota formata em SSE.
+    Orquestra o stream do chat: cache, intent, tool ou IA. Lazy loading.
     """
+    from core.ai_loader import get_session_memory, get_detect_intent, get_tool_executor
+    session_memory = get_session_memory()
+
+    # Cache: resposta pronta para prompts curtos
+    try:
+        from core.response_cache import get as cache_get, should_cache, set as cache_set
+        cached = cache_get(message)
+        if cached:
+            session_memory.add(user_id, "user", message)
+            session_memory.add(user_id, "assistant", cached)
+            yield cached
+            return
+    except Exception:
+        pass
+
     session_memory.add(user_id, "user", message)
+    detect_intent = get_detect_intent()
     intent = detect_intent(message)
+
     if intent != "chat":
+        tool_executor = get_tool_executor()
         tool_result = tool_executor.execute(intent, message)
         if tool_result:
             msg = tool_result.get("message") or str(tool_result)
             session_memory.add(user_id, "assistant", msg)
             yield msg
             return
+
     full_reply = []
     for chunk in stream_resposta(
         user_id, chat_id, message,
@@ -80,13 +126,22 @@ def handle_chat_stream(
     ):
         full_reply.append(chunk)
         yield chunk
-    session_memory.add(user_id, "assistant", "".join(full_reply))
+
+    reply = "".join(full_reply)
+    session_memory.add(user_id, "assistant", reply)
+
+    # Cache resposta para prompts curtos
+    try:
+        from core.response_cache import should_cache, set as cache_set
+        if should_cache(message) and reply:
+            cache_set(message, reply)
+    except Exception:
+        pass
 
 
 def improve_message(prompt: str) -> Tuple[str, bool]:
-    """
-    Melhora um texto via IA. Retorna (resposta, api_key_missing).
-    """
-    from yui_ai.main import processar_texto_web
-    resposta, _mid, api_key_missing = processar_texto_web(prompt, reply_to_id=None)
+    """Melhora um texto via IA. Lazy loading."""
+    from core.ai_loader import get_processar_texto_web
+    processar = get_processar_texto_web()
+    resposta, _mid, api_key_missing = processar(prompt, reply_to_id=None)
     return (resposta or "").strip(), bool(api_key_missing)
