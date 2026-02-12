@@ -1414,8 +1414,14 @@
                         if (state === "thinking") {
                           sLine.textContent = "🧠 Pensando...";
                           aBubble.setAttribute("data-status", "sending");
+                        } else if (state === "planejando") {
+                          sLine.textContent = "⚙️ Planejando...";
+                          aBubble.setAttribute("data-status", "streaming");
                         } else if (state === "analyzing_code") {
                           sLine.textContent = "🔎 Analisando código...";
+                          aBubble.setAttribute("data-status", "streaming");
+                        } else if (state.indexOf("executing_tools:") === 0) {
+                          sLine.textContent = state.slice("executing_tools:".length) || "🔧 Executando ferramentas...";
                           aBubble.setAttribute("data-status", "streaming");
                         } else if (state === "executing_tools") {
                           sLine.textContent = "🔧 Executando ferramentas...";

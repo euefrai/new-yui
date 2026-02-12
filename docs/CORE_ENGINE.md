@@ -150,7 +150,53 @@ Conecta eventos aos módulos no startup. Chamado por `web_server.py`.
 - `workspace_toggled` → `system_state.set_workspace_open()`
 - `memory_update_requested` → `scheduler.add(indexar_projeto)`
 
-### 9. Task Scheduler (`core/task_scheduler.py`)
+### 9. Task Engine (`core/task_engine.py`)
+
+**Cérebro operacional** — em vez de `if comando == "editar_arquivo": editar()`, tudo vira task.
+
+- `registrar(nome, func)` — registra tarefa
+- `executar(nome, *args, **kwargs)` — executa e rastreia
+- `executar_tool(tool_name, args)` — executa tool com status (usado pelo agent_controller)
+- `get_active()` — tarefas em execução (para UI)
+- `get_summary()` — `{active_count, summary_text}` — ex: "editando 2 arquivos, gerando ZIP"
+
+Permite: Heathcliff planejar várias ações; logar custo por tarefa; UI "🟡 Heathcliff está editando 3 arquivos...".
+
+```python
+from core.task_engine import get_task_engine
+
+engine = get_task_engine()
+engine.registrar("minha_acao", minha_funcao)
+result = engine.executar("minha_acao", dados=...)
+summary = engine.get_summary()  # {"summary_text": "editando arquivo(s)"}
+```
+
+### 10. Action Planner (`core/action_planner.py`)
+
+**Mini arquiteto interno** — não executa nada. Só responde: QUAL sequência de tarefas precisa acontecer.
+
+- `inferir_intencao(mensagem)` — intenção heurística
+- `planejar(intencao)` — retorna `[{"task", "label", "tool"}, ...]`
+- `get_label_for_tool(tool_name)` — label para UI (ex: "📁 Criando arquivos...")
+- Fluxo: Intent Parser → Planner → Task Engine → Streaming UI
+
+Evita: IA tenta fazer tudo de uma vez → CPU sobe, RAM sofre, SIGKILL.
+Permite: Yui pensa antes de agir, executa em etapas pequenas.
+
+```python
+from core.action_planner import get_action_planner
+
+planner = get_action_planner()
+intencao = planner.inferir_intencao("cria uma calculadora")
+passos = planner.planejar(intencao)  # [{"task": "criar_estrutura", "label": "📁 Criando estrutura..."}, ...]
+for passo in passos:
+    if passo.get("tool"):
+        task_engine.executar_tool(passo["tool"], args)
+```
+
+Streaming: emite `__STATUS__:planejando`, `__STATUS__:executing_tools:📁 Criando arquivos...`.
+
+### 11. Task Scheduler (`core/task_scheduler.py`)
 
 **Ações assíncronas** — separa imediato vs fila vs background.
 
@@ -165,14 +211,14 @@ from core.task_scheduler import get_scheduler
 get_scheduler().add(lambda d: indexar_projeto(d), data=raiz)
 ```
 
-### 10. Pending Downloads (`core/pending_downloads.py`)
+### 12. Pending Downloads (`core/pending_downloads.py`)
 
 URLs de arquivos gerados em background (ex: ZIP). Frontend faz poll para saber quando está pronto.
 
 - `add_ready(url)` — registra download pronto
 - `get_recent(since?)` — retorna URLs prontas (TTL 5 min)
 
-### 11. Skill Registry (`core/skills/registry.py`)
+### 13. Skill Registry (`core/skills/registry.py`)
 
 **Registro dinâmico de habilidades** — Router NÃO conhece agentes. Router consulta Registry.
 
@@ -189,7 +235,7 @@ skill = find_skill("code_generation")  # → Skill(agent="heathcliff", ...)
 register_skill("design-mockup", "design_agent", ["design", "ui"])  # plugin novo
 ```
 
-### 12. Confidence Engine (`core/router/confidence_engine.py`)
+### 14. Confidence Engine (`core/router/confidence_engine.py`)
 
 **Roteamento probabilístico** — ranking de agentes por score.
 
@@ -208,7 +254,7 @@ ranked = engine.score(Intent(type="code_generation"), get_all_skills())
 best = engine.best_agent(ranked)  # fallback se score < 0.4
 ```
 
-### 13. Capability Router (`core/capability_router.py`)
+### 15. Capability Router (`core/capability_router.py`)
 
 **Roteador de habilidades** — decide qual módulo resolve antes do planner.
 
@@ -225,7 +271,7 @@ dec = route(user_message, intention="analisar_projeto")
 # dec.target = "heathcliff", dec.skip_planner = True (via confidence engine)
 ```
 
-### 14. Observability Layer (`core/observability.py`)
+### 16. Observability Layer (`core/observability.py`)
 
 **Consciência interna** — rastreamento de ações e timeline.
 
@@ -237,7 +283,7 @@ dec = route(user_message, intention="analisar_projeto")
 
 Integrado em: Execution Graph (Trace por nó), Task Scheduler (Trace por task), Resource Governor (bloqueios).
 
-### 15. Sandbox Executor (`core/sandbox_executor/runner.py`)
+### 17. Sandbox Executor (`core/sandbox_executor/runner.py`)
 
 Execução isolada — anti-SIGKILL:
 - subprocess isolado
@@ -251,7 +297,7 @@ from core.sandbox_executor import run_code
 result = run_code("print(1+1)", lang="python", timeout=30)
 ```
 
-### 16. Plugin Loader (`core/plugins_loader.py`)
+### 18. Plugin Loader (`core/plugins_loader.py`)
 
 - **scan**: descobre plugins em `plugins/`
 - **register**: registra tools no `tools_registry`
@@ -297,6 +343,7 @@ Routing exibido em System Activity: "→ Heathcliff (Engineering) (skip planner)
 | `GET /scheduler` | queue_size da fila de tarefas |
 | `GET /observability` | timeline (spans com ms) + activity (System Activity) |
 | `GET /skills` | Skill Registry — skills ativas (auto-descoberta) |
+| `GET /tasks/active` | Task Engine — tarefas em execução, summary_text para UI |
 | `GET /pending_downloads` | URLs de downloads prontos (?since=timestamp) |
 | `GET /state` | mode, workspace_open, executing_graph |
 | `GET /execution` | Nós do Execution Graph para UI |
@@ -361,7 +408,7 @@ API fica leve; processamento pesado no worker (task_scheduler).
 ## Streaming de Resposta (SSE)
 
 - **Rota**: `POST /api/chat/stream` — SSE (Server-Sent Events)
-- **Formato**: `data: {json}\n\n` — chunks de texto ou `__STATUS__:thinking|executing_tools|done`
+- **Formato**: `data: {json}\n\n` — chunks de texto ou `__STATUS__:thinking|planejando|executing_tools|executing_tools:📁 Criando arquivos...|done`
 - **Frontend**: fetch + ReadableStream, parseia eventos, renderiza token por token
 - **Chunks**: tamanho 12 chars (reduz pico de RAM, streaming mais fluido)
 - **Status**: "🧠 Pensando...", "🔧 Executando ferramentas...", "🔎 Analisando código..."

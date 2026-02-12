@@ -331,6 +331,22 @@ def api_system_skills():
         return jsonify({"ok": False, "error": str(e), "skills": []}), 500
 
 
+@system_bp.get("/tasks/active")
+def api_system_tasks_active():
+    """
+    Task Engine — tarefas em execução e resumo para UI.
+    Ex: active_count=2, summary_text="editando 2 arquivos, gerando ZIP"
+    UI pode mostrar: 🟡 Heathcliff está editando 3 arquivos...
+    """
+    try:
+        from core.task_engine import get_task_engine
+        engine = get_task_engine()
+        summary = engine.get_summary()
+        return jsonify({"ok": True, **summary})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e), "active_count": 0, "active": [], "summary_text": ""}), 500
+
+
 @system_bp.get("/pending_downloads")
 def api_system_pending_downloads():
     """

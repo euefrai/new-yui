@@ -19,6 +19,8 @@ from core.event_bus import emit
 from core.memory_manager import add_event
 from core.self_state import set_last_action, set_last_error, set_confidence
 from core.tool_runner import run_tool
+from core.task_engine import get_task_engine
+from core.action_planner import get_action_planner
 from core.user_profile import get_user_profile
 
 from backend.ai.auto_debug import auto_debug
@@ -750,6 +752,7 @@ def agent_controller(
 
         # ---------- Planner Core (v2): planeja antes de responder ----------
         transition(AgentState.PLANNING)
+        yield "__STATUS__:planejando"
         if get_energy_manager:
             get_energy_manager().consume(COST_PLANNER)
         goals_ativos = []
@@ -865,7 +868,7 @@ def agent_controller(
 
         # ---------- 3b) Se for tool → executar e montar resposta (só se capability tools ativa) ----------
         elif isinstance(data, dict) and data.get("mode") in ("tool", "tools") and is_enabled("tools"):
-            yield "__STATUS__:executing_tools"
+            planner = get_action_planner()
             steps: List[Dict] = []
             if data.get("mode") == "tool":
                 steps = [{"tool": str(data.get("tool") or "").strip(), "args": data.get("args") or {}}]
@@ -895,7 +898,9 @@ def agent_controller(
                     if redundant:
                         partes.append(f"⚠️ {motivo} Pulando criação duplicada.")
                         continue
-                result = run_tool(tool_name, args)
+                label = planner.get_label_for_tool(tool_name)
+                yield f"__STATUS__:executing_tools:{label}"
+                result = get_task_engine().executar_tool(tool_name, args)
                 emit("tool_executed", tool_name=tool_name, args=args, result=result)
                 tools_executed_this_turn.append(tool_name)
                 if not result.get("ok"):
@@ -941,7 +946,7 @@ def agent_controller(
                         zip_result = {}
                         if get_energy_manager and get_energy_manager().can_execute():
                             get_energy_manager().consume(COST_TOOL)
-                            zip_result = run_tool("criar_zip_projeto", {"root_dir": root_dir, "zip_name": slug or None, "background": True})
+                            zip_result = get_task_engine().executar_tool("criar_zip_projeto", {"root_dir": root_dir, "zip_name": slug or None, "background": True})
                         if zip_result.get("ok"):
                             zpayload = zip_result.get("result") or {}
                             zip_output = zpayload.get("zip_output") or ""
