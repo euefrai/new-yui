@@ -39,6 +39,7 @@ SUPABASE_KEY_BACKEND = SUPABASE_SERVICE_KEY or SUPABASE_ANON_KEY
 SECRET_KEY = _get("SECRET_KEY") or "yui-dev-secret-change-in-production"
 PORT = int(os.environ.get("PORT") or "5000")
 FLASK_DEBUG = os.environ.get("FLASK_DEBUG", "false").lower() in ("1", "true", "yes")
+USE_MINIFIED_STATIC = os.environ.get("USE_MINIFIED_STATIC", "false").lower() in ("1", "true", "yes")
 
 # Memória: uma fonte só — USE_SUPABASE_MEMORY=true usa cloud; false usa JSON local
 _use_supabase_env = os.environ.get("USE_SUPABASE_MEMORY", "").strip().lower() in ("1", "true", "yes")

@@ -21,6 +21,7 @@ def index():
         "index.html",
         supabase_url=settings.SUPABASE_URL or "",
         supabase_key=settings.SUPABASE_ANON_KEY or "",
+        use_minified=settings.USE_MINIFIED_STATIC,
     )
 
 
@@ -178,6 +179,68 @@ def api_system_telemetry():
         return jsonify(usage)
     except Exception as e:
         return jsonify({"error": str(e), "energy_consumed": 0, "requests": 0, "cost_estimate": 0})
+
+
+@system_bp.post("/cleanup")
+def api_system_cleanup():
+    """
+    Limpeza: generated_projects + arquivos temporários do sandbox.
+    Chamar periodicamente (ex: cron) para reduzir carga no Zeabur.
+    """
+    import shutil
+    try:
+        from config import settings
+        deleted = 0
+        gen_dir = Path(settings.GENERATED_PROJECTS_DIR)
+        if gen_dir.is_dir():
+            for child in gen_dir.iterdir():
+                try:
+                    if child.is_dir():
+                        shutil.rmtree(child)
+                    else:
+                        child.unlink()
+                    deleted += 1
+                except Exception:
+                    pass
+        sandbox = Path(settings.SANDBOX_DIR)
+        for name in ("_run_script.py", "_run_script.js"):
+            p = sandbox / name
+            if p.exists():
+                try:
+                    p.unlink()
+                    deleted += 1
+                except Exception:
+                    pass
+        return jsonify({"ok": True, "deleted": deleted})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@system_bp.get("/cognitive")
+def api_system_cognitive():
+    """
+    Cognitive Status — Observability do Cognitive Loop.
+    Planner confidence, last action score, RAM impact.
+    """
+    try:
+        from core.cognitive import get_cognitive_status
+        from core.cognitive.observer import get_last_observation
+        from core.self_state import get as get_self_state
+        status = get_cognitive_status()
+        obs = get_last_observation()
+        if obs:
+            status["last_observation"] = obs.to_dict()
+        status["last_action"] = get_self_state("last_action") or ""
+        tools_count = len(status.get("last_observation", {}).get("tools_executed", []))
+        status["ram_impact"] = "High" if tools_count > 5 else ("Medium" if tools_count > 2 else "Low")
+        return jsonify(status)
+    except Exception as e:
+        return jsonify({
+            "error": str(e),
+            "planner_confidence": 50,
+            "last_action_score": "—",
+            "ram_impact": "—",
+        })
 
 
 # --- Sandbox (filesystem + execute) ---

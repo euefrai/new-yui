@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Yui</title>
-  <link rel="stylesheet" href="/static/style.css" />
+  <link rel="stylesheet" href="/static/{% if use_minified|default(false) %}style.min.css{% else %}style.css{% endif %}" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/styles/github-dark.min.css" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0"></script>
@@ -62,6 +62,21 @@
             <span class="missionProgressLabel" id="missionProgressLabel">0%</span>
           </div>
           <div class="missionCurrentTask" id="missionCurrentTask"></div>
+        </div>
+      </div>
+      <div class="cognitivePanel" id="cognitivePanel" title="Cognitive Loop — Observability">
+        <div class="cognitiveTitle">🧠 Cognitive Status</div>
+        <div class="cognitiveRow">
+          <span class="cognitiveLabel">Planner Confidence</span>
+          <span class="cognitiveValue" id="cognitiveConfidence">—</span>
+        </div>
+        <div class="cognitiveRow">
+          <span class="cognitiveLabel">Last Action Score</span>
+          <span class="cognitiveValue" id="cognitiveScore">—</span>
+        </div>
+        <div class="cognitiveRow">
+          <span class="cognitiveLabel">RAM Impact</span>
+          <span class="cognitiveValue" id="cognitiveRam">—</span>
         </div>
       </div>
       <div class="telemetryPanel" id="telemetryPanel" title="Custo acumulado do dia">
@@ -217,15 +232,20 @@
   <script>
     window.SUPABASE_URL = "{{ supabase_url or '' }}";
     window.SUPABASE_KEY = "{{ supabase_key or '' }}";
+    window.loadWorkspaceLibs = function (cb) {
+      if (window._workspaceLibsLoaded) { if (cb) cb(); return; }
+      var pending = 3;
+      function done() { if (--pending === 0) { window._workspaceLibsLoaded = true; if (cb) cb(); } }
+      var l = document.createElement("link"); l.rel = "stylesheet"; l.href = "https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.min.css"; document.head.appendChild(l);
+      ["https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js","https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.min.js","https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.min.js"].forEach(function(url){
+        var s = document.createElement("script"); s.src = url; s.onload = done; document.body.appendChild(s);
+      });
+    };
   </script>
-  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.min.css" />
-  <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.min.js"></script>
-  <script src="/static/app.js"></script>
-  <script src="/static/chat.js"></script>
-  <script src="/static/editor.js"></script>
-  <script src="/static/workspace-project.js"></script>
-  <script src="/static/workspace-terminal.js"></script>
+  <script src="/static/{% if use_minified|default(false) %}app.min.js{% else %}app.js{% endif %}"></script>
+  <script src="/static/{% if use_minified|default(false) %}chat.min.js{% else %}chat.js{% endif %}"></script>
+  <script src="/static/{% if use_minified|default(false) %}editor.min.js{% else %}editor.js{% endif %}"></script>
+  <script src="/static/{% if use_minified|default(false) %}workspace-project.min.js{% else %}workspace-project.js{% endif %}"></script>
+  <script src="/static/{% if use_minified|default(false) %}workspace-terminal.min.js{% else %}workspace-terminal.js{% endif %}"></script>
 </body>
 </html>

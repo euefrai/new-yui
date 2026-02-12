@@ -506,9 +506,5 @@
     };
   };
 
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", initWorkspaceProject);
-  } else {
-    initWorkspaceProject();
-  }
+  window.initWorkspaceProjectLazy = initWorkspaceProject;
 })();

@@ -329,6 +329,45 @@ body.theme-light .inputArea {
   color: #e8e8ec;
 }
 
+/* ========== Painel Cognitive Status (Observability) ========== */
+.cognitivePanel {
+  padding: 12px 14px;
+  margin-bottom: 12px;
+  background: rgba(138, 43, 226, 0.06);
+  border: 1px solid rgba(138, 43, 226, 0.2);
+  border-radius: 12px;
+  font-size: 0.78rem;
+  color: #8a8a96;
+}
+
+.cognitiveTitle {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #b388ff;
+  margin-bottom: 8px;
+}
+
+.cognitiveRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.cognitiveRow:last-child {
+  margin-bottom: 0;
+}
+
+.cognitiveLabel {
+  color: #6a6a76;
+}
+
+.cognitiveValue {
+  color: #b388ff;
+  font-weight: 500;
+}
+
 /* ========== Painel de Telemetria (Cyber-Aether) ========== */
 .telemetryPanel {
   padding: 12px 14px;
@@ -2289,4 +2328,26 @@ body.model-heathcliff .btnDeployYui {
   .loginCard {
     padding: 20px 24px;
   }
+}
+
+/* Modo de Economia: RAM > 70% — desativa animações neon e sombras pesadas */
+body.economy-mode .msgBubble,
+body.economy-mode .chat-bubble,
+body.economy-mode .btnToggleWorkspace:hover,
+body.economy-mode .codeBlockWrap,
+body.economy-mode .workspacePanel,
+body.economy-mode .sidebar,
+body.economy-mode .userFooter {
+  box-shadow: none !important;
+}
+body.economy-mode .msgBubble,
+body.economy-mode .chat-bubble {
+  animation: none !important;
+}
+body.economy-mode .cursorStream {
+  animation: none !important;
+}
+body.economy-mode .editorPulse,
+body.economy-mode .workspacePanel.editorPulse {
+  animation: none !important;
 }

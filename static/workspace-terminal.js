@@ -100,8 +100,10 @@
     if (!container) return;
     var panel = document.getElementById("workspacePanel");
     if (!panel || panel.offsetParent === null) return;
-    if (!term) initTerminal();
-    else if (fitAddon) setTimeout(function () { fitAddon.fit(); }, 100);
+    if (!term) {
+      if (window.Terminal) initTerminal();
+      else setTimeout(onWorkspaceVisible, 300);
+    } else if (fitAddon) setTimeout(function () { fitAddon.fit(); }, 100);
   }
 
   document.addEventListener("DOMContentLoaded", function () {

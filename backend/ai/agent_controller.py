@@ -7,6 +7,7 @@
 import json
 import os
 import re
+import time
 from pathlib import Path
 from typing import Any, Dict, Generator, List, Optional
 
@@ -501,6 +502,14 @@ def agent_controller(
     O frontend só recebe texto; nunca JSON cru.
     model: "yui" (padrão) ou "heathcliff" (modo engenheiro).
     """
+    import time
+    turn_start = time.time()
+    tools_executed_this_turn: List[str] = []
+    files_altered_this_turn: List[str] = []
+    errors_detected_this_turn: List[str] = []
+    loop_detected_this_turn = False
+    tools_ok_this_turn = True
+
     try:
         # ---------- 0) Energy check: freio cognitivo ----------
         start_energy = 100.0
@@ -757,14 +766,14 @@ def agent_controller(
         transition(AgentState.EXECUTING)
         response = client.chat.completions.create(model=MODEL, messages=msgs)
         raw_content = (response.choices[0].message.content or "").strip()
-        # Registrar custo da resposta para telemetria
+        prompt_tokens, completion_tokens = 0, 0
         try:
             usage = getattr(response, "usage", None)
             if usage:
-                pt = getattr(usage, "prompt_tokens") or 0
-                ct = getattr(usage, "completion_tokens") or 0
-                if pt or ct:
-                    record_response_cost(pt, ct)
+                prompt_tokens = getattr(usage, "prompt_tokens") or 0
+                completion_tokens = getattr(usage, "completion_tokens") or 0
+                if prompt_tokens or completion_tokens:
+                    record_response_cost(prompt_tokens, completion_tokens)
         except Exception:
             pass
         data = _parse_json(raw_content)
@@ -781,6 +790,10 @@ def agent_controller(
             nome_skill = str(data.get("usar_skill") or "").strip()
             dados_skill = data.get("dados") if isinstance(data.get("dados"), dict) else {}
             sucesso, resultado = executar_skill(nome_skill, dados_skill)
+            tools_executed_this_turn.append(f"skill:{nome_skill}")
+            tools_ok_this_turn = sucesso
+            if not sucesso:
+                errors_detected_this_turn.append(str(resultado))
             set_last_action(f"skill:{nome_skill}")
             if sucesso:
                 reply = json.dumps(resultado, ensure_ascii=False, indent=2) if isinstance(resultado, dict) else str(resultado)
@@ -804,6 +817,7 @@ def agent_controller(
                 if i >= LIMIT_MAX_STEPS:
                     break
                 if get_metacognition and get_metacognition().analyze(steps_executed=i).get("loop_detected"):
+                    loop_detected_this_turn = True
                     partes.append("Detectei repetição. Interrompendo execução.")
                     break
                 if get_energy_manager and not get_energy_manager().can_execute():
@@ -820,9 +834,12 @@ def agent_controller(
                         continue
                 result = run_tool(tool_name, args)
                 emit("tool_executed", tool_name=tool_name, args=args, result=result)
+                tools_executed_this_turn.append(tool_name)
                 if not result.get("ok"):
                     last_step_ok = False
+                    tools_ok_this_turn = False
                     err = result.get("error") or "erro desconhecido."
+                    errors_detected_this_turn.append(err)
                     set_last_error(err)
                     partes.append(f"Não consegui executar '{tool_name}': {err}")
                     # Reflexão: decidir se continua ou para
@@ -834,6 +851,12 @@ def agent_controller(
                 last_step_ok = True
                 set_last_action(f"tool:{tool_name}")
                 payload = result.get("result") or {}
+                if tool_name in ("fs_create_file", "fs_create_folder", "criar_projeto_arquivos"):
+                    path = args.get("path") or payload.get("path")
+                    if path:
+                        files_altered_this_turn.append(str(path))
+                    for p in payload.get("files") or []:
+                        files_altered_this_turn.append(p if isinstance(p, str) else str(p.get("path", p)))
                 if get_world_model and tool_name == "criar_projeto_arquivos" and payload.get("ok"):
                     try:
                         wm = get_world_model()
@@ -935,6 +958,35 @@ def agent_controller(
             pass
 
         emit("response_generated", reply=reply, user_message=user_message)
+
+        # ---------- 4c) Cognitive Loop: Observer → Self-Critic → Memory Update ----------
+        try:
+            from core.cognitive import observe_turn, criticize
+            from core.self_state import get as get_self_state
+            mode = "tool" if tools_executed_this_turn else ("tools" if len(tools_executed_this_turn) > 1 else "answer")
+            obs = observe_turn(
+                turn_start=turn_start,
+                prompt_tokens=prompt_tokens,
+                completion_tokens=completion_tokens,
+                tools_executed=tools_executed_this_turn,
+                files_altered=files_altered_this_turn,
+                errors_detected=errors_detected_this_turn,
+                reply_length=len(reply),
+                mode=mode,
+            )
+            critique = criticize(
+                obs=obs,
+                last_action=get_self_state("last_action") or "",
+                last_error=get_self_state("last_error") or "",
+                loop_detected=loop_detected_this_turn,
+                tools_ok=tools_ok_this_turn,
+            )
+            if critique.efficient:
+                set_confidence(min(1.0, 0.5 + critique.score * 0.15))
+            else:
+                set_confidence(max(0.2, 0.5 + critique.score * 0.1))
+        except Exception:
+            pass
 
         # ---------- 5) Entregar resposta em chunks (streaming) ----------
         for chunk in _yield_in_chunks(reply):

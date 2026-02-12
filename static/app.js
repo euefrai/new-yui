@@ -446,12 +446,23 @@
       return v === null ? true : v === "true";
     } catch (e) { return true; }
   }
+  var workspaceEverInitialized = false;
   function setWorkspacePref(open) {
     try { localStorage.setItem("yui_workspace_open", String(open)); } catch (e) {}
   }
   function toggleWorkspace() {
     workspaceOpen = !workspaceOpen;
     setWorkspacePref(workspaceOpen);
+    if (workspaceOpen && !workspaceEverInitialized) {
+      workspaceEverInitialized = true;
+      if (window.loadWorkspaceLibs) {
+        window.loadWorkspaceLibs(function () {
+          if (window.initYuiWorkspace) window.initYuiWorkspace();
+        });
+      } else if (window.initYuiWorkspace) {
+        window.initYuiWorkspace();
+      }
+    }
     var mainSplit = document.querySelector(".mainSplit");
     var btn = document.getElementById("toggleWorkspace");
     if (mainSplit) {
@@ -477,13 +488,22 @@
         toggleWorkspace();
       }
     });
+    if (workspaceOpen) {
+      workspaceEverInitialized = true;
+      if (window.loadWorkspaceLibs) {
+        window.loadWorkspaceLibs(function () {
+          if (window.initYuiWorkspace) window.initYuiWorkspace();
+        });
+      } else if (window.initYuiWorkspace) {
+        window.initYuiWorkspace();
+      }
+    }
   }
 
   function showApp() {
     if (loginScreen) loginScreen.style.display = "none";
     if (appScreen) appScreen.style.display = "flex";
     initWorkspaceToggle();
-    if (window.initYuiWorkspace) window.initYuiWorkspace();
     if (userName && user) userName.textContent = user.email || user.nome || "Usuário";
     if (userMenuName && user) userMenuName.textContent = user.email || user.nome || "Usuário";
     if (userMenuEmail && user) userMenuEmail.textContent = user.email || "";
@@ -1289,6 +1309,7 @@
               atualizarTituloChat(chatId, texto);
             }
             fetchTelemetry();
+            fetchCognitive();
             fetchMission();
             // recarrega mensagens para aplicar botão de preview, se houver
             carregarMensagens();
@@ -1347,6 +1368,7 @@
                     atualizarTituloChat(cId, txt);
                   }
                   fetchTelemetry();
+                  fetchCognitive();
                   fetchMission();
                   return;
                 }
@@ -1515,6 +1537,7 @@
         var cpu = data.cpu_percent || 0;
         var ram = data.ram_percent || 0;
         label.textContent = "Sistema: CPU " + cpu + "% | RAM " + ram + "%" + (mode !== "normal" ? " • Modo economia" : "");
+        document.body.classList.toggle("economy-mode", ram > 70);
       })
       .catch(function () {
         var bar = document.getElementById("systemHealthBar");
@@ -1558,6 +1581,27 @@
       });
   }
 
+  function fetchCognitive() {
+    fetch("/api/system/cognitive")
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        var confEl = document.getElementById("cognitiveConfidence");
+        var scoreEl = document.getElementById("cognitiveScore");
+        var ramEl = document.getElementById("cognitiveRam");
+        if (confEl) confEl.textContent = (data.planner_confidence != null ? data.planner_confidence + "%" : "—");
+        if (scoreEl) scoreEl.textContent = data.last_action_score || "—";
+        if (ramEl) ramEl.textContent = data.ram_impact || "—";
+      })
+      .catch(function () {
+        var confEl = document.getElementById("cognitiveConfidence");
+        var scoreEl = document.getElementById("cognitiveScore");
+        var ramEl = document.getElementById("cognitiveRam");
+        if (confEl) confEl.textContent = "—";
+        if (scoreEl) scoreEl.textContent = "—";
+        if (ramEl) ramEl.textContent = "—";
+      });
+  }
+
   function fetchMission() {
     if (!user || !user.id) return;
     var uid = encodeURIComponent(user.id);
@@ -1592,15 +1636,25 @@
   }
 
   var systemPollingStarted = false;
+  function isChatActive() {
+    var app = document.getElementById("appScreen");
+    return app && app.offsetParent !== null;
+  }
   function startSystemPolling() {
     if (systemPollingStarted) return;
     systemPollingStarted = true;
     fetchSystemHealth();
     fetchTelemetry();
+    fetchCognitive();
     fetchMission();
-    setInterval(fetchSystemHealth, 8000);
-    setInterval(fetchTelemetry, 15000);
-    setInterval(fetchMission, 30000);
+    setInterval(function () {
+      if (isChatActive()) {
+        fetchSystemHealth();
+        fetchTelemetry();
+        fetchCognitive();
+        fetchMission();
+      }
+    }, 10000);
   }
 
   var originalShowApp = showApp;

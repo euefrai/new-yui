@@ -41,11 +41,14 @@ generated_projects/
 chroma/
 yui_vector_db/
 data/
-scripts/
 sandbox/
 
 # Mapa do projeto (gerado pelo Project Mapper)
 .yui_map.json
+
+# Minificados (gerados por scripts/minify_static.py no build)
+static/*.min.js
+static/*.min.css
 
 # Lessons Learned (memória de erros por projeto)
 .yui_lessons.md
