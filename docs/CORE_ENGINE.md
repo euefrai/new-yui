@@ -67,7 +67,29 @@ snapshot = get_context_snapshot()
 prompt_text = snapshot_to_prompt(snapshot)
 ```
 
-### 4. Sandbox Executor (`core/sandbox_executor/runner.py`)
+### 4. Execution Graph Engine (`core/execution_graph.py`)
+
+**Orquestrador de fluxo** — toda ação vira um nó observável.
+
+- Input → Planner cria mini-fluxo → Nodes executam → Observer acompanha → Critic valida
+- Permite: pausar, reexecutar nó, progresso visual, custo por etapa
+- Emite eventos: `execution_node_start`, `execution_node_done`, `execution_node_failed`
+
+```python
+from core.execution_graph import ExecutionGraph, Node, graph_from_planner_steps
+
+# Exemplo: "Cria API e gera ZIP"
+g = ExecutionGraph(intention="criar_api_zip")
+g.add_step("Parse Intent", lambda ctx: ctx)
+g.add_step("Generate Files", lambda ctx: {"files": [...]})
+g.add_step("Zip Builder", lambda ctx: "/download/projeto.zip")
+g.add_step("Download Link", lambda ctx: ctx.get("_result_Zip Builder"))
+
+result = g.run(ctx={"user_message": "cria API de login"})
+status = g.to_ui_status()  # [{"name": "Parse Intent", "status": "done", "symbol": "✓"}, ...]
+```
+
+### 5. Sandbox Executor (`core/sandbox_executor/runner.py`)
 
 Execução isolada — anti-SIGKILL:
 - subprocess isolado
@@ -81,7 +103,7 @@ from core.sandbox_executor import run_code
 result = run_code("print(1+1)", lang="python", timeout=30)
 ```
 
-### 5. Plugin Loader (`core/plugins_loader.py`)
+### 6. Plugin Loader (`core/plugins_loader.py`)
 
 - **scan**: descobre plugins em `plugins/`
 - **register**: registra tools no `tools_registry`

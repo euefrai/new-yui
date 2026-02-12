@@ -13,6 +13,12 @@ EVENTS = (
     "memory_saved",
     "tool_executed",
     "response_generated",
+    # Execution Graph
+    "execution_node_start",
+    "execution_node_done",
+    "execution_node_failed",
+    "execution_graph_done",
+    "execution_graph_failed",
 )
 
 

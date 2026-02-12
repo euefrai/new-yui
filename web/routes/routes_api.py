@@ -222,6 +222,23 @@ def api_system_cleanup():
         return jsonify({"ok": False, "error": str(e)}), 500
 
 
+@system_bp.get("/execution")
+def api_system_execution():
+    """
+    Execution Graph — status dos nós para UI de progresso.
+    Retorna [{"name": "Planner", "status": "done", "symbol": "✓"}, ...]
+    Quando agent_controller usar ExecutionGraph, define via set_execution_graph().
+    """
+    try:
+        from core.agent_context import get_execution_graph
+        graph = get_execution_graph()
+        if graph and hasattr(graph, "to_ui_status"):
+            return jsonify({"ok": True, "nodes": graph.to_ui_status(), "intention": getattr(graph, "intention", "")})
+        return jsonify({"ok": True, "nodes": [], "intention": ""})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e), "nodes": []}), 500
+
+
 @system_bp.get("/cognitive")
 def api_system_cognitive():
     """
