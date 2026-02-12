@@ -113,7 +113,7 @@ TOOL_DESCRIPTIONS = {
     "criar_zip_projeto": "- criar_zip_projeto(root_dir, zip_name?): gerar script para compactar o projeto em ZIP.\n",
     "consultar_indice_projeto": "- consultar_indice_projeto(raiz?): consultar índice de arquitetura em cache.\n",
     "get_current_time": "- get_current_time(): quando o usuário perguntar as horas, data, ou para saudação (Bom dia/Boa tarde). Sempre use para horário real.\n",
-    "buscar_web": "- buscar_web(query, limite?): buscar informações na web quando precisar verificar dados externos.\n",
+    "buscar_web": "- buscar_web(query, limite?): buscar dados externos quando precisar verificar. Para perguntas gerais (feriados, datas, curiosidades), prefira mode answer com seu conhecimento — não use buscar_web.\n",
     "fs_create_file": "- fs_create_file(path, content): criar/sobrescrever arquivo no sandbox (workspace). Ex: fs_create_file(\"main.py\", \"print(1)\").\n",
     "fs_create_folder": "- fs_create_folder(path): criar pasta no sandbox. Ex: fs_create_folder(\"src/components\").\n",
     "fs_delete_file": "- fs_delete_file(path): deletar arquivo ou pasta no sandbox.\n",
@@ -337,7 +337,7 @@ def _format_tool_reply(tool_name: str, args: Dict, payload: Dict) -> str:
             return f"Busca não disponível: {payload.get('error') or 'erro desconhecido.'}"
         resultados = payload.get("resultados") or []
         if not resultados:
-            return "Nenhum resultado encontrado para a busca."
+            return "__FALLBACK_LLM__"
         linhas = ["Resultados da busca:"] + [
             f"- **{r.get('titulo', '')}**: {r.get('snippet', '')[:200]}..."
             for r in resultados[:5]
@@ -373,6 +373,32 @@ def _yield_in_chunks(text: str, chunk_size: int = CHUNK_SIZE) -> Generator[str, 
     """Simula streaming entregando o texto em pedaços."""
     for i in range(0, len(text), chunk_size):
         yield text[i : i + chunk_size]
+
+
+def _fallback_llm_response(
+    client,
+    user_message: str,
+    msgs: List[Dict[str, str]],
+    hint: str,
+) -> str:
+    """
+    Fallback: quando skill/tool falha ou busca retorna vazio, chama LLM para responder.
+    Nunca retorna "Nenhum resultado encontrado" — IA sempre tenta ajudar.
+    """
+    if not client or not user_message:
+        return "Posso ajudar de outra forma. Descreva o que precisa."
+    fallback_msgs = list(msgs)
+    fallback_msgs.append({
+        "role": "system",
+        "content": hint + " Responda em português, de forma útil e amigável.",
+    })
+    fallback_msgs.append({"role": "user", "content": user_message})
+    try:
+        r = client.chat.completions.create(model=MODEL, messages=fallback_msgs)
+        content = (r.choices[0].message.content or "").strip()
+        return content or "Posso ajudar de outra forma. O que você gostaria de saber?"
+    except Exception:
+        return "Desculpe, não consegui responder no momento. Tente reformular a pergunta."
 
 
 # ==========================================================
@@ -908,8 +934,14 @@ def agent_controller(
             if sucesso:
                 reply = json.dumps(resultado, ensure_ascii=False, indent=2) if isinstance(resultado, dict) else str(resultado)
             else:
-                reply = f"Não foi possível executar a skill '{nome_skill}': {resultado}"
-                set_last_error(reply)
+                set_last_error(f"Não foi possível executar a skill '{nome_skill}': {resultado}")
+                if client:
+                    reply = _fallback_llm_response(
+                        client, user_message, msgs,
+                        f"A skill '{nome_skill}' falhou: {resultado}. Responda ao usuário de forma útil com suas capacidades.",
+                    )
+                else:
+                    reply = "Não consegui executar essa ação. Posso ajudar de outra forma?"
 
         # ---------- 3b) Se for tool → executar e montar resposta (só se capability tools ativa) ----------
         elif isinstance(data, dict) and data.get("mode") in ("tool", "tools") and is_enabled("tools"):
@@ -992,7 +1024,18 @@ def agent_controller(
                     except Exception:
                         pass
                 msg = _format_tool_reply(tool_name, args, payload)
-                partes.append(msg)
+                if msg == "__FALLBACK_LLM__":
+                    if client:
+                        query = args.get("query") or user_message
+                        fallback_reply = _fallback_llm_response(
+                            client, user_message, msgs,
+                            f"A busca na web não retornou resultados para: {query}. Responda com seu conhecimento geral.",
+                        )
+                        partes.append(fallback_reply)
+                    else:
+                        partes.append("A busca não retornou resultados. Posso ajudar de outra forma?")
+                else:
+                    partes.append(msg)
                 # Ao criar projeto, gera ZIP e adiciona link de download clicável (se ainda não tiver)
                 if tool_name == "criar_projeto_arquivos" and payload.get("ok") and "[DOWNLOAD]:" not in msg:
                     root_dir = payload.get("root") or args.get("root_dir") or ""

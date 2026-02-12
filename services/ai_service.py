@@ -115,9 +115,10 @@ def handle_chat_stream(
         tool_result = tool_executor.execute(intent, message)
         if tool_result:
             msg = tool_result.get("message") or str(tool_result)
-            session_memory.add(user_id, "assistant", msg)
-            yield msg
-            return
+            if msg and "nenhum resultado" not in msg.lower():
+                session_memory.add(user_id, "assistant", msg)
+                yield msg
+                return
 
     full_reply = []
     for chunk in stream_resposta(
