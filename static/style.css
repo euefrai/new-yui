@@ -1527,6 +1527,72 @@ body.model-heathcliff .btn-download:hover {
   background: rgba(0, 242, 255, 0.25);
 }
 
+/* Mission Panel (Project Brain) */
+.missionPanel {
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  border-top: 1px solid var(--glass-border);
+  background: rgba(112, 0, 255, 0.06);
+  border-radius: 8px;
+}
+
+.missionPanelHeader {
+  margin-bottom: 6px;
+}
+
+.missionPanelTitle {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #8a8a96;
+}
+
+.missionPanelContent {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.missionGoal {
+  font-size: 0.82rem;
+  color: #e8e8ec;
+  line-height: 1.35;
+}
+
+.missionProgressWrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.missionProgressBar {
+  flex: 1;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.missionProgressFill {
+  height: 100%;
+  width: 0%;
+  background: var(--gradient-accent);
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+.missionProgressLabel {
+  font-size: 0.72rem;
+  color: #8a8a96;
+  min-width: 28px;
+}
+
+.missionCurrentTask {
+  font-size: 0.75rem;
+  color: #a0a0b0;
+  font-style: italic;
+}
+
 .tasksList {
   list-style: none;
   margin: 0;

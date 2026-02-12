@@ -84,6 +84,11 @@ def _format_tool_result(tool_name: str, args: Dict, payload: Dict) -> str:
         return "Conteúdo do arquivo carregado."
     if tool_name == "observar_ambiente":
         return payload.get("resumo") or "Ambiente observado."
+    if tool_name == "create_mission" and payload.get("ok"):
+        m = payload.get("mission") or {}
+        return f"✨ Missão criada: {m.get('project', '')} — {m.get('goal', '')}"
+    if tool_name == "update_mission_progress" and payload.get("ok"):
+        return "Progresso da missão atualizado."
     return "Ação executada."
 
 

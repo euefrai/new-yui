@@ -1,11 +1,12 @@
 """
-Carregador de plugins da Yui.
+Plugin Loader — Scan, register, inject into engine.
 
-Regra: não usar import direto para execução; plugins são executados via
-subprocess.run(["python", plugin_file]) para isolamento.
+- scan: descobre plugins na pasta plugins/
+- register: registra tools no tools_registry
+- inject: disponibiliza ao Core Engine (action_router, agent_controller)
 
-Plugins que suportam --list: são registrados e executados via subprocess.
-Plugins legados (sem --list): ainda carregados por import (compatibilidade).
+Plugins com --list: executados via subprocess (isolamento).
+Plugins legados: carregados por import (compatibilidade).
 """
 
 import importlib
@@ -13,12 +14,39 @@ import json
 import subprocess
 import sys
 from pathlib import Path
-from typing import Optional
+from typing import Any, Dict, List, Optional
 
 try:
     from config.settings import BASE_DIR
 except Exception:
     BASE_DIR = Path(__file__).resolve().parent.parent
+
+_PLUGIN_TOOLS: List[Dict[str, Any]] = []
+
+
+def scan_plugins_folder(root_path: Optional[str] = None) -> List[Path]:
+    """Retorna lista de arquivos .py na pasta plugins (exceto _*.py)."""
+    base = Path(root_path) if root_path else BASE_DIR
+    plugins_dir = base / "plugins"
+    if not plugins_dir.is_dir():
+        return []
+    return sorted(plugins_dir.glob("*.py"), key=lambda p: p.name)
+
+
+def get_registered_plugin_tools() -> List[Dict[str, Any]]:
+    """Retorna tools registradas por plugins (após load_plugins)."""
+    return list(_PLUGIN_TOOLS)
+
+
+def inject_into_engine() -> List[str]:
+    """
+    Carrega plugins e injeta no engine.
+    Retorna lista de nomes de tools disponíveis (para action_router/agent).
+    """
+    load_plugins()
+    from core.tools_registry import list_tools
+    tools = list_tools()
+    return [t["name"] for t in tools]
 
 
 def load_plugins(root_path: Optional[str] = None) -> None:
@@ -61,11 +89,13 @@ def load_plugins(root_path: Optional[str] = None) -> None:
                                 t.get("schema"),
                                 str(path),
                             )
+                            _PLUGIN_TOOLS.append({"name": name, "plugin": str(path), "source": "subprocess"})
                     continue
         except Exception:
             pass
         # 2) Fallback: import (comportamento antigo)
         try:
             importlib.import_module(f"plugins.{module_name}")
+            _PLUGIN_TOOLS.append({"name": module_name, "plugin": str(path), "source": "import"})
         except Exception:
             continue

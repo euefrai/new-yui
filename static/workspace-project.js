@@ -494,6 +494,17 @@
   window.updateWorkspacePreview = updateWorkspacePreview;
   window.addFileToWorkspace = addFileToWorkspace;
   window.removeFileFromWorkspace = removeFileFromWorkspace;
+  window.getWorkspaceContext = function () {
+    var files = Object.keys(projectFiles || {});
+    var active = currentFilePath ? [currentFilePath] : [];
+    files.forEach(function (p) {
+      if (active.indexOf(p) < 0) active.push(p);
+    });
+    return {
+      active_files: active,
+      console_errors: lastConsoleError ? [lastConsoleError] : []
+    };
+  };
 
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", initWorkspaceProject);

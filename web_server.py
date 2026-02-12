@@ -33,6 +33,15 @@ def add_cors_headers(response):
 
 register_routes(app)
 
+# Core Engine: injeta plugins no startup
+try:
+    from core.plugins_loader import inject_into_engine
+    _tools = inject_into_engine()
+    if _tools:
+        print(f"⚙️ Core Engine: {len(_tools)} tools disponíveis (incl. plugins)")
+except Exception as e:
+    print(f"⚠️ Plugin loader: {e}")
+
 
 if __name__ == "__main__":
     import os

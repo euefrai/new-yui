@@ -93,6 +93,8 @@ def api_chat_stream():
         message = (data.get("message") or "").strip()
         model = (data.get("model") or "yui").strip().lower()
         confirm_high_cost = bool(data.get("confirm_high_cost"))
+        active_files = data.get("active_files") or []
+        console_errors = data.get("console_errors") or []
         if model not in ("yui", "heathcliff"):
             model = "yui"
         if not chat_id:
@@ -108,7 +110,13 @@ def api_chat_stream():
 
         def generate():
             yield f"data: {json.dumps('__STATUS__:thinking')}\n\n"
-            for chunk in handle_chat_stream(user_id, chat_id, message, model=model, confirm_high_cost=confirm_high_cost):
+            for chunk in handle_chat_stream(
+                user_id, chat_id, message,
+                model=model,
+                confirm_high_cost=confirm_high_cost,
+                active_files=active_files,
+                console_errors=console_errors,
+            ):
                 yield f"data: {json.dumps(chunk)}\n\n"
             yield f"data: {json.dumps('__STATUS__:done')}\n\n"
 

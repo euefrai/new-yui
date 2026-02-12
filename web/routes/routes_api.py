@@ -417,9 +417,9 @@ def api_sandbox_deploy():
 
 @sandbox_bp.post("/execute")
 def api_sandbox_execute():
-    """Executa código no sandbox de forma segura (timeout, captura stdout/stderr)."""
-    import subprocess
+    """Executa código via Sandbox Executor (subprocess isolado, timeout, limite RAM)."""
     from datetime import datetime
+    from core.sandbox_executor import run_code
     data = request.get_json(silent=True) or {}
     try:
         from zoneinfo import ZoneInfo
@@ -435,63 +435,26 @@ def api_sandbox_execute():
     if not code.strip():
         return jsonify({"ok": False, "stdout": "", "stderr": "Código vazio", "exit_code": -1, "feedback": "", "executed_at": executed_at}), 400
 
-    sandbox = Path(settings.SANDBOX_DIR)
-    sandbox.mkdir(parents=True, exist_ok=True)
-    feedback = ""
+    result = run_code(code=code, lang=lang, cwd=Path(settings.SANDBOX_DIR), timeout=timeout)
 
-    try:
-        if lang in ("python", "py"):
-            script_path = sandbox / "_run_script.py"
-            script_path.write_text(code, encoding="utf-8", errors="replace")
-            result = subprocess.run(
-                ["python", str(script_path)],
-                capture_output=True,
-                text=True,
-                timeout=timeout,
-                cwd=str(sandbox),
-            )
-        elif lang in ("javascript", "js", "node"):
-            script_path = sandbox / "_run_script.js"
-            script_path.write_text(code, encoding="utf-8", errors="replace")
-            result = subprocess.run(
-                ["node", str(script_path)],
-                capture_output=True,
-                text=True,
-                timeout=timeout,
-                cwd=str(sandbox),
-            )
-        else:
-            return jsonify({"ok": False, "stdout": "", "stderr": f"Linguagem '{lang}' não suportada. Use python ou javascript.", "exit_code": -1, "feedback": ""}), 400
-
-        if result.returncode != 0:
-            try:
-                from core.self_monitoring import get_system_snapshot
-                snap = get_system_snapshot()
-                if snap and snap.mode != "normal":
-                    feedback = f"Servidor sob carga (CPU: {snap.cpu_percent:.0f}%, RAM: {snap.ram_percent:.0f}%). A execução pode ter sido limitada."
-            except Exception:
-                pass
-
-        return jsonify({
-            "ok": result.returncode == 0,
-            "stdout": result.stdout or "",
-            "stderr": result.stderr or "",
-            "exit_code": result.returncode,
-            "feedback": feedback,
-            "executed_at": executed_at,
-        })
-    except subprocess.TimeoutExpired:
+    feedback = result.feedback
+    if result.exit_code != 0 and not feedback:
         try:
             from core.self_monitoring import get_system_snapshot
             snap = get_system_snapshot()
-            feedback = f"Timeout ({timeout}s). Servidor: CPU {snap.cpu_percent:.0f}%, RAM {snap.ram_percent:.0f}%."
+            if snap and snap.mode != "normal":
+                feedback = f"Servidor sob carga (CPU: {snap.cpu_percent:.0f}%, RAM: {snap.ram_percent:.0f}%)."
         except Exception:
-            feedback = f"Timeout ({timeout}s). Considere simplificar o código."
-        return jsonify({"ok": False, "stdout": "", "stderr": "Timeout na execução", "exit_code": -1, "feedback": feedback, "executed_at": executed_at}), 400
-    except FileNotFoundError:
-        return jsonify({"ok": False, "stdout": "", "stderr": "Python/Node não encontrado no servidor", "exit_code": -1, "feedback": "", "executed_at": executed_at}), 400
-    except Exception as e:
-        return jsonify({"ok": False, "stdout": "", "stderr": str(e), "exit_code": -1, "feedback": "", "executed_at": executed_at}), 500
+            pass
+
+    return jsonify({
+        "ok": result.ok,
+        "stdout": result.stdout or "",
+        "stderr": result.stderr or "",
+        "exit_code": result.exit_code,
+        "feedback": feedback,
+        "executed_at": executed_at,
+    })
 
 
 # --- Goals (objetivos persistentes) ---
@@ -527,5 +490,73 @@ def api_add_goal():
             goal_type = GoalType.SELF_IMPROVEMENT
         goal = add_goal(name=name, priority=priority, goal_type=goal_type)
         return jsonify({"ok": True, "goal": goal.to_dict()})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+# --- Missions (Project Brain) ---
+missions_bp = Blueprint("missions", __name__, url_prefix="/api/missions")
+
+
+@missions_bp.get("/")
+def api_get_active_mission():
+    """Retorna missão ativa. Query: user_id, chat_id."""
+    user_id = (request.args.get("user_id") or "").strip()
+    chat_id = (request.args.get("chat_id") or "").strip()
+    try:
+        from core.project_manager import get_active_mission
+        mission = get_active_mission(user_id=user_id, chat_id=chat_id)
+        if mission:
+            return jsonify({"ok": True, "mission": mission.to_dict()})
+        return jsonify({"ok": True, "mission": None})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e), "mission": None}), 500
+
+
+@missions_bp.post("/")
+def api_create_mission():
+    """Cria missão. Body: project, goal, tasks?, user_id?, chat_id?."""
+    data = request.get_json(silent=True) or {}
+    project = (data.get("project") or "").strip()
+    goal = (data.get("goal") or "").strip()
+    if not project or not goal:
+        return jsonify({"error": "project e goal obrigatórios"}), 400
+    tasks = data.get("tasks") or []
+    if isinstance(tasks, str):
+        tasks = [t.strip() for t in tasks.split(",") if t.strip()]
+    user_id = (data.get("user_id") or "").strip()
+    chat_id = (data.get("chat_id") or "").strip()
+    try:
+        from core.project_manager import create_mission
+        mission = create_mission(project=project, goal=goal, tasks=tasks, user_id=user_id, chat_id=chat_id)
+        return jsonify({"ok": True, "mission": mission.to_dict()})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@missions_bp.patch("/<project>")
+def api_update_mission(project: str):
+    """Atualiza progresso. Body: task_completed?, progress_delta?, current_task?."""
+    data = request.get_json(silent=True) or {}
+    task_completed = (data.get("task_completed") or "").strip() or None
+    progress_delta = float(data.get("progress_delta", 0))
+    current_task = (data.get("current_task") or "").strip() or None
+    try:
+        from core.project_manager import update_mission_progress
+        if update_mission_progress(project, task_completed=task_completed, progress_delta=progress_delta, current_task=current_task):
+            return jsonify({"ok": True})
+        return jsonify({"error": "Missão não encontrada ou já concluída"}), 404
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@missions_bp.post("/<project>/complete")
+def api_complete_mission(project: str):
+    """Marca missão como concluída."""
+    try:
+        from core.project_manager import complete_mission
+        if complete_mission(project):
+            return jsonify({"ok": True})
+        return jsonify({"error": "Missão não encontrada"}), 404
     except Exception as e:
         return jsonify({"error": str(e)}), 500

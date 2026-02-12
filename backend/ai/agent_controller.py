@@ -8,7 +8,7 @@ import json
 import os
 import re
 from pathlib import Path
-from typing import Any, Dict, Generator, List
+from typing import Any, Dict, Generator, List, Optional
 
 from openai import OpenAI
 
@@ -110,6 +110,8 @@ TOOL_DESCRIPTIONS = {
     "fs_create_folder": "- fs_create_folder(path): criar pasta no sandbox. Ex: fs_create_folder(\"src/components\").\n",
     "fs_delete_file": "- fs_delete_file(path): deletar arquivo ou pasta no sandbox.\n",
     "generate_project_map": "- generate_project_map(root?): gerar .yui_map.json (estrutura e dependências).\n",
+    "create_mission": "- create_mission(project, goal, tasks?): Project Brain — cria missão persistente. project=nome, goal=objetivo, tasks=lista opcional de tarefas. Use quando o usuário definir um objetivo de longo prazo.\n",
+    "update_mission_progress": "- update_mission_progress(project, task_completed?, progress_delta?, current_task?): Project Brain — atualiza progresso da missão ativa após concluir uma tarefa. Use quando terminar uma etapa.\n",
 }
 
 TOOL_SYSTEM_HEADER = (
@@ -344,6 +346,17 @@ def _format_tool_reply(tool_name: str, args: Dict, payload: Dict) -> str:
         path = payload.get("path", "")
         stats = payload.get("stats", {})
         return f".yui_map.json gerado em {path}. Arquivos: {stats.get('total_files', 0)}, com dependências: {stats.get('total_with_deps', 0)}"
+    if tool_name == "create_mission":
+        if not payload.get("ok"):
+            return f"Não foi possível criar a missão: {payload.get('error') or 'erro desconhecido.'}"
+        m = payload.get("mission") or {}
+        proj = m.get("project") or ""
+        goal = m.get("goal") or ""
+        return f"✨ Missão criada: {proj} — {goal}. Avance uma tarefa por vez e use update_mission_progress ao concluir."
+    if tool_name == "update_mission_progress":
+        if payload.get("ok"):
+            return "Progresso da missão atualizado."
+        return f"Não foi possível atualizar: {payload.get('error') or payload.get('message') or 'missão não encontrada.'}"
     return json.dumps(payload, ensure_ascii=False, indent=2)
 
 
@@ -419,6 +432,16 @@ def _salvar_memoria_ia_se_relevante(user_id: str, chat_id: str, user_msg: str, r
     salvar_memoria_ia(user_id, resumo, ",".join(tags), chat_id)
 
 
+def _get_mission_context(user_id: str, chat_id: str) -> str:
+    """Project Brain: injeta missão ativa no contexto."""
+    try:
+        from core.project_manager import get_active_mission, mission_to_prompt
+        mission = get_active_mission(user_id=user_id, chat_id=chat_id)
+        return mission_to_prompt(mission) or ""
+    except Exception:
+        return ""
+
+
 def _get_lessons_context() -> str:
     """Lê .yui_lessons.md (memória de erros) para o Heathcliff."""
     try:
@@ -463,6 +486,8 @@ def agent_controller(
     user_message: str,
     model: str = "yui",
     confirm_high_cost: bool = False,
+    active_files: Optional[list] = None,
+    console_errors: Optional[list] = None,
 ) -> Generator[str, None, None]:
     """
     Fluxo central da YUI.
@@ -487,8 +512,24 @@ def agent_controller(
                     yield c
                 return
 
-        # ---------- 1) Context Engine: histórico + contexto do projeto + memórias ----------
-        ctx = montar_contexto_ia(user_id, chat_id, user_message, raiz_projeto=".", max_mensagens=MAX_HISTORY)
+        # ---------- Agent Context: user_id/chat_id para tools (ex: create_mission) ----------
+        try:
+            from core.agent_context import set_agent_context
+            set_agent_context(user_id, chat_id)
+        except Exception:
+            pass
+
+        # ---------- 1) Context Engine: histórico + contexto do projeto + memórias + Context Kernel ----------
+        context_snapshot = {
+            "active_files": active_files or [],
+            "console_errors": console_errors or [],
+        }
+        ctx = montar_contexto_ia(
+            user_id, chat_id, user_message,
+            raiz_projeto=".",
+            max_mensagens=MAX_HISTORY,
+            context_snapshot=context_snapshot,
+        )
 
         # ---------- World Model: mapa do ambiente ----------
         if get_world_model:
@@ -552,6 +593,14 @@ def agent_controller(
             ctx = filter_context_blocks(ctx, user_message=user_message, top=top)
         msgs: List[Dict[str, str]] = list(ctx.get("historico") or [])
 
+        if ctx.get("context_kernel"):
+            msgs.insert(0, {
+                "role": "system",
+                "content": (
+                    "Contexto em tempo real (arquivos ativos, erros do console, workspace):\n\n"
+                    + ctx["context_kernel"]
+                )
+            })
         if ctx.get("contexto_projeto"):
             msgs.insert(0, {
                 "role": "system",
@@ -582,6 +631,30 @@ def agent_controller(
             })
         if ctx.get("system_state"):
             msgs.insert(0, {"role": "system", "content": f"Estado da Yui: {ctx['system_state']}"})
+
+        # ---------- Project Brain: missão ativa (antes do planner) ----------
+        mission_context = _get_mission_context(user_id, chat_id)
+        if mission_context:
+            msgs.insert(0, {"role": "system", "content": mission_context})
+
+        # ---------- Action Engine: sugestão de tool (roteamento de intenção) ----------
+        try:
+            from core.self_state import get as get_self_state
+            last_tool = (get_self_state("last_action") or "").replace("tool:", "")
+            from core.engine import route_action
+            intent = route_action(
+                user_message,
+                last_tool=last_tool or None,
+                active_files=active_files,
+                has_console_errors=bool(console_errors),
+            )
+            if intent.tool_hint and intent.confidence > 0.3:
+                msgs.insert(0, {
+                    "role": "system",
+                    "content": f"[Action Engine] Sugestão: considere usar a ferramenta '{intent.tool_hint}' para esta tarefa (confiança {intent.confidence:.0%}).",
+                })
+        except Exception:
+            pass
 
         profile = ctx.get("user_profile") or get_user_profile(user_id)
         if profile:

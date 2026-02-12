@@ -5,7 +5,7 @@
 # contexto = short + memory + system_state
 # ==========================================================
 
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from core.memory import get_messages
 from core.memory_manager import build_context_text
@@ -54,6 +54,7 @@ def montar_contexto_ia(
     raiz_projeto: str = ".",
     max_mensagens: int = MAX_MENSAGENS_HISTORICO,
     limite_vetorial: int = VETORIAL_LIMITE,
+    context_snapshot: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """
     Monta todo o contexto que a IA precisa (contexto inteligente em camadas).
@@ -72,6 +73,7 @@ def montar_contexto_ia(
         "memoria_ia": "",
         "contexto_chat_anterior": "",
         "memoria_eventos": "",
+        "context_kernel": "",
         "short_term_context": "",
         "long_term_memory": "",
         "system_state": "",
@@ -128,6 +130,22 @@ def montar_contexto_ia(
         out["memoria_eventos"],
     )
     out["system_state"] = _build_system_state()
+
+    # Context Kernel: snapshot unificado (arquivos ativos, erros do console)
+    if context_snapshot:
+        try:
+            from core.engine import get_context_snapshot, snapshot_to_prompt
+            snapshot = get_context_snapshot(
+                user_id=user_id,
+                chat_id=chat_id,
+                active_files=context_snapshot.get("active_files"),
+                console_errors=context_snapshot.get("console_errors"),
+                last_stdout=context_snapshot.get("last_stdout", ""),
+                last_stderr=context_snapshot.get("last_stderr", ""),
+            )
+            out["context_kernel"] = snapshot_to_prompt(snapshot)
+        except Exception:
+            out["context_kernel"] = ""
 
     # user_profile: nível técnico, linguagens, modo de resposta
     try:

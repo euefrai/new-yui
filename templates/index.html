@@ -49,6 +49,21 @@
         <ul class="tasksList" id="tasksList"></ul>
         <input type="text" id="tasksInput" class="tasksInput" placeholder="Nova tarefa..." style="display:none" />
       </div>
+      <div class="missionPanel" id="missionPanel" title="Missão ativa — Project Brain" style="display:none">
+        <div class="missionPanelHeader">
+          <span class="missionPanelTitle">✨ Missão Ativa</span>
+        </div>
+        <div class="missionPanelContent" id="missionPanelContent">
+          <div class="missionGoal" id="missionGoal">—</div>
+          <div class="missionProgressWrap">
+            <div class="missionProgressBar" id="missionProgressBar">
+              <div class="missionProgressFill" id="missionProgressFill"></div>
+            </div>
+            <span class="missionProgressLabel" id="missionProgressLabel">0%</span>
+          </div>
+          <div class="missionCurrentTask" id="missionCurrentTask"></div>
+        </div>
+      </div>
       <div class="telemetryPanel" id="telemetryPanel" title="Custo acumulado do dia">
         <div class="telemetryTitle">Telemetria</div>
         <div class="telemetryRow">

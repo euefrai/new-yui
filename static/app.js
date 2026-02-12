@@ -984,6 +984,7 @@
       if (messagesAbortController && messagesAbortController.signal.aborted === false) {
         messagesAbortController = null;
       }
+      fetchMission();
     }
   }
 
@@ -1288,6 +1289,7 @@
               atualizarTituloChat(chatId, texto);
             }
             fetchTelemetry();
+            fetchMission();
             // recarrega mensagens para aplicar botão de preview, se houver
             carregarMensagens();
           })
@@ -1317,6 +1319,11 @@
         function runStreamFetch(cId, txt, confirmHighCost, aBubble, sLine, cur, btn) {
           var body = { chat_id: cId, user_id: user.id, message: txt, model: getCurrentModel() };
           if (confirmHighCost) body.confirm_high_cost = true;
+          var ctx = window.getWorkspaceContext && window.getWorkspaceContext();
+          if (ctx) {
+            body.active_files = ctx.active_files || [];
+            body.console_errors = ctx.console_errors || [];
+          }
           fetch("/api/chat/stream", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -1340,6 +1347,7 @@
                     atualizarTituloChat(cId, txt);
                   }
                   fetchTelemetry();
+                  fetchMission();
                   return;
                 }
                 buffer += decoder.decode(result.value, { stream: true });
@@ -1550,14 +1558,49 @@
       });
   }
 
+  function fetchMission() {
+    if (!user || !user.id) return;
+    var uid = encodeURIComponent(user.id);
+    var cid = chatAtual ? encodeURIComponent(chatAtual) : "";
+    var url = "/api/missions?user_id=" + uid + (cid ? "&chat_id=" + cid : "");
+    fetch(url)
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        var panel = document.getElementById("missionPanel");
+        var goalEl = document.getElementById("missionGoal");
+        var fillEl = document.getElementById("missionProgressFill");
+        var labelEl = document.getElementById("missionProgressLabel");
+        var taskEl = document.getElementById("missionCurrentTask");
+        if (!panel || !goalEl || !fillEl || !labelEl || !taskEl) return;
+        var m = data && data.mission;
+        if (!m || m.status !== "in_progress") {
+          panel.style.display = "none";
+          return;
+        }
+        panel.style.display = "block";
+        goalEl.textContent = (m.project ? m.project + ": " : "") + (m.goal || "—");
+        var pct = Math.round((m.progress || 0) * 100);
+        fillEl.style.width = pct + "%";
+        labelEl.textContent = pct + "%";
+        taskEl.textContent = m.current_task || "";
+        taskEl.style.display = m.current_task ? "block" : "none";
+      })
+      .catch(function () {
+        var panel = document.getElementById("missionPanel");
+        if (panel) panel.style.display = "none";
+      });
+  }
+
   var systemPollingStarted = false;
   function startSystemPolling() {
     if (systemPollingStarted) return;
     systemPollingStarted = true;
     fetchSystemHealth();
     fetchTelemetry();
+    fetchMission();
     setInterval(fetchSystemHealth, 8000);
     setInterval(fetchTelemetry, 15000);
+    setInterval(fetchMission, 30000);
   }
 
   var originalShowApp = showApp;

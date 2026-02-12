@@ -222,6 +222,61 @@ def _init_default_tools() -> None:
         },
     )
 
+    from core.project_manager import create_mission as pm_create_mission, update_mission_progress
+
+    def _tool_create_mission(project: str, goal: str, tasks: Optional[List[str]] = None):
+        """Cria missão persistente (Project Brain). user_id/chat_id vêm do contexto do agente."""
+        tasks = tasks or []
+        if isinstance(tasks, str):
+            tasks = [t.strip() for t in tasks.split(",") if t.strip()]
+        user_id, chat_id = ("", "")
+        try:
+            from core.agent_context import get_agent_context
+            user_id, chat_id = get_agent_context()
+        except Exception:
+            pass
+        mission = pm_create_mission(
+            project=project.strip(),
+            goal=goal.strip(),
+            tasks=tasks,
+            user_id=user_id or "",
+            chat_id=chat_id or "",
+        )
+        return {"ok": True, "mission": mission.to_dict()}
+
+    register_tool(
+        name="create_mission",
+        fn=_tool_create_mission,
+        description="Project Brain: cria uma missão persistente com objetivo e tarefas. Use quando o usuário definir um objetivo de longo prazo.",
+        schema={
+            "project": "Nome do projeto/missão (ex: Autono+ SaaS).",
+            "goal": "Objetivo principal da missão.",
+            "tasks": "Lista opcional de tarefas ou string separada por vírgulas.",
+        },
+    )
+
+    def _tool_update_mission_progress(project: str, task_completed: str = "", progress_delta: float = 0.0, current_task: str = ""):
+        """Atualiza progresso da missão ativa (Project Brain)."""
+        ok = update_mission_progress(
+            project=project,
+            task_completed=task_completed if task_completed else None,
+            progress_delta=progress_delta,
+            current_task=current_task if current_task else None,
+        )
+        return {"ok": ok, "message": "Progresso atualizado" if ok else "Missão não encontrada"}
+
+    register_tool(
+        name="update_mission_progress",
+        fn=_tool_update_mission_progress,
+        description="Project Brain: atualiza o progresso da missão ativa após concluir uma tarefa. Use quando terminar uma etapa da missão.",
+        schema={
+            "project": "Nome do projeto da missão (ex: Autono+ SaaS).",
+            "task_completed": "Tarefa que acabou de concluir (remover da lista).",
+            "progress_delta": "Incremento de progresso (0.0 a 1.0, ex: 0.2 = +20%).",
+            "current_task": "Próxima tarefa em foco.",
+        },
+    )
+
     # Carrega plugins externos (se houver)
     load_plugins()
 
