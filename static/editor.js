@@ -20,19 +20,20 @@
         resolve();
         return;
       }
-      var baseUrl = "https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min";
       var script = document.createElement("script");
-      script.src = baseUrl + "/vs/loader.js";
+      script.src = "https://cdn.jsdelivr.net/npm/@monaco-editor/loader@1.7.0/lib/umd/monaco-loader.min.js";
       script.async = true;
       script.onload = function () {
-        window.require.config({
-          paths: { vs: baseUrl + "/vs" },
-          "vs/nls": { availableLanguages: {} },
-        });
-        window.require(["vs/editor/editor.main"], function () {
+        var loaderFn = window.monaco_loader || window.monacoLoader || window.loader;
+        if (!loaderFn || typeof loaderFn.init !== "function") {
+          reject(new Error("Monaco loader não carregou"));
+          return;
+        }
+        loaderFn.init().then(function (monaco) {
+          window.monaco = monaco;
           monacoLoaded = true;
           resolve();
-        }, reject);
+        }).catch(reject);
       };
       script.onerror = reject;
       document.head.appendChild(script);

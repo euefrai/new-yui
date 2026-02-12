@@ -1,6 +1,18 @@
 (function () {
   "use strict";
 
+  function apiUrl(path) {
+    var origin = window.location.origin || "";
+    if (!origin && window.location.protocol && window.location.host) {
+      origin = window.location.protocol + "//" + window.location.host;
+    }
+    if (window.location.protocol === "http:" && window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1") {
+      origin = "https://" + window.location.host;
+    }
+    return origin + (path.charAt(0) === "/" ? path : "/" + path);
+  }
+  window.apiUrl = apiUrl;
+
   var user = null;
   var chatAtual = null;
   var currentChatTitulo = null;
@@ -98,7 +110,7 @@
     link.setAttribute("download", url.split("/").pop() || "projeto.zip");
     link.addEventListener("click", function (e) {
       e.preventDefault();
-      fetch(url).then(function (r) {
+      fetch(apiUrl(url)).then(function (r) {
         if (!r.ok) throw new Error(" ainda gerando");
         return r.blob();
       }).then(function (blob) {
@@ -119,7 +131,7 @@
     var pollInterval = setInterval(function () {
       pollCount++;
       if (pollCount > 30) { clearInterval(pollInterval); return; }
-      fetch("/api/system/pending_downloads").then(function (r) { return r.json(); }).then(function (data) {
+      fetch(apiUrl("/api/system/pending_downloads")).then(function (r) { return r.json(); }).then(function (data) {
         if (data.ok && (data.urls || []).indexOf(url) >= 0) {
           clearInterval(pollInterval);
           link.setAttribute("data-ready", "1");
@@ -176,7 +188,7 @@
     }
     showWorkspaceProgress(true, 0, "Sincronizando Projeto...");
     var payload = { actions: actions.map(function (a) { return { action: a.action, path: a.path, content: a.content || "" }; }) };
-    fetch("/api/sandbox/multi-save", {
+    fetch(apiUrl("/api/sandbox/multi-save"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
@@ -364,7 +376,7 @@
         var orig = btn.textContent;
         btn.textContent = "Salvando...";
         btn.disabled = true;
-        fetch("/api/sandbox/save", {
+        fetch(apiUrl("/api/sandbox/save"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ files: [{ path: path, content: code }] }),
@@ -485,7 +497,7 @@
     workspaceOpen = !workspaceOpen;
     setWorkspacePref(workspaceOpen);
     try {
-      fetch("/api/system/events", {
+      fetch(apiUrl("/api/system/events"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ event: "workspace_toggled", data: { open: workspaceOpen } })
@@ -508,8 +520,75 @@
       mainSplit.classList.toggle("editor-hidden", !workspaceOpen);
     }
     if (btn) btn.classList.toggle("workspaceClosed", !workspaceOpen);
+    var chatAreaEl = document.getElementById("chatArea");
+    if (chatAreaEl) {
+      if (workspaceOpen && window.restoreChatWidth) window.restoreChatWidth();
+      else if (!workspaceOpen && window.clearChatWidth) window.clearChatWidth();
+    }
     if (workspaceOpen) setTimeout(function () { window.dispatchEvent(new Event("resize")); }, 420);
   }
+  function initMainSplitResizer() {
+    var resizer = document.getElementById("mainSplitResizer");
+    var chatArea = document.getElementById("chatArea");
+    var workspacePanel = document.getElementById("workspacePanel");
+    var mainSplit = document.querySelector(".mainSplit");
+    if (!resizer || !chatArea || !workspacePanel || !mainSplit) return;
+    var STORAGE_KEY = "yui_chat_width";
+    var MIN_CHAT = 280;
+    var MAX_CHAT_PERCENT = 0.6;
+    function getMaxChatWidth() {
+      return Math.floor(mainSplit.offsetWidth * MAX_CHAT_PERCENT);
+    }
+    function applyChatWidth(w) {
+      var maxW = getMaxChatWidth();
+      w = Math.max(MIN_CHAT, Math.min(maxW, w));
+      chatArea.style.flex = "0 0 " + w + "px";
+      chatArea.style.minWidth = w + "px";
+      chatArea.style.maxWidth = w + "px";
+      try { localStorage.setItem(STORAGE_KEY, String(w)); } catch (e) {}
+    }
+    function clearChatWidth() {
+      chatArea.style.flex = "";
+      chatArea.style.minWidth = "";
+      chatArea.style.maxWidth = "";
+    }
+    window.restoreChatWidth = function () {
+      try {
+        var saved = parseInt(localStorage.getItem(STORAGE_KEY), 10);
+        if (saved && saved >= MIN_CHAT) applyChatWidth(saved);
+        else clearChatWidth();
+      } catch (e) { clearChatWidth(); }
+    };
+    window.clearChatWidth = clearChatWidth;
+    try {
+      var saved = parseInt(localStorage.getItem(STORAGE_KEY), 10);
+      if (saved && saved >= MIN_CHAT) applyChatWidth(saved);
+    } catch (e) {}
+    var dragging = false;
+    var startX = 0;
+    var startWidth = 0;
+    resizer.addEventListener("mousedown", function (e) {
+      if (e.button !== 0) return;
+      if (mainSplit.classList.contains("workspaceCollapsed") || mainSplit.classList.contains("editor-hidden")) return;
+      dragging = true;
+      resizer.classList.add("resizing");
+      startX = e.clientX;
+      startWidth = chatArea.offsetWidth;
+      e.preventDefault();
+    });
+    document.addEventListener("mousemove", function (e) {
+      if (!dragging) return;
+      var dx = e.clientX - startX;
+      applyChatWidth(startWidth + dx);
+    });
+    document.addEventListener("mouseup", function () {
+      if (dragging) {
+        dragging = false;
+        resizer.classList.remove("resizing");
+      }
+    });
+  }
+
   function initWorkspaceToggle() {
     workspaceOpen = getWorkspacePref();
     var mainSplit = document.querySelector(".mainSplit");
@@ -519,6 +598,11 @@
       mainSplit.classList.toggle("editor-hidden", !workspaceOpen);
     }
     if (btn) btn.classList.toggle("workspaceClosed", !workspaceOpen);
+    var chatAreaEl = document.getElementById("chatArea");
+    if (chatAreaEl && window.restoreChatWidth && window.clearChatWidth) {
+      if (workspaceOpen) window.restoreChatWidth();
+      else window.clearChatWidth();
+    }
     if (btn) btn.addEventListener("click", toggleWorkspace);
     document.addEventListener("keydown", function (e) {
       if (e.ctrlKey && e.key === "l") {
@@ -541,6 +625,7 @@
   function showApp() {
     if (loginScreen) loginScreen.style.display = "none";
     if (appScreen) appScreen.style.display = "flex";
+    initMainSplitResizer();
     initWorkspaceToggle();
     if (userName && user) userName.textContent = user.email || user.nome || "Usuário";
     if (userMenuName && user) userMenuName.textContent = user.email || user.nome || "Usuário";
@@ -674,8 +759,9 @@
       var msg = prompt("Mensagem do commit:", "Deploy via Yui");
       if (msg === null) return;
       deployYuiBtn.disabled = true;
+      deployYuiBtn.classList.add("loading");
       deployYuiBtn.textContent = "Enviando...";
-      fetch("/api/sandbox/deploy", {
+      fetch(apiUrl("/api/sandbox/deploy"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message: msg || "Deploy via Yui" }),
@@ -688,6 +774,7 @@
         .catch(function (e) { alert("Erro de rede: " + (e.message || "")); })
         .finally(function () {
           deployYuiBtn.disabled = false;
+          deployYuiBtn.classList.remove("loading");
           deployYuiBtn.textContent = "Deploy via Yui";
         });
     });
@@ -699,7 +786,7 @@
       try {
         var body = {};
         if (user && user.id) body.user_id = user.id;
-        await fetch("/clear_chat", {
+        await fetch(apiUrl("/clear_chat"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(body),
@@ -741,7 +828,7 @@
   async function carregarPerfilUsuario() {
     if (!user || !user.id) return;
     try {
-      var res = await fetch("/api/user/profile/get", {
+      var res = await fetch(apiUrl("/api/user/profile/get"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ user_id: user.id })
@@ -766,7 +853,7 @@
         linguagens_pref: prefLangs ? prefLangs.value : null
       };
       try {
-        await fetch("/api/user/profile", {
+        await fetch(apiUrl("/api/user/profile"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(body)
@@ -779,7 +866,7 @@
   async function carregarChats(skipLoadMessages) {
     if (!user || !user.id) return;
     try {
-      var res = await fetch("/api/chats/" + encodeURIComponent(user.id));
+      var res = await fetch(apiUrl("/api/chats/" + encodeURIComponent(user.id)));
       var chats = await res.json();
       if (!Array.isArray(chats)) chats = [];
       var lastId = getLastChatId();
@@ -930,7 +1017,7 @@
             }
             var ctx = "";
             try { ctx = sessionStorage.getItem("yui_lesson_context") || ""; } catch (e) {}
-            fetch("/api/sandbox/lessons", {
+            fetch(apiUrl("/api/sandbox/lessons"), {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ error: lessonError, correction: correction.slice(0, 2000), context: ctx }),
@@ -1011,7 +1098,7 @@
       chat.innerHTML = "<div class=\"chatVazio chatLoading\">Carregando mensagens...</div>";
     }
     try {
-      var url = "/api/messages/" + encodeURIComponent(loadingFor) + "?user_id=" + encodeURIComponent(user.id);
+      var url = apiUrl("/api/messages/" + encodeURIComponent(loadingFor) + "?user_id=" + encodeURIComponent(user.id));
       var res = await fetch(url, {
         signal: messagesAbortController.signal
       });
@@ -1044,7 +1131,7 @@
   async function criarNovoChat() {
     if (!user || !user.id) return null;
     try {
-      var res = await fetch("/api/chat/new", {
+      var res = await fetch(apiUrl("/api/chat/new"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ user_id: user.id })
@@ -1060,7 +1147,7 @@
   async function excluirChat(chatId) {
     if (!user || !user.id) return;
     try {
-      var res = await fetch("/api/chat/delete", {
+      var res = await fetch(apiUrl("/api/chat/delete"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ user_id: user.id, chat_id: chatId })
@@ -1117,7 +1204,7 @@
     btnSave.addEventListener("click", function () {
       var novo = textarea.value.trim();
       if (!novo) return;
-      fetch("/api/message/edit", {
+      fetch(apiUrl("/api/message/edit"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message_id: messageId, user_id: user.id, action: "edit", new_content: novo })
@@ -1177,7 +1264,7 @@
     if (!user || !user.id) return;
     var messageId = bubble && bubble.dataset ? bubble.dataset.messageId : null;
     if (!messageId) return;
-    fetch("/api/message/delete", {
+    fetch(apiUrl("/api/message/delete"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ message_id: messageId, user_id: user.id })
@@ -1219,7 +1306,7 @@
   }
 
   function atualizarTituloChat(chatId, firstMessage) {
-    fetch("/api/chat/title", {
+    fetch(apiUrl("/api/chat/title"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ chat_id: chatId, user_id: user.id, first_message: firstMessage })
@@ -1293,7 +1380,7 @@
 
         var formData = new FormData();
         formData.append("file", pendingFile);
-        fetch("/api/upload", { method: "POST", body: formData })
+        fetch(apiUrl("/api/upload"), { method: "POST", body: formData })
           .then(function (r) { return r.json(); })
           .then(function (data) {
             assistantBubble.textContent = data.response || data.error || "Erro ao analisar o arquivo.";
@@ -1320,7 +1407,7 @@
 
         if (btnEnviar) btnEnviar.disabled = true;
 
-        fetch("/api/send", {
+        fetch(apiUrl("/api/send"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ user_id: user.id, chat_id: chatId, message: texto, model: getCurrentModel() })
@@ -1371,7 +1458,7 @@
             body.console_errors = ctx.console_errors || [];
           }
           body.workspace_open = window.getWorkspaceOpen ? window.getWorkspaceOpen() : false;
-          fetch("/api/chat/stream", {
+          fetch(apiUrl("/api/chat/stream"), {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(body)
@@ -1555,7 +1642,7 @@
   }
 
   function fetchSystemHealth() {
-    fetch("/api/system/health")
+    fetch(apiUrl("/api/system/health"))
       .then(function (r) { return r.json(); })
       .then(function (data) {
         var bar = document.getElementById("systemHealthBar");
@@ -1585,7 +1672,7 @@
   }
 
   function fetchTelemetry() {
-    fetch("/api/system/telemetry")
+    fetch(apiUrl("/api/system/telemetry"))
       .then(function (r) { return r.json(); })
       .then(function (data) {
         var costEl = document.getElementById("telemetryCost");
@@ -1617,7 +1704,7 @@
   }
 
   function fetchCognitive() {
-    fetch("/api/system/cognitive")
+    fetch(apiUrl("/api/system/cognitive"))
       .then(function (r) { return r.json(); })
       .then(function (data) {
         var confEl = document.getElementById("cognitiveConfidence");
@@ -1638,7 +1725,7 @@
   }
 
   function fetchSkills() {
-    fetch("/api/system/skills")
+    fetch(apiUrl("/api/system/skills"))
       .then(function (r) { return r.json(); })
       .then(function (data) {
         var ul = document.getElementById("skillsList");
@@ -1660,7 +1747,7 @@
   }
 
   function fetchActivity() {
-    fetch("/api/system/observability")
+    fetch(apiUrl("/api/system/observability"))
       .then(function (r) { return r.json(); })
       .then(function (data) {
         var ul = document.getElementById("activityList");
@@ -1707,7 +1794,7 @@
     if (!user || !user.id) return;
     var uid = encodeURIComponent(user.id);
     var cid = chatAtual ? encodeURIComponent(chatAtual) : "";
-    var url = "/api/missions?user_id=" + uid + (cid ? "&chat_id=" + cid : "");
+    var url = apiUrl("/api/missions?user_id=" + uid + (cid ? "&chat_id=" + cid : ""));
     fetch(url)
       .then(function (r) { return r.json(); })
       .then(function (data) {

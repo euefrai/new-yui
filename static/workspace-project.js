@@ -102,7 +102,7 @@
     saveCurrentToCache();
     if (!projectFiles.hasOwnProperty(path)) {
       if (sandboxMode) {
-        fetch("/api/sandbox/read?path=" + encodeURIComponent(path))
+        fetch((window.apiUrl || function(p){return p;})("/api/sandbox/read?path=" + encodeURIComponent(path)))
           .then(function (r) { return r.json(); })
           .then(function (data) {
             if (data.ok) {
@@ -168,7 +168,7 @@
     if (list) list.innerHTML = "<div class='fileTreeLoading'>Carregando...</div>";
     if (empty) empty.style.display = "none";
     if (list) list.style.display = "block";
-    fetch("/api/sandbox/list?path=.")
+    fetch((window.apiUrl || function(p){return p;})("/api/sandbox/list?path=."))
       .then(function (r) { return r.json(); })
       .then(function (data) {
         if (!data.ok) {
@@ -204,7 +204,7 @@
           if (isOpen && !sandboxExpandedChildren[path]) {
             sandboxExpandedChildren[path] = true;
             childWrap.innerHTML = "<div class='fileTreeLoading'>Carregando...</div>";
-            fetch("/api/sandbox/list?path=" + encodeURIComponent(path))
+            fetch((window.apiUrl || function(p){return p;})("/api/sandbox/list?path=" + encodeURIComponent(path)))
               .then(function (r) { return r.json(); })
               .then(function (data) {
                 if (data.ok) renderSandboxTree(data.entries || [], childWrap, depth + 1, path);
@@ -331,7 +331,7 @@
     }
     var ts = new Date().toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "medium" });
     logToConsole("[" + ts + "] $ Executando...", false);
-    fetch("/api/sandbox/execute", {
+    fetch((window.apiUrl || function(p){return p;})("/api/sandbox/execute"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ code: code, lang: lang, timeout: 15 }),
@@ -371,7 +371,7 @@
       return;
     }
     logToConsole("$ Salvando " + files.length + " arquivo(s) no sandbox...", false);
-    fetch("/api/sandbox/save", {
+    fetch((window.apiUrl || function(p){return p;})("/api/sandbox/save"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ files: files }),
@@ -461,6 +461,10 @@
       }
       return css ? "<style>" + css + "</style>" : m;
     });
+    var styleCss = projectFiles["style.css"] || projectFiles["Style.css"];
+    if (styleCss && injectedCss.indexOf(styleCss) < 0 && !/<link[^>]*href=["'][^"']*style\.css["']/i.test(html)) {
+      injectedCss.push(styleCss);
+    }
     if (injectedCss.length > 0) {
       var cssBlock = "<style>" + injectedCss.join("\n") + "</style>";
       if (/<head[^>]*>/i.test(html)) {

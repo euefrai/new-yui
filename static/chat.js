@@ -27,7 +27,7 @@
     var lista = getListaChats();
     if (!lista) return;
     try {
-      var res = await fetch("/api/chats/" + encodeURIComponent(user_id));
+      var res = await fetch((window.apiUrl || function(p){return p;})("/api/chats/" + encodeURIComponent(user_id)));
       var chats = await res.json();
       if (!Array.isArray(chats)) chats = [];
       lista.innerHTML = "";
@@ -56,7 +56,7 @@
       return;
     }
     try {
-      var res = await fetch("/api/messages/" + encodeURIComponent(currentChat));
+      var res = await fetch((window.apiUrl || function(p){return p;})("/api/messages/" + encodeURIComponent(currentChat)));
       var msgs = await res.json();
       if (!Array.isArray(msgs)) msgs = [];
       chat.innerHTML = "";
@@ -72,7 +72,7 @@
   async function newChat() {
     if (!user_id) return;
     try {
-      var res = await fetch("/api/chat/new", {
+      var res = await fetch((window.apiUrl || function(p){return p;})("/api/chat/new"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ user_id: user_id })
@@ -96,7 +96,7 @@
     if (!text) return;
     if (input) input.value = "";
     try {
-      var res = await fetch("/api/send", {
+      var res = await fetch((window.apiUrl || function(p){return p;})("/api/send"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

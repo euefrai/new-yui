@@ -713,7 +713,7 @@ body.theme-light .inputArea {
   transform: translateY(-1px);
 }
 
-/* ========== Split Layout: Chat (flex 1) + Workspace (flex 1.5) ========== */
+/* ========== Split Layout: Chat + Resizer + Workspace ========== */
 .mainSplit {
   flex: 1;
   display: flex;
@@ -723,15 +723,33 @@ body.theme-light .inputArea {
 
 .chatArea {
   flex: 1;
+  min-width: 280px;
+  max-width: 60%;
   display: flex;
   flex-direction: column;
   align-items: center;
-  min-width: 0;
   width: 100%;
   background: var(--bg);
   padding-right: 0;
   border-right: 1px solid var(--border);
-  transition: all 0.25s ease;
+  transition: border-color 0.2s;
+}
+
+.mainSplitResizer {
+  width: 6px;
+  flex-shrink: 0;
+  background: var(--border);
+  cursor: col-resize;
+  transition: background 0.15s;
+}
+.mainSplitResizer:hover,
+.mainSplitResizer.resizing {
+  background: var(--accent);
+}
+.mainSplit.workspaceCollapsed .mainSplitResizer,
+.mainSplit.editor-hidden .mainSplitResizer {
+  width: 0;
+  display: none;
 }
 
 .mainSplit.workspaceCollapsed .chatArea,
@@ -758,6 +776,7 @@ body.theme-light .inputArea {
 
 .workspacePanel {
   flex: 1.5;
+  min-width: 320px;
   transition: all 0.25s ease;
 }
 
@@ -1876,6 +1895,7 @@ body.model-heathcliff .btn-download {
 
 /* Deploy via Yui */
 .btnDeployYui {
+  position: relative;
   width: 100%;
   padding: 10px 14px;
   margin: 8px 0;
@@ -1889,6 +1909,26 @@ body.model-heathcliff .btn-download {
   transition: var(--transition-fast);
 }
 
+.btnDeployYui.loading {
+  color: transparent;
+  pointer-events: none;
+}
+.btnDeployYui.loading::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 16px;
+  height: 16px;
+  margin: -8px 0 0 -8px;
+  border: 2px solid rgba(255,255,255,0.4);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: deploySpinner 0.6s linear infinite;
+}
+@keyframes deploySpinner {
+  to { transform: rotate(360deg); }
+}
 .btnDeployYui:hover {
   background: linear-gradient(135deg, rgba(255, 193, 7, 0.35) 0%, rgba(255, 152, 0, 0.3) 100%);
   box-shadow: 0 1px 3px rgba(0,0,0,0.06);
