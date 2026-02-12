@@ -229,6 +229,8 @@ body.theme-light .inputArea {
   padding: 16px 12px;
   padding-left: calc(12px + env(safe-area-inset-left));
   transition: width 0.25s ease, min-width 0.25s ease;
+  overflow-y: auto;
+  min-height: 0;
 }
 
 .logo {
