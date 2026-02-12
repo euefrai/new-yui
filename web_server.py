@@ -56,6 +56,21 @@ try:
 except Exception as e:
     print(f"⚠️ Plugin loader: {e}")
 
+# Capability Loader: escaneia capabilities/ e registra no Task Engine
+try:
+    from core.task_engine import get_task_engine
+    from core.capability_loader import list_loaded
+    get_task_engine()  # dispara carregamento
+    caps = list_loaded()
+    if caps:
+        print("🔎 Capabilities carregadas:")
+        for c in caps:
+            print(f"   ✔ {c}")
+    else:
+        print("🔎 Capabilities: fallback bootstrap")
+except Exception as e:
+    print(f"⚠️ Capability loader: {e}")
+
 
 if __name__ == "__main__":
     import os

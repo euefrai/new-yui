@@ -145,6 +145,7 @@ def api_chat_stream():
                 confirm_high_cost=confirm_high_cost,
                 active_files=active_files,
                 console_errors=console_errors,
+                workspace_open=workspace_open,
             ):
                 yield f"data: {json.dumps(chunk)}\n\n"
             yield f"data: {json.dumps('__STATUS__:done')}\n\n"

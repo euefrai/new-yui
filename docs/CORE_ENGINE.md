@@ -196,7 +196,83 @@ for passo in passos:
 
 Streaming: emite `__STATUS__:planejando`, `__STATUS__:executing_tools:📁 Criando arquivos...`.
 
-### 11. Task Scheduler (`core/task_scheduler.py`)
+### 11. Context Engine (`core/context_engine.py`)
+
+**Memória operacional (RAM)** — não vai pro banco nem pro RAG. Só existe enquanto a sessão está viva.
+
+- `get_context(user_id, chat_id)` — engine por sessão
+- `ctx.set(chave, valor)` / `ctx.get(chave)` — estado operacional
+- Chaves: `modo`, `arquivo_aberto`, `task_ativa`, `ultimo_erro`, `workspace_open`
+- `to_prompt_snippet()` — injeta no prompt da IA
+- `update_from_snapshot()` — atualiza a partir de workspace_open, active_files
+
+Evita: IA esquece workspace, Planner recalcula tudo, CPU sobe.
+Permite: Heathcliff "lembra" o que está fazendo.
+
+```python
+from core.context_engine import get_context, update_from_snapshot
+
+ctx = get_context(user_id, chat_id)
+ctx.set("modo", "workspace")
+ctx.set("arquivo_aberto", "app.py")
+snippet = ctx.to_prompt_snippet()  # "[Estado operacional] Modo atual: workspace. Arquivo aberto: app.py."
+```
+
+Fluxo: Intent → Context Engine → Planner → Task
+
+### 12. Workspace Indexer (`core/workspace_indexer.py`)
+
+**Mapa mental do projeto** — snapshot leve. NÃO é RAG. NÃO é memória longa.
+
+- `scan(base_path?)` — retorna `{python: [...], html: [...], css: [...], js: [...], total, extensoes}`
+- `to_prompt_snippet(mapa)` — injeta no prompt: "Projeto: 12 Python, 3 HTML. Último editado: app.py."
+- `should_split_task(mapa, threshold?)` — sugere dividir quando muitos arquivos
+
+Integração: quando workspace abre, Context Engine faz scan e armazena `workspace_map`.
+API: `GET /api/system/workspace_index?base=sandbox`
+
+### 13. Execution Guard (`core/execution_guard.py`)
+
+**Resource Manager** — vigia CPU, RAM antes de executar tarefas. Evita SIGKILL.
+
+- `memoria_ok(limite_mb?)` — RAM usada < limite
+- `cpu_ok(limite?)` — CPU % < limite
+- `pode_executar()` — RAM e CPU ok
+- `wait_if_needed()` — espera até ok ou timeout (30s)
+
+Fluxo: Planner → Execution Guard → Task Engine
+Se recursos altos: guard espera até normalizar ou timeout.
+
+```python
+from core.execution_guard import get_guard
+
+guard = get_guard()
+if guard.pode_executar().ok:
+    task_engine.executar("criar_projeto_arquivos", ...)
+else:
+    guard.wait_if_needed()  # ou time.sleep(1)
+```
+
+Env: `YUI_GUARD_RAM_MB=1500`, `YUI_GUARD_CPU_PCT=85`, `YUI_GUARD_RAM_PCT=85` (alternativo %).
+
+### 14. Capability Loader (`core/capability_loader.py`)
+
+**Sistema de plugins dinâmicos** — qualquer `cap_*.py` em `core/capabilities/` vira skill automaticamente.
+
+- `carregar_capabilities(task_engine)` — escaneia e chama `register(task_engine)` em cada módulo
+- `list_loaded()` — capabilities já carregadas
+- Sem hardcode. Core = estável. Capabilities = experimentais.
+
+```python
+# core/capabilities/cap_editor.py
+def register(task_engine):
+    task_engine.registrar("editar_arquivo", editar_arquivo)
+```
+
+Startup: `🔎 Capabilities carregadas: ✔ cap_editor ✔ cap_zip ✔ cap_analysis ✔ cap_web`
+API: `GET /api/system/capabilities`
+
+### 15. Task Scheduler (`core/task_scheduler.py`)
 
 **Ações assíncronas** — separa imediato vs fila vs background.
 
@@ -211,14 +287,14 @@ from core.task_scheduler import get_scheduler
 get_scheduler().add(lambda d: indexar_projeto(d), data=raiz)
 ```
 
-### 12. Pending Downloads (`core/pending_downloads.py`)
+### 16. Pending Downloads (`core/pending_downloads.py`)
 
 URLs de arquivos gerados em background (ex: ZIP). Frontend faz poll para saber quando está pronto.
 
 - `add_ready(url)` — registra download pronto
 - `get_recent(since?)` — retorna URLs prontas (TTL 5 min)
 
-### 13. Skill Registry (`core/skills/registry.py`)
+### 17. Skill Registry (`core/skills/registry.py`)
 
 **Registro dinâmico de habilidades** — Router NÃO conhece agentes. Router consulta Registry.
 
@@ -235,7 +311,7 @@ skill = find_skill("code_generation")  # → Skill(agent="heathcliff", ...)
 register_skill("design-mockup", "design_agent", ["design", "ui"])  # plugin novo
 ```
 
-### 14. Confidence Engine (`core/router/confidence_engine.py`)
+### 18. Confidence Engine (`core/router/confidence_engine.py`)
 
 **Roteamento probabilístico** — ranking de agentes por score.
 
@@ -254,7 +330,7 @@ ranked = engine.score(Intent(type="code_generation"), get_all_skills())
 best = engine.best_agent(ranked)  # fallback se score < 0.4
 ```
 
-### 15. Capability Router (`core/capability_router.py`)
+### 19. Capability Router (`core/capability_router.py`)
 
 **Roteador de habilidades** — decide qual módulo resolve antes do planner.
 
@@ -271,7 +347,7 @@ dec = route(user_message, intention="analisar_projeto")
 # dec.target = "heathcliff", dec.skip_planner = True (via confidence engine)
 ```
 
-### 16. Observability Layer (`core/observability.py`)
+### 20. Observability Layer (`core/observability.py`)
 
 **Consciência interna** — rastreamento de ações e timeline.
 
@@ -283,7 +359,7 @@ dec = route(user_message, intention="analisar_projeto")
 
 Integrado em: Execution Graph (Trace por nó), Task Scheduler (Trace por task), Resource Governor (bloqueios).
 
-### 17. Sandbox Executor (`core/sandbox_executor/runner.py`)
+### 21. Sandbox Executor (`core/sandbox_executor/runner.py`)
 
 Execução isolada — anti-SIGKILL:
 - subprocess isolado
@@ -297,7 +373,7 @@ from core.sandbox_executor import run_code
 result = run_code("print(1+1)", lang="python", timeout=30)
 ```
 
-### 18. Plugin Loader (`core/plugins_loader.py`)
+### 22. Plugin Loader (`core/plugins_loader.py`)
 
 - **scan**: descobre plugins em `plugins/`
 - **register**: registra tools no `tools_registry`
@@ -339,6 +415,9 @@ Routing exibido em System Activity: "→ Heathcliff (Engineering) (skip planner)
 |----------|-----------|
 | `GET /health` | CPU, RAM, modo (normal/fast/critical) |
 | `GET /telemetry` | Custo acumulado, energia |
+| `GET /guard` | Execution Guard — can_execute, ram_used_mb, cpu_percent |
+| `GET /capabilities` | Capability Loader — capabilities carregadas |
+| `GET /workspace_index` | Workspace Indexer — mapa do projeto (?base=sandbox) |
 | `GET /governor` | allow_preview, allow_planner, allow_heavy_agent |
 | `GET /scheduler` | queue_size da fila de tarefas |
 | `GET /observability` | timeline (spans com ms) + activity (System Activity) |

@@ -54,6 +54,11 @@ def clear_chat():
         memory.clear(user_id)
         from core.session_manager import clear_session
         clear_session(user_id)
+        try:
+            from core.context_engine import clear_session as clear_operational_context
+            clear_operational_context(user_id)
+        except Exception:
+            pass
         return jsonify({"status": "ok"}), 200
     except Exception as e:
         return jsonify({"status": "error", "error": str(e)}), 500
@@ -250,6 +255,27 @@ def api_system_events():
         return jsonify({"ok": False, "error": str(e)}), 500
 
 
+@system_bp.get("/guard")
+def api_system_guard():
+    """
+    Execution Guard — status de recursos (RAM, CPU) antes de executar tarefas.
+    """
+    try:
+        from core.execution_guard import get_guard
+        d = get_guard().pode_executar()
+        return jsonify({
+            "ok": True,
+            "can_execute": d.ok,
+            "reason": d.reason,
+            "ram_used_mb": round(d.ram_used_mb, 1),
+            "ram_limit_mb": d.ram_limit_mb,
+            "cpu_percent": round(d.cpu_percent, 1),
+            "cpu_limit": d.cpu_limit,
+        })
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e), "can_execute": True}), 500
+
+
 @system_bp.get("/governor")
 def api_system_governor():
     """
@@ -329,6 +355,33 @@ def api_system_skills():
         return jsonify({"ok": True, "skills": skills})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e), "skills": []}), 500
+
+
+@system_bp.get("/workspace_index")
+def api_system_workspace_index():
+    """
+    Workspace Indexer — mapa mental do projeto (snapshot leve).
+    """
+    try:
+        from core.workspace_indexer import scan
+        base = request.args.get("base")
+        mapa = scan(base)
+        return jsonify({"ok": True, "mapa": mapa})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e), "mapa": {}}), 500
+
+
+@system_bp.get("/capabilities")
+def api_system_capabilities():
+    """
+    Capability Loader — capabilities carregadas dinamicamente.
+    """
+    try:
+        from core.capability_loader import list_loaded
+        caps = list_loaded()
+        return jsonify({"ok": True, "capabilities": caps})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e), "capabilities": []}), 500
 
 
 @system_bp.get("/tasks/active")

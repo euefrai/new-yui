@@ -79,6 +79,7 @@ def montar_contexto_ia(
         "long_term_memory": "",
         "system_state": "",
         "session_context": "",
+        "operational_context": "",
         "user_profile": {},
     }
 
@@ -139,6 +140,13 @@ def montar_contexto_ia(
         out["session_context"] = get_session_contexto(user_id, chat_id) or ""
     except Exception:
         out["session_context"] = ""
+
+    # Context Engine: memória operacional (modo, arquivo_aberto, workspace_open)
+    try:
+        from core.context_engine import get_context
+        out["operational_context"] = get_context(user_id, chat_id).to_prompt_snippet() or ""
+    except Exception:
+        out["operational_context"] = ""
 
     # Context Kernel: snapshot unificado (arquivos ativos, erros do console)
     if context_snapshot:

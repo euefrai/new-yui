@@ -89,6 +89,11 @@ class TaskEngine:
 
         emit("task_queued", task_id=tid, fn_name=nome)
         try:
+            try:
+                from core.execution_guard import get_guard
+                get_guard().wait_if_needed()
+            except Exception:
+                pass
             result = fn(*args, **kwargs)
             info.status = "done"
             info.ended_at = time.time()
@@ -123,6 +128,11 @@ class TaskEngine:
 
         emit("task_queued", task_id=tid, fn_name=tool_name)
         try:
+            try:
+                from core.execution_guard import get_guard
+                get_guard().wait_if_needed()
+            except Exception:
+                pass
             out = run_tool(tool_name, args or {})
             info.status = "done"
             info.ended_at = time.time()
@@ -249,14 +259,28 @@ def get_task_engine() -> TaskEngine:
     global _engine
     if _engine is None:
         _engine = TaskEngine()
-        _bootstrap_tasks(_engine)
+        _load_capabilities(_engine)
     return _engine
+
+
+def _load_capabilities(engine: TaskEngine) -> None:
+    """
+    Carrega capabilities dinamicamente (core/capabilities/cap_*.py).
+    Fallback: _bootstrap_tasks se nenhuma capability carregar.
+    """
+    try:
+        from core.capability_loader import carregar_capabilities
+        loaded = carregar_capabilities(engine)
+        if loaded:
+            return
+    except Exception:
+        pass
+    _bootstrap_tasks(engine)
 
 
 def _bootstrap_tasks(engine: TaskEngine) -> None:
     """
-    Registra tarefas que mapeiam para tools.
-    Permite execução via task_engine.executar("editar_arquivo", dados).
+    Fallback: registra tarefas quando capabilities não carregam.
     """
     from core.tool_runner import run_tool
 

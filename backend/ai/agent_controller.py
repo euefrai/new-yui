@@ -497,6 +497,7 @@ def agent_controller(
     confirm_high_cost: bool = False,
     active_files: Optional[list] = None,
     console_errors: Optional[list] = None,
+    workspace_open: bool = False,
 ) -> Generator[str, None, None]:
     """
     Fluxo central da YUI.
@@ -533,6 +534,13 @@ def agent_controller(
         try:
             from core.agent_context import set_agent_context
             set_agent_context(user_id, chat_id)
+        except Exception:
+            pass
+
+        # ---------- Context Engine: memória operacional (workspace, arquivo aberto) ----------
+        try:
+            from core.context_engine import update_from_snapshot
+            update_from_snapshot(user_id, workspace_open=workspace_open, active_files=active_files, chat_id=chat_id)
         except Exception:
             pass
 
@@ -658,6 +666,11 @@ def agent_controller(
             msgs.insert(0, {
                 "role": "system",
                 "content": ctx["session_context"],
+            })
+        if ctx.get("operational_context"):
+            msgs.insert(0, {
+                "role": "system",
+                "content": ctx["operational_context"],
             })
         if ctx.get("contexto_chat_anterior"):
             msgs.insert(0, {
@@ -900,6 +913,11 @@ def agent_controller(
                         continue
                 label = planner.get_label_for_tool(tool_name)
                 yield f"__STATUS__:executing_tools:{label}"
+                try:
+                    from core.context_engine import get_context
+                    get_context(user_id, chat_id).set("task_ativa", tool_name)
+                except Exception:
+                    pass
                 result = get_task_engine().executar_tool(tool_name, args)
                 emit("tool_executed", tool_name=tool_name, args=args, result=result)
                 tools_executed_this_turn.append(tool_name)
@@ -910,6 +928,11 @@ def agent_controller(
                     errors_detected_this_turn.append(err)
                     set_last_error(err)
                     partes.append(f"Não consegui executar '{tool_name}': {err}")
+                    try:
+                        from core.context_engine import get_context
+                        get_context(user_id, chat_id).set("ultimo_erro", err)
+                    except Exception:
+                        pass
                     # Reflexão: decidir se continua ou para
                     from core.planner import PlanStep
                     refl = refletir({"ok": False, "error": err}, PlanStep(goal="", action="", tool=tool_name))

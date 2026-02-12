@@ -19,6 +19,7 @@ def stream_resposta(
     confirm_high_cost: bool = False,
     active_files: Optional[list] = None,
     console_errors: Optional[list] = None,
+    workspace_open: bool = False,
 ) -> Generator[str, None, None]:
     """Streaming da resposta da YUI (Agent Controller). Lazy loading + cache."""
     try:
@@ -38,6 +39,7 @@ def stream_resposta(
         confirm_high_cost=confirm_high_cost,
         active_files=active_files,
         console_errors=console_errors,
+        workspace_open=workspace_open,
     )
 
 
@@ -84,6 +86,7 @@ def handle_chat_stream(
     confirm_high_cost: bool = False,
     active_files: Optional[list] = None,
     console_errors: Optional[list] = None,
+    workspace_open: bool = False,
 ) -> Generator[str, None, None]:
     """
     Orquestra o stream do chat: cache, intent, tool ou IA. Lazy loading.
@@ -123,6 +126,7 @@ def handle_chat_stream(
         confirm_high_cost=confirm_high_cost,
         active_files=active_files,
         console_errors=console_errors,
+        workspace_open=workspace_open,
     ):
         full_reply.append(chunk)
         yield chunk
