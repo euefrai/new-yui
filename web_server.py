@@ -47,11 +47,13 @@ if __name__ == "__main__":
     import os
     import threading
 
-    # Modo LITE em cloud (Render, Zeabur): menos RAM, sem planner/vector/auto_debug
+    # Modo LITE em cloud (Render, Zeabur, Tencent, VPS): menos RAM, sem planner/vector/auto_debug
     _is_cloud = (
         os.environ.get("RENDER") == "true"
         or os.environ.get("ZEABUR_PROJECT_ID")
         or os.environ.get("ZEABUR_SERVICE_ID")
+        or os.environ.get("TENCENT_CLOUD") == "true"
+        or os.environ.get("YUI_LITE_MODE", "").lower() in ("1", "true", "yes")
     )
     if _is_cloud:
         from core.capabilities import apply_mode
@@ -69,9 +71,5 @@ if __name__ == "__main__":
             print(f"⚠️ Indexação da memória vetorial ignorada: {e}")
 
     threading.Thread(target=_indexar_memoria, daemon=True).start()
-    _debug = settings.FLASK_DEBUG and not (
-        os.environ.get("RENDER") == "true"
-        or os.environ.get("ZEABUR_PROJECT_ID")
-        or os.environ.get("ZEABUR_SERVICE_ID")
-    )
+    _debug = settings.FLASK_DEBUG and not _is_cloud
     app.run(host="0.0.0.0", port=settings.PORT, debug=_debug)

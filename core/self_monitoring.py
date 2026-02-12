@@ -21,8 +21,8 @@ RAM_HIGH_THRESHOLD = 85.0   # % → entra em modo econômico
 CPU_CRITICAL = 95.0
 RAM_CRITICAL = 95.0
 
-# Cache para reduzir CPU: 10s em produção (Zeabur)
-_CACHE_SEC = 10.0
+# Cache para reduzir CPU: 20s em produção (Zeabur, Tencent, VPS)
+_CACHE_SEC = 20.0
 _last_snapshot: Optional[Dict[str, Any]] = None
 _last_snapshot_time: float = 0
 

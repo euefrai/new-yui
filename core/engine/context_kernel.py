@@ -19,7 +19,7 @@ except Exception:
 
 _WORKSPACE_FILES_CACHE: List[str] = []
 _WORKSPACE_FILES_CACHE_TS = 0.0
-_WORKSPACE_CACHE_SEC = 10.0
+_WORKSPACE_CACHE_SEC = 30.0  # 30s para reduzir CPU (evita rglob frequente)
 
 
 @dataclass
@@ -36,7 +36,7 @@ class ContextSnapshot:
 
 
 def _get_workspace_files() -> List[str]:
-    """Lista arquivos no sandbox (raiz do workspace). Cache de 10s para reduzir CPU."""
+    """Lista itens no sandbox (apenas nível raiz — iterdir, não rglob). Cache 30s para reduzir CPU."""
     global _WORKSPACE_FILES_CACHE, _WORKSPACE_FILES_CACHE_TS
     now = time.time()
     if now - _WORKSPACE_FILES_CACHE_TS < _WORKSPACE_CACHE_SEC:
@@ -47,11 +47,13 @@ def _get_workspace_files() -> List[str]:
             _WORKSPACE_FILES_CACHE = []
             _WORKSPACE_FILES_CACHE_TS = now
             return []
+        ignore = {"__pycache__", ".git", "node_modules", ".venv", "venv", ".yui_map.json"}
         out: List[str] = []
-        for p in sandbox.rglob("*"):
-            if p.is_file() and not any(x in p.parts for x in ("__pycache__", ".git", "node_modules")):
-                out.append(str(p.relative_to(sandbox)))
-        _WORKSPACE_FILES_CACHE = out[:100]
+        for p in sandbox.iterdir():
+            if p.name in ignore or (p.name.startswith(".") and p.name not in (".env", ".env.example")):
+                continue
+            out.append(str(p.relative_to(sandbox)).replace("\\", "/") + ("/" if p.is_dir() else ""))
+        _WORKSPACE_FILES_CACHE = sorted(out)[:80]
         _WORKSPACE_FILES_CACHE_TS = now
         return _WORKSPACE_FILES_CACHE
     except Exception:
@@ -91,7 +93,7 @@ def get_context_snapshot(
 
     # Workspace state
     n = len(snapshot.workspace_files)
-    snapshot.workspace_state = f"{n} arquivo(s) no workspace" if n else "Workspace vazio"
+    snapshot.workspace_state = f"{n} itens no workspace (raiz)" if n else "Workspace vazio"
 
     # Chat summary (resumo curto se disponível)
     if user_id and chat_id:

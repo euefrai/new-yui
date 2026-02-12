@@ -1654,7 +1654,7 @@
         fetchCognitive();
         fetchMission();
       }
-    }, 10000);
+    }, 30000);
   }
 
   var originalShowApp = showApp;
