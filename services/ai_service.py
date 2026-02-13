@@ -5,8 +5,8 @@ Rotas chamam o serviço; o serviço usa agent_controller, engine, yui_ai.
 Route -> Service -> Core; rotas NÃO importam yui_ai.
 
 Lazy loading: IA carrega só na primeira requisição (reduz RAM no startup).
-Cache: respostas curtas (oi, obrigado) evitam chamar IA de novo.
-Local Brain: respostas triviais (horas, oi, zipar) sem gastar tokens.
+Intent Router: porteiro — decide Local / Cache / Tools / LLM antes de tudo.
+Local Brain + Cache Brain: 70% resolvido sem IA.
 """
 
 from typing import Any, Generator, Optional, Tuple
@@ -22,8 +22,21 @@ def stream_resposta(
     console_errors: Optional[list] = None,
     workspace_open: bool = False,
 ) -> Generator[str, None, None]:
-    """Streaming da resposta da YUI (Agent Controller). Lazy loading + cache + Local Brain."""
-    # Local Brain: responde trivialidades sem gastar tokens
+    """Streaming da resposta da YUI. Intent Router → Local → Cache → IA."""
+    # Intent Router: roteia antes de tudo
+    try:
+        from yui_ai.core.intent_router import decidir_rota
+        from yui_ai.core.local_brain import responder_local
+        rota = decidir_rota(message)
+        if rota in ("time", "zip_builder", "terminal", "deploy"):
+            resposta_local = responder_local(message)
+            if resposta_local:
+                yield resposta_local
+                return
+    except Exception:
+        pass
+
+    # Local Brain (fallback para oi, etc)
     try:
         from yui_ai.core.local_brain import responder_local
         resposta_local = responder_local(message)
@@ -33,9 +46,10 @@ def stream_resposta(
     except Exception:
         pass
 
+    # Cache Brain (Token Shield): perguntas repetidas = zero tokens
     try:
-        from core.response_cache import get as cache_get, should_cache, set as cache_set
-        cached = cache_get(message)
+        from yui_ai.core.cache_brain import buscar_cache
+        cached = buscar_cache(message)
         if cached:
             yield cached
             return
@@ -44,14 +58,26 @@ def stream_resposta(
 
     from core.ai_loader import get_agent_controller
     agent = get_agent_controller()
-    yield from agent(
+    full_reply: list[str] = []
+    for chunk in agent(
         user_id, chat_id, message,
         model=model,
         confirm_high_cost=confirm_high_cost,
         active_files=active_files,
         console_errors=console_errors,
         workspace_open=workspace_open,
-    )
+    ):
+        full_reply.append(chunk)
+        yield chunk
+
+    # Salvar no cache para reutilizar
+    reply = "".join(full_reply).strip()
+    if reply:
+        try:
+            from yui_ai.core.cache_brain import salvar_cache
+            salvar_cache(message, reply)
+        except Exception:
+            pass
 
 
 def gerar_titulo_chat(first_message: str) -> str:
@@ -64,8 +90,20 @@ def gerar_titulo_chat(first_message: str) -> str:
 def processar_mensagem_sync(
     user_id: str, chat_id: str, message: str, model: str = "yui"
 ) -> str:
-    """Resposta síncrona; usa agent_controller. Lazy loading + cache + Local Brain."""
-    # Local Brain: responde trivialidades sem gastar tokens
+    """Resposta síncrona. Intent Router → Local → Cache → IA."""
+    # Intent Router
+    try:
+        from yui_ai.core.intent_router import decidir_rota
+        from yui_ai.core.local_brain import responder_local
+        rota = decidir_rota(message)
+        if rota in ("time", "zip_builder", "terminal", "deploy"):
+            resposta_local = responder_local(message)
+            if resposta_local:
+                return resposta_local
+    except Exception:
+        pass
+
+    # Local Brain
     try:
         from yui_ai.core.local_brain import responder_local
         resposta_local = responder_local(message)
@@ -74,9 +112,10 @@ def processar_mensagem_sync(
     except Exception:
         pass
 
+    # Cache Brain (Token Shield)
     try:
-        from core.response_cache import get as cache_get, should_cache, set as cache_set
-        cached = cache_get(message)
+        from yui_ai.core.cache_brain import buscar_cache
+        cached = buscar_cache(message)
         if cached:
             return cached
     except Exception:
@@ -89,12 +128,13 @@ def processar_mensagem_sync(
         full.append(chunk)
     reply = "".join(full).strip()
 
-    try:
-        from core.response_cache import should_cache, set as cache_set
-        if should_cache(message) and reply:
-            cache_set(message, reply)
-    except Exception:
-        pass
+    # Salvar no cache para reutilizar
+    if reply:
+        try:
+            from yui_ai.core.cache_brain import salvar_cache
+            salvar_cache(message, reply)
+        except Exception:
+            pass
     return reply
 
 
@@ -109,12 +149,27 @@ def handle_chat_stream(
     workspace_open: bool = False,
 ) -> Generator[str, None, None]:
     """
-    Orquestra o stream do chat: Local Brain, cache, intent, tool ou IA. Lazy loading.
+    Orquestra o stream: Intent Router → Local → Cache → Tools → IA.
     """
     from core.ai_loader import get_session_memory, get_detect_intent, get_tool_executor
     session_memory = get_session_memory()
 
-    # Local Brain: responde trivialidades sem gastar tokens
+    # Intent Router: roteia antes de tudo
+    try:
+        from yui_ai.core.intent_router import decidir_rota
+        from yui_ai.core.local_brain import responder_local
+        rota = decidir_rota(message)
+        if rota in ("time", "zip_builder", "terminal", "deploy"):
+            resposta_local = responder_local(message)
+            if resposta_local:
+                session_memory.add(user_id, "user", message)
+                session_memory.add(user_id, "assistant", resposta_local)
+                yield resposta_local
+                return
+    except Exception:
+        pass
+
+    # Local Brain (fallback)
     try:
         from yui_ai.core.local_brain import responder_local
         resposta_local = responder_local(message)
@@ -126,10 +181,10 @@ def handle_chat_stream(
     except Exception:
         pass
 
-    # Cache: resposta pronta para prompts curtos
+    # Cache Brain (Token Shield)
     try:
-        from core.response_cache import get as cache_get, should_cache, set as cache_set
-        cached = cache_get(message)
+        from yui_ai.core.cache_brain import buscar_cache
+        cached = buscar_cache(message)
         if cached:
             session_memory.add(user_id, "user", message)
             session_memory.add(user_id, "assistant", cached)
@@ -167,13 +222,13 @@ def handle_chat_stream(
     reply = "".join(full_reply)
     session_memory.add(user_id, "assistant", reply)
 
-    # Cache resposta para prompts curtos
-    try:
-        from core.response_cache import should_cache, set as cache_set
-        if should_cache(message) and reply:
-            cache_set(message, reply)
-    except Exception:
-        pass
+    # Salvar no Cache Brain para reutilizar
+    if reply:
+        try:
+            from yui_ai.core.cache_brain import salvar_cache
+            salvar_cache(message, reply)
+        except Exception:
+            pass
 
 
 def improve_message(prompt: str) -> Tuple[str, bool]:

@@ -47,13 +47,31 @@ def responder_local(pergunta: str):
         return "Estou funcionando perfeitamente no servidor 😄"
 
     # =========================
-    # COMPACTAR ARQUIVO
+    # COMPACTAR / ZIP
     # =========================
-    if "compactar arquivo" in p or "zipar arquivo" in p:
+    if "compactar" in p or "zipar" in p or "zip" in p:
         return (
             "Para compactar via terminal use:\n"
             "zip -r arquivo.zip pasta/\n\n"
             "Isso cria um .zip com tudo dentro."
+        )
+
+    # =========================
+    # TERMINAL / EXECUTAR
+    # =========================
+    if "terminal" in p or "executar" in p or "rodar" in p:
+        return (
+            "Use o painel Workspace (Ctrl+L): abra o Editor, escreva o código "
+            "e clique em **Executar**. Ou use o Terminal integrado abaixo do Monaco."
+        )
+
+    # =========================
+    # DEPLOY
+    # =========================
+    if "deploy" in p or "deployar" in p:
+        return (
+            "Para fazer deploy via Yui: use o botão **Deploy** na sidebar. "
+            "Se conectou um repositório Zeabur, faça push para o branch configurado."
         )
 
     # =========================

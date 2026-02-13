@@ -696,6 +696,15 @@ def agent_controller(
             ctx = filter_context_blocks(ctx, user_message=user_message, top=top)
         msgs: List[Dict[str, str]] = list(ctx.get("historico") or [])
 
+        # Context Builder: data/hora e regras base (antes de tudo)
+        try:
+            from yui_ai.core.context_builder import contexto_base_sistema
+            ctx_base = contexto_base_sistema()
+            if ctx_base:
+                msgs.insert(0, {"role": "system", "content": ctx_base})
+        except Exception:
+            pass
+
         if ctx.get("context_kernel"):
             msgs.insert(0, {
                 "role": "system",
