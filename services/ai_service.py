@@ -6,6 +6,7 @@ Route -> Service -> Core; rotas NÃO importam yui_ai.
 
 Lazy loading: IA carrega só na primeira requisição (reduz RAM no startup).
 Cache: respostas curtas (oi, obrigado) evitam chamar IA de novo.
+Local Brain: respostas triviais (horas, oi, zipar) sem gastar tokens.
 """
 
 from typing import Any, Generator, Optional, Tuple
@@ -21,7 +22,17 @@ def stream_resposta(
     console_errors: Optional[list] = None,
     workspace_open: bool = False,
 ) -> Generator[str, None, None]:
-    """Streaming da resposta da YUI (Agent Controller). Lazy loading + cache."""
+    """Streaming da resposta da YUI (Agent Controller). Lazy loading + cache + Local Brain."""
+    # Local Brain: responde trivialidades sem gastar tokens
+    try:
+        from yui_ai.core.local_brain import responder_local
+        resposta_local = responder_local(message)
+        if resposta_local:
+            yield resposta_local
+            return
+    except Exception:
+        pass
+
     try:
         from core.response_cache import get as cache_get, should_cache, set as cache_set
         cached = cache_get(message)
@@ -53,7 +64,16 @@ def gerar_titulo_chat(first_message: str) -> str:
 def processar_mensagem_sync(
     user_id: str, chat_id: str, message: str, model: str = "yui"
 ) -> str:
-    """Resposta síncrona; usa agent_controller. Lazy loading + cache."""
+    """Resposta síncrona; usa agent_controller. Lazy loading + cache + Local Brain."""
+    # Local Brain: responde trivialidades sem gastar tokens
+    try:
+        from yui_ai.core.local_brain import responder_local
+        resposta_local = responder_local(message)
+        if resposta_local:
+            return resposta_local
+    except Exception:
+        pass
+
     try:
         from core.response_cache import get as cache_get, should_cache, set as cache_set
         cached = cache_get(message)
@@ -89,10 +109,22 @@ def handle_chat_stream(
     workspace_open: bool = False,
 ) -> Generator[str, None, None]:
     """
-    Orquestra o stream do chat: cache, intent, tool ou IA. Lazy loading.
+    Orquestra o stream do chat: Local Brain, cache, intent, tool ou IA. Lazy loading.
     """
     from core.ai_loader import get_session_memory, get_detect_intent, get_tool_executor
     session_memory = get_session_memory()
+
+    # Local Brain: responde trivialidades sem gastar tokens
+    try:
+        from yui_ai.core.local_brain import responder_local
+        resposta_local = responder_local(message)
+        if resposta_local:
+            session_memory.add(user_id, "user", message)
+            session_memory.add(user_id, "assistant", resposta_local)
+            yield resposta_local
+            return
+    except Exception:
+        pass
 
     # Cache: resposta pronta para prompts curtos
     try:
