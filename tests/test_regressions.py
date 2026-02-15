@@ -1,4 +1,5 @@
 from pathlib import Path
+import time
 
 from web_server import app
 from core.tools_runtime import tool_criar_projeto_arquivos, tool_criar_zip_projeto
@@ -163,3 +164,37 @@ def test_runtime_metrics_endpoint_returns_queue_and_executor_stats():
     payload = resp.get_json() or {}
     assert "job_queue" in payload
     assert "sandbox_executor" in payload
+
+
+def test_zip_tool_background_fallback_runs_without_scheduler(monkeypatch):
+    from core import pending_downloads
+
+    def _boom_scheduler():
+        raise RuntimeError("scheduler unavailable")
+
+    monkeypatch.setattr("core.task_scheduler.get_scheduler", _boom_scheduler, raising=True)
+
+    project = tool_criar_projeto_arquivos(
+        root_dir="reg-zip-bg-fallback",
+        files=[{"path": "app.py", "content": "print('ok')\n"}],
+    )
+    assert project.get("ok") is True
+
+    zip_result = tool_criar_zip_projeto(
+        root_dir="reg-zip-bg-fallback",
+        zip_name="reg-zip-bg-fallback",
+        background=True,
+    )
+    assert zip_result.get("ok") is True
+    assert zip_result.get("zip_pending") is True
+
+    expected_url = zip_result.get("download_url")
+    found = False
+    for _ in range(20):
+        urls = pending_downloads.get_recent()
+        if expected_url in urls:
+            found = True
+            break
+        time.sleep(0.1)
+
+    assert found is True
