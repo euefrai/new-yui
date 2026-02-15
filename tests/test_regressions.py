@@ -113,3 +113,30 @@ def test_sandbox_execute_javascript_basic_success():
     payload = resp.get_json() or {}
     assert payload.get('ok') is True
     assert (payload.get('stdout') or '').strip() == '2'
+
+def test_web_search_local_uses_recent_cache_when_provider_fails(monkeypatch):
+    """Verifica se o cache de busca web funciona como fallback de segurança."""
+    from services import ai_service
+    monkeypatch.setattr(ai_service, "_WEB_SEARCH_CACHE", {})
+
+    def _ok(_query, limite=5):
+        return {"ok": True, "resultados": [{"titulo": "Exemplo", "resumo": "Resumo", "link": "https://example.com"}]}
+
+    def _fail(_query, limite=5):
+        return {"ok": False, "resultados": [], "error": "provider down"}
+
+    monkeypatch.setattr("core.tools_runtime.tool_buscar_web", _ok)
+    ai_service.processar_mensagem_sync(user_id="u", chat_id="c", message="brasileirão", model="yui")
+
+    monkeypatch.setattr("core.tools_runtime.tool_buscar_web", _fail)
+    second = ai_service.processar_mensagem_sync(user_id="u", chat_id="c", message="brasileirão", model="yui")
+    assert "Resultado recente em cache" in second
+
+def test_runtime_metrics_endpoint_returns_queue_and_executor_stats():
+    """Garante que o endpoint de monitoramento está ativo e retornando dados."""
+    client = app.test_client()
+    resp = client.get('/api/system/runtime_metrics')
+    assert resp.status_code == 200
+    payload = resp.get_json() or {}
+    assert "job_queue" in payload
+    assert "sandbox_executor" in payload

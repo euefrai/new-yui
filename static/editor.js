@@ -78,7 +78,7 @@
     var panel = document.getElementById("workspacePanel");
     if (panel) {
       panel.classList.remove("editorPulse");
-      panel.offsetHeight; // Trigger reflow
+      panel.offsetHeight; // Trigger reflow para reiniciar animação
       panel.classList.add("editorPulse");
       setTimeout(function () { panel.classList.remove("editorPulse"); }, 1200);
     }
@@ -133,7 +133,7 @@
     window.monaco.editor.setModelLanguage(monacoEditor.getModel(), monacoLang);
     
     if (lang === "css") window.lastKnownCSS = code;
-    triggerEditorPulse(); // Ativa o feedback visual
+    triggerEditorPulse(); // Feedback visual de que o código mudou
   };
 
   // 6. Setup de Botões e Tabs
@@ -147,9 +147,10 @@
     if (copyBtn) {
       copyBtn.onclick = function() {
         navigator.clipboard.writeText(monacoEditor.getValue());
-        // Feedback simples de cópia
+        // Feedback visual no botão
+        var oldText = copyBtn.innerText;
         copyBtn.innerText = "Copiado!";
-        setTimeout(() => { copyBtn.innerText = "Copiar"; }, 2000);
+        setTimeout(() => { copyBtn.innerText = oldText; }, 2000);
       };
     }
     

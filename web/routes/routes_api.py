@@ -190,6 +190,26 @@ def api_system_telemetry():
         return jsonify({"error": str(e), "energy_consumed": 0, "requests": 0, "cost_estimate": 0})
 
 
+
+
+@system_bp.get("/runtime_metrics")
+def api_system_runtime_metrics():
+    """Métricas leves de runtime (fila assíncrona + executor sandbox)."""
+    try:
+        from core.job_queue import get_job_metrics
+    except Exception:
+        def get_job_metrics():
+            return {"available": False}
+    try:
+        from core.sandbox_executor.runner import get_execution_metrics
+    except Exception:
+        def get_execution_metrics():
+            return {"available": False}
+    return jsonify({
+        "job_queue": get_job_metrics(),
+        "sandbox_executor": get_execution_metrics(),
+    })
+
 @system_bp.post("/cleanup")
 def api_system_cleanup():
     """
