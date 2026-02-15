@@ -8,6 +8,7 @@
   var monacoEditor = null;
   var monacoLoaded = false;
   var monacoLoadPromise = null;
+  var currentLang = "text";
   var workspaceButtonsBound = false;
 
   // 1. Carregamento Assíncrono do Monaco (Evita travamentos e erros de Mixed Content)
@@ -66,6 +67,7 @@
     });
     return monacoLoadPromise;
   }
+
 
   // 2. Inicialização do Editor com tema Cursor
   function initMonacoEditor() {
@@ -185,6 +187,8 @@
       };
     }
 
+  function initWorkspaceButtons() {
+    if (workspaceButtonsBound) return;
     var tabPreview = document.querySelector('[data-tab="preview"]');
     if (tabPreview) {
       tabPreview.addEventListener("click", window.updatePreview);

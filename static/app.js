@@ -23,6 +23,23 @@
   }
   window.apiUrl = apiUrl;
 
+  // Hardening extra: evita mixed-content mesmo se alguma chamada absoluta escapar.
+  if (window.location.protocol === "https:" && typeof window.fetch === "function" && !window.__yuiFetchPatched) {
+    var _origFetch = window.fetch.bind(window);
+    window.fetch = function (input, init) {
+      try {
+        if (typeof input === "string") {
+          if (input.indexOf("http://") === 0) input = "https://" + input.slice(7);
+          else if (input.indexOf("//") === 0) input = "https:" + input;
+        } else if (input && typeof input.url === "string" && input.url.indexOf("http://") === 0) {
+          input = "https://" + input.url.slice(7);
+        }
+      } catch (e) {}
+      return _origFetch(input, init);
+    };
+    window.__yuiFetchPatched = true;
+  }
+
   var user = null;
   var chatAtual = null;
   var currentChatTitulo = null;

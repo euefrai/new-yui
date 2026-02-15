@@ -30,6 +30,7 @@ class RunResult:
     timed_out: bool = False
     feedback: str = ""
 
+
 # --- Sistema de Métricas ---
 _metrics_lock = Lock()
 _metrics: Dict[str, Any] = {
@@ -40,6 +41,8 @@ _metrics: Dict[str, Any] = {
     "by_lang": {},
 }
 
+
+def _bump_metric(lang: str, ok: bool, timed_out: bool = False) -> None:
 def _bump_metric(lang: str, ok: bool, timed_out: bool = False) -> None:
     """Atualiza as métricas de execução de forma thread-safe."""
     lang_key = (lang or "unknown").lower()
@@ -49,6 +52,8 @@ def _bump_metric(lang: str, ok: bool, timed_out: bool = False) -> None:
             _metrics["success_total"] += 1
         else:
             _metrics["failed_total"] += 1
+        if timed_out:
+            _metrics["timed_out_total"] += 1
         
         if timed_out:
             _metrics["timed_out_total"] += 1
@@ -64,6 +69,9 @@ def _bump_metric(lang: str, ok: bool, timed_out: bool = False) -> None:
             current["timed_out"] += 1
         by_lang[lang_key] = current
 
+
+def get_execution_metrics() -> Dict[str, Any]:
+    """Métricas leves de execução para observabilidade/admin."""
 def get_execution_metrics() -> Dict[str, Any]:
     """Retorna estatísticas de uso do Sandbox para observabilidade."""
     with _metrics_lock:
@@ -75,6 +83,9 @@ def get_execution_metrics() -> Dict[str, Any]:
             "by_lang": dict(_metrics.get("by_lang", {})),
         }
 
+
+def _preexec_limit_memory(max_ram_mb: int = 256):
+    """Limita RAM do processo-filho (apenas Unix)."""
 # --- Lógica de Execução ---
 
 def _preexec_limit_memory(max_ram_mb: int = 256):
@@ -115,6 +126,7 @@ def run_code(
         script_path.write_text(code, encoding="utf-8", errors="replace")
     except Exception as e:
         _bump_metric(lang, ok=False)
+        return RunResult(ok=False, stderr=str(e), exit_code=-1)
         return RunResult(ok=False, stderr=f"Erro ao salvar script: {e}", exit_code=-1)
 
     # Definição do comando baseado na linguagem
@@ -129,6 +141,8 @@ def run_code(
         return RunResult(ok=False, stderr=f"Linguagem '{lang}' não suportada", exit_code=-1)
 
     preexec_fn = None
+    # Node/V8 pode falhar com RLIMIT_AS muito agressivo (CodeRange reserve).
+    # Mantemos limite para Python e evitamos falso OOM em JavaScript.
     # Aplicar limites apenas em Linux/Unix e prioritariamente para Python.
     # Node.js/V8 costuma reservar muita memória virtual no início e pode sofrer crash falso com limites baixos.
     if sys.platform != "win32" and lang in ("python", "py"):
@@ -165,6 +179,16 @@ def run_code(
         )
     except FileNotFoundError:
         _bump_metric(lang, ok=False)
+        interp = "Python" if lang in ("python", "py") else "Node"
+        return RunResult(
+            ok=False,
+            stdout="",
+            stderr=f"{interp} não encontrado no servidor",
+            exit_code=-1,
+        )
+    except Exception as e:
+        _bump_metric(lang, ok=False)
+        return RunResult(ok=False, stdout="", stderr=str(e), exit_code=-1)
         interp = "Python" if lang in ("python", "py") else "Node.js"
         return RunResult(ok=False, stderr=f"{interp} não instalado no servidor.", exit_code=-1)
     except Exception as e:
