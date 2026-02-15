@@ -2,7 +2,6 @@
 # Regra: rotas NÃO importam yui_ai; apenas services e config.
 
 import json
-import uuid
 
 from flask import Blueprint, jsonify, request, Response, stream_with_context, session
 
@@ -41,9 +40,6 @@ def api_new_chat():
     user_id = data.get("user_id")
     if not user_id:
         return jsonify({"error": "user_id obrigatório"}), 400
-    if not supabase_available():
-        fake = {"id": str(uuid.uuid4()), "titulo": "Novo chat", "user_id": user_id}
-        return jsonify(fake), 200
     chat = svc_criar_chat(user_id)
     if not chat:
         return jsonify({"error": "Falha ao criar chat"}), 500
