@@ -5,7 +5,7 @@ Decide o tipo de pensamento primeiro: Local, Cache, Tools ou LLM.
 
 from typing import Literal
 
-Rota = Literal["time", "zip_builder", "terminal", "deploy", "llm"]
+Rota = Literal["time", "zip_builder", "terminal", "deploy", "web_search", "llm"]
 
 
 def decidir_rota(texto: str) -> Rota:
@@ -27,6 +27,10 @@ def decidir_rota(texto: str) -> Rota:
 
     if "deploy" in t or "deployar" in t:
         return "deploy"
+
+    # busca factual na web (sem LLM)
+    if any(x in t for x in ["pesquisar", "buscar", "o que é", "quem é", "como funciona", "o que significa"]):
+        return "web_search"
 
     # pergunta geral → LLM
     return "llm"

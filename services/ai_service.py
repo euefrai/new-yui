@@ -9,7 +9,63 @@ Intent Router: porteiro — decide Local / Cache / Tools / LLM antes de tudo.
 Local Brain + Cache Brain: 70% resolvido sem IA.
 """
 
+import time
+from collections import OrderedDict
+from threading import Lock
 from typing import Any, Generator, Optional, Tuple
+
+# Cache para buscas web (evita chamar DDGS repetidamente)
+_WEB_CACHE: OrderedDict = OrderedDict()
+_WEB_CACHE_LOCK = Lock()
+_WEB_CACHE_MAX = 50
+_WEB_CACHE_TTL = 300  # 5 min
+
+
+def _web_cache_get(key: str) -> Optional[str]:
+    with _WEB_CACHE_LOCK:
+        if key not in _WEB_CACHE:
+            return None
+        entry = _WEB_CACHE[key]
+        if (time.time() - entry["ts"]) > _WEB_CACHE_TTL:
+            del _WEB_CACHE[key]
+            return None
+        _WEB_CACHE.move_to_end(key)
+        return entry["value"]
+
+
+def _web_cache_set(key: str, value: str) -> None:
+    with _WEB_CACHE_LOCK:
+        _WEB_CACHE[key] = {"value": value, "ts": time.time()}
+        _WEB_CACHE.move_to_end(key)
+        while len(_WEB_CACHE) > _WEB_CACHE_MAX:
+            _WEB_CACHE.popitem(last=False)
+
+
+def _responder_busca_web_local(message: str) -> Optional[str]:
+    """Resposta factual rápida via tool buscar_web sem depender da LLM."""
+    cached = _web_cache_get(message)
+    if cached:
+        return "(Resultado recente em cache)\n" + cached
+
+    try:
+        from core.tools_runtime import tool_buscar_web
+        result = tool_buscar_web(message, limite=5)
+
+        if not result or not result.get("ok"):
+            return None
+
+        itens = result.get("resultados") or []
+        linhas = ["Encontrei isso na web:"]
+        for i, r in enumerate(itens[:3], 1):
+            link = r.get("url") or r.get("link") or ""
+            titulo = r.get("titulo") or r.get("title") or "—"
+            linhas.append(f"{i}. {titulo} - {link}")
+
+        resposta = "\n".join(linhas)
+        _web_cache_set(message, resposta)
+        return resposta
+    except Exception:
+        return None
 
 
 def stream_resposta(
@@ -32,6 +88,11 @@ def stream_resposta(
             resposta_local = responder_local(message)
             if resposta_local:
                 yield resposta_local
+                return
+        if rota == "web_search":
+            resposta_web = _responder_busca_web_local(message)
+            if resposta_web:
+                yield resposta_web
                 return
     except Exception:
         pass
@@ -100,6 +161,10 @@ def processar_mensagem_sync(
             resposta_local = responder_local(message)
             if resposta_local:
                 return resposta_local
+        if rota == "web_search":
+            resposta_web = _responder_busca_web_local(message)
+            if resposta_web:
+                return resposta_web
     except Exception:
         pass
 
@@ -165,6 +230,13 @@ def handle_chat_stream(
                 session_memory.add(user_id, "user", message)
                 session_memory.add(user_id, "assistant", resposta_local)
                 yield resposta_local
+                return
+        if rota == "web_search":
+            resposta_web = _responder_busca_web_local(message)
+            if resposta_web:
+                session_memory.add(user_id, "user", message)
+                session_memory.add(user_id, "assistant", resposta_web)
+                yield resposta_web
                 return
     except Exception:
         pass

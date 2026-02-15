@@ -1239,7 +1239,7 @@
     var original = content.textContent || "";
 
     content.textContent = "✨ Melhorando resposta...";
-    fetch("/api/message/edit", {
+    fetch(apiUrl("/api/message/edit"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ message_id: messageId, user_id: user.id, action: "improve" })
