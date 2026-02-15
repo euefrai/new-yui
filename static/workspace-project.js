@@ -110,9 +110,13 @@
               projectFiles[path] = data.content || "";
               if (!originalFileContents[path]) originalFileContents[path] = projectFiles[path];
               doLoadFile(path);
+            } else {
+              logToConsole("$ Erro ao abrir arquivo do sandbox: " + (data.error || "desconhecido"), true);
             }
           })
-          .catch(function () {});
+          .catch(function (e) {
+            logToConsole("$ Erro de rede ao abrir arquivo: " + (e.message || String(e)), true);
+          });
         return;
       }
       return;
@@ -176,7 +180,16 @@
           if (list) list.innerHTML = "<div class='fileTreeLoading'>" + (data.error || "Erro") + "</div>";
           return;
         }
-        renderSandboxTree(data.entries || [], list, 0, "");
+        var entries = data.entries || [];
+        if (entries.length === 0) {
+          if (list) list.style.display = "none";
+          if (empty) {
+            empty.textContent = "Sandbox vazio. Importe um projeto ou crie arquivos pelo chat.";
+            empty.style.display = "block";
+          }
+          return;
+        }
+        renderSandboxTree(entries, list, 0, "");
       })
       .catch(function () {
         if (list) list.innerHTML = "<div class='fileTreeLoading'>Erro ao carregar sandbox</div>";
@@ -252,6 +265,10 @@
         if (basePath && path.indexOf(basePath) === 0) path = path.slice(basePath.length);
         paths.push(path);
         fileArray.push({ file: files[i], path: path });
+      }
+      if (fileArray.length === 0) {
+        logToConsole("$ Nenhum arquivo válido encontrado para importar.", true);
+        return;
       }
       var loaded = 0;
       fileArray.forEach(function (item) {
@@ -336,6 +353,22 @@
     var path = currentFilePath;
     var lang = path ? (window.getLangFromPath ? window.getLangFromPath(path) : "python") : "python";
     if (lang === "plaintext") lang = "python";
+    // Sandbox executor suporta python/py e javascript/js/node.
+    var langMap = {
+      python: "python",
+      javascript: "javascript",
+      js: "javascript",
+      node: "javascript",
+      typescript: "javascript",
+      ts: "javascript",
+      jsx: "javascript",
+      tsx: "javascript",
+    };
+    lang = langMap[lang] || lang;
+    if (lang !== "python" && lang !== "javascript") {
+      logToConsole("$ Linguagem não suportada para executar aqui: " + String(lang) + ". Use Python/JS ou terminal.", true);
+      return;
+    }
     if (!code.trim()) {
       logToConsole("$ Nenhum código para executar.", true);
       return;
