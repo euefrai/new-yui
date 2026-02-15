@@ -1,6 +1,8 @@
 # Rotas de API: index, estáticos, download, clear_chat, upload, analyze, tools.
 
 from pathlib import Path
+import zipfile
+from datetime import datetime
 
 from flask import Blueprint, request, render_template, send_from_directory, jsonify, session
 
@@ -590,6 +592,27 @@ def api_sandbox_generate_map():
         return jsonify({"ok": False, "error": str(e)}), 500
 
 
+@sandbox_bp.get("/zip")
+def api_sandbox_zip():
+    """Compacta todo o sandbox e retorna URL de download do ZIP."""
+    sandbox = Path(settings.SANDBOX_DIR)
+    sandbox.mkdir(parents=True, exist_ok=True)
+    files = [p for p in sandbox.rglob("*") if p.is_file()]
+    if not files:
+        return jsonify({"ok": False, "error": "Sandbox vazio, nada para compactar."}), 400
+    settings.GENERATED_PROJECTS_DIR.mkdir(parents=True, exist_ok=True)
+    zip_name = f"workspace_sandbox_{datetime.now().strftime('%Y%m%d_%H%M%S')}.zip"
+    zip_path = settings.GENERATED_PROJECTS_DIR / zip_name
+    try:
+        with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
+            for file_path in files:
+                zf.write(file_path, file_path.relative_to(sandbox))
+        _record_disk_write()
+        return jsonify({"ok": True, "filename": zip_name, "url": f"/download/{zip_name}"})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
 @sandbox_bp.get("/read")
 def api_sandbox_read():
     """Lê conteúdo de um arquivo no sandbox. Query: path."""
@@ -796,7 +819,14 @@ def api_sandbox_execute():
     if not code.strip():
         return jsonify({"ok": False, "stdout": "", "stderr": "Código vazio", "exit_code": -1, "feedback": "", "executed_at": executed_at}), 400
 
-    result = run_code(code=code, lang=lang, cwd=Path(settings.SANDBOX_DIR), timeout=timeout)
+    max_ram_mb = 512 if lang in ("javascript", "js", "node") else 256
+    result = run_code(
+        code=code,
+        lang=lang,
+        cwd=Path(settings.SANDBOX_DIR),
+        timeout=timeout,
+        max_ram_mb=max_ram_mb,
+    )
 
     feedback = result.feedback
     if result.exit_code != 0 and not feedback:

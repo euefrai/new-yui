@@ -31,14 +31,14 @@ class RunResult:
     feedback: str = ""
 
 
-def _preexec_limit_memory():
+def _preexec_limit_memory(max_ram_mb: int = 256):
     """Limita RAM do processo-filho (apenas Unix)."""
     try:
         import resource
-        # 256 MB
-        limit = 256 * 1024 * 1024
+        ram_mb = max(128, int(max_ram_mb or 256))
+        limit = ram_mb * 1024 * 1024
         resource.setrlimit(resource.RLIMIT_AS, (limit, limit))
-    except (ImportError, OSError, ValueError):
+    except (ImportError, OSError, ValueError, TypeError):
         pass
 
 
@@ -92,8 +92,10 @@ def run_code(
         return RunResult(ok=False, stderr=f"Linguagem '{lang}' não suportada", exit_code=-1)
 
     preexec_fn = None
-    if sys.platform != "win32":
-        preexec_fn = _preexec_limit_memory
+    # Node/V8 pode falhar com RLIMIT_AS muito agressivo (CodeRange reserve).
+    # Mantemos limite para Python e evitamos falso OOM em JavaScript.
+    if sys.platform != "win32" and lang in ("python", "py"):
+        preexec_fn = lambda: _preexec_limit_memory(max_ram_mb)
 
     try:
         result = subprocess.run(

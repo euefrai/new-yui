@@ -12,6 +12,41 @@ Local Brain + Cache Brain: 70% resolvido sem IA.
 from typing import Any, Generator, Optional, Tuple
 
 
+def _responder_busca_web_local(message: str) -> Optional[str]:
+    """Resposta factual rápida via tool buscar_web sem depender da LLM."""
+    try:
+        from core.tools_runtime import tool_buscar_web
+        result = tool_buscar_web(message, limite=5)
+        if not result or not result.get("ok"):
+            error = (result or {}).get("error") if isinstance(result, dict) else None
+            detalhe = f" Detalhe: {error}." if error else ""
+            return (
+                "Não consegui consultar a web neste momento. "
+                "Tente novamente em instantes ou reformule sua pergunta com mais contexto."
+                + detalhe
+            )
+        itens = result.get("resultados") or []
+        if not itens:
+            return "Não achei resultados confiáveis agora. Tente reformular a pergunta com mais contexto."
+        linhas = ["Encontrei isso na web:"]
+        for i, r in enumerate(itens[:5], 1):
+            titulo = (r.get("titulo") or r.get("title") or "Sem título").strip()
+            link = (r.get("link") or r.get("url") or r.get("href") or "").strip()
+            resumo = (r.get("resumo") or r.get("snippet") or r.get("body") or "").strip()
+            bloco = f"{i}. {titulo}"
+            if resumo:
+                bloco += f" — {resumo}"
+            if link:
+                bloco += f"\n   Fonte: {link}"
+            linhas.append(bloco)
+        return "\n".join(linhas)
+    except Exception:
+        return (
+            "Não consegui consultar a web neste momento. "
+            "Tente novamente em instantes ou reformule sua pergunta com mais contexto."
+        )
+
+
 def stream_resposta(
     user_id: str,
     chat_id: str,
@@ -28,6 +63,11 @@ def stream_resposta(
         from yui_ai.core.intent_router import decidir_rota
         from yui_ai.core.local_brain import responder_local
         rota = decidir_rota(message)
+        if rota == "web_search":
+            resposta_web = _responder_busca_web_local(message)
+            if resposta_web:
+                yield resposta_web
+                return
         if rota in ("time", "zip_builder", "terminal", "deploy"):
             resposta_local = responder_local(message)
             if resposta_local:
@@ -96,6 +136,10 @@ def processar_mensagem_sync(
         from yui_ai.core.intent_router import decidir_rota
         from yui_ai.core.local_brain import responder_local
         rota = decidir_rota(message)
+        if rota == "web_search":
+            resposta_web = _responder_busca_web_local(message)
+            if resposta_web:
+                return resposta_web
         if rota in ("time", "zip_builder", "terminal", "deploy"):
             resposta_local = responder_local(message)
             if resposta_local:
@@ -159,6 +203,13 @@ def handle_chat_stream(
         from yui_ai.core.intent_router import decidir_rota
         from yui_ai.core.local_brain import responder_local
         rota = decidir_rota(message)
+        if rota == "web_search":
+            resposta_web = _responder_busca_web_local(message)
+            if resposta_web:
+                session_memory.add(user_id, "user", message)
+                session_memory.add(user_id, "assistant", resposta_web)
+                yield resposta_web
+                return
         if rota in ("time", "zip_builder", "terminal", "deploy"):
             resposta_local = responder_local(message)
             if resposta_local:
