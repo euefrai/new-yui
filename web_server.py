@@ -6,6 +6,7 @@ Lógica em: services/, config/settings.py.
 """
 
 from flask import Flask
+import os
 from flask_cors import CORS
 
 from config import settings
@@ -32,6 +33,25 @@ def add_cors_headers(response):
 
 
 register_routes(app)
+
+# Runtime mode (aplica também em Gunicorn/import time)
+def _is_cloud_runtime() -> bool:
+    return (
+        os.environ.get("RENDER") == "true"
+        or bool(os.environ.get("ZEABUR_PROJECT_ID"))
+        or bool(os.environ.get("ZEABUR_SERVICE_ID"))
+        or os.environ.get("TENCENT_CLOUD") == "true"
+        or os.environ.get("YUI_LITE_MODE", "").lower() in ("1", "true", "yes")
+    )
+
+
+IS_CLOUD_RUNTIME = _is_cloud_runtime()
+if IS_CLOUD_RUNTIME:
+    try:
+        from core.capabilities import apply_mode
+        apply_mode("lite")
+    except Exception as e:
+        print(f"⚠️ apply_mode(lite): {e}")
 
 # Event Bus: wiring (workspace_toggled → system_state etc.)
 try:
@@ -73,24 +93,11 @@ except Exception as e:
 
 
 if __name__ == "__main__":
-    import os
     import threading
-
-    # Modo LITE em cloud (Render, Zeabur, Tencent, VPS): menos RAM, sem planner/vector/auto_debug
-    _is_cloud = (
-        os.environ.get("RENDER") == "true"
-        or os.environ.get("ZEABUR_PROJECT_ID")
-        or os.environ.get("ZEABUR_SERVICE_ID")
-        or os.environ.get("TENCENT_CLOUD") == "true"
-        or os.environ.get("YUI_LITE_MODE", "").lower() in ("1", "true", "yes")
-    )
-    if _is_cloud:
-        from core.capabilities import apply_mode
-        apply_mode("lite")
 
     def _indexar_memoria():
         # Na cloud (memória limitada), pula indexação ChromaDB para evitar OOM
-        if _is_cloud:
+        if IS_CLOUD_RUNTIME:
             return
         try:
             from core.event_bus import emit
@@ -99,5 +106,5 @@ if __name__ == "__main__":
             print(f"⚠️ Indexação da memória vetorial ignorada: {e}")
 
     threading.Thread(target=_indexar_memoria, daemon=True).start()
-    _debug = settings.FLASK_DEBUG and not _is_cloud
+    _debug = settings.FLASK_DEBUG and not IS_CLOUD_RUNTIME
     app.run(host="0.0.0.0", port=settings.PORT, debug=_debug)
