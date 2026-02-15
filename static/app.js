@@ -1873,7 +1873,7 @@
     if (!user || !user.id) return;
     var uid = encodeURIComponent(user.id);
     var cid = chatAtual ? encodeURIComponent(chatAtual) : "";
-    var url = apiUrl("/api/missions?user_id=" + uid + (cid ? "&chat_id=" + cid : ""));
+    var url = apiUrl("/api/missions/?user_id=" + uid + (cid ? "&chat_id=" + cid : ""));
     fetch(url)
       .then(function (r) { return r.json(); })
       .then(function (data) {

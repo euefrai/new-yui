@@ -257,4 +257,12 @@ def test_zip_tool_background_fallback_runs_without_scheduler(monkeypatch):
 
 def test_ai_service_module_has_valid_python_syntax():
     py_compile.compile('services/ai_service.py', doraise=True)
+
+
+def test_job_queue_module_has_valid_python_syntax():
+    py_compile.compile('core/job_queue.py', doraise=True)
+
+
+def test_sandbox_runner_module_has_valid_python_syntax():
+    py_compile.compile('core/sandbox_executor/runner.py', doraise=True)
     assert "sandbox_executor" in payload

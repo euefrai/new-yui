@@ -8,6 +8,7 @@ Lógica em: services/, config/settings.py.
 from flask import Flask
 import os
 from flask_cors import CORS
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 from config import settings
 from web.routes import register_routes
@@ -19,6 +20,7 @@ app = Flask(
     template_folder="templates",
 )
 app.secret_key = settings.SECRET_KEY
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1)
 CORS(app)
 sock.init_app(app)
 register_terminal_sock(app, sock)
