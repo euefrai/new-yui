@@ -10,7 +10,7 @@
   var monacoLoadPromise = null;
   var workspaceButtonsBound = false;
 
-  // 1. Carregamento Assíncrono do Monaco (Evita travamentos no Zeabur)
+  // 1. Carregamento Assíncrono do Monaco (Evita travamentos e erros de Mixed Content)
   function loadMonacoAsync() {
     if (monacoLoaded) return Promise.resolve();
     if (monacoLoadPromise) return monacoLoadPromise;
@@ -21,21 +21,46 @@
         resolve();
         return;
       }
-      var script = document.createElement("script");
-      script.src = "https://cdn.jsdelivr.net/npm/@monaco-editor/loader@1.7.0/lib/umd/monaco-loader.min.js";
-      script.async = true;
-      script.onload = function () {
-        var loaderFn = window.monaco_loader || window.monacoLoader || window.loader;
-        if (!loaderFn || typeof loaderFn.init !== "function") {
-          reject(new Error("Monaco loader não carregou"));
-          return;
+
+      function initWithRequire() {
+        try {
+          if (!window.require || !window.require.config) {
+            reject(new Error("AMD loader do Monaco não disponível"));
+            return;
+          }
+          window.require.config({
+            paths: { vs: "https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs" },
+          });
+          window.require(["vs/editor/editor.main"], function () {
+            if (window.monaco && window.monaco.editor) {
+              monacoLoaded = true;
+              resolve();
+            } else {
+              reject(new Error("Monaco não inicializou corretamente"));
+            }
+          }, reject);
+        } catch (err) {
+          reject(err);
         }
-        loaderFn.init().then(function (monaco) {
-          window.monaco = monaco;
-          monacoLoaded = true;
-          resolve();
-        }).catch(reject);
-      };
+      }
+
+      if (window.require && window.require.config) {
+        initWithRequire();
+        return;
+      }
+
+      var existing = document.getElementById("monaco-amd-loader");
+      if (existing) {
+        existing.addEventListener("load", initWithRequire, { once: true });
+        existing.addEventListener("error", reject, { once: true });
+        return;
+      }
+
+      var script = document.createElement("script");
+      script.id = "monaco-amd-loader";
+      script.src = "https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs/loader.js";
+      script.async = true;
+      script.onload = initWithRequire;
       script.onerror = reject;
       document.head.appendChild(script);
     });
@@ -175,6 +200,7 @@
     initMonacoEditor();
   };
 
+  // Inicialização Automática
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", window.initYuiWorkspace);
   } else {

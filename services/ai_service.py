@@ -76,7 +76,7 @@ def stream_resposta(
 ) -> Generator[str, None, None]:
     """Streaming da resposta: Intent Router → Local → Cache → IA."""
     
-    # 1. Roteador de Intenção (Economia de Tokens)
+    # 1. Roteador de Intenção (Economia de Tokens e Latência)
     try:
         from yui_ai.core.intent_router import decidir_rota
         from yui_ai.core.local_brain import responder_local
@@ -111,7 +111,7 @@ def stream_resposta(
         full_reply.append(chunk)
         yield chunk
 
-    # 4. Persistência em Cache
+    # 4. Persistência em Cache (Pós-processamento)
     reply = "".join(full_reply).strip()
     if reply:
         try:
@@ -131,7 +131,7 @@ def processar_mensagem_sync(
 def handle_chat_stream(
     user_id: str, chat_id: str, message: str, **kwargs
 ) -> Generator[str, None, None]:
-    """Orquestrador mestre com persistência em memória."""
+    """Orquestrador mestre com persistência automática em memória de sessão."""
     from core.ai_loader import get_session_memory
     session_memory = get_session_memory()
 

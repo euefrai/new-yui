@@ -40,6 +40,7 @@ SECRET_KEY = _get("SECRET_KEY") or "yui-dev-secret-change-in-production"
 PORT = int(os.environ.get("PORT") or "5000")
 FLASK_DEBUG = os.environ.get("FLASK_DEBUG", "false").lower() in ("1", "true", "yes")
 USE_MINIFIED_STATIC = os.environ.get("USE_MINIFIED_STATIC", "false").lower() in ("1", "true", "yes")
+STATIC_VERSION = _get("STATIC_VERSION") or "20260215"
 
 # Async: USE_ASYNC_QUEUE=true habilita POST /send?async=1 → job_id (poll GET /chat/job/<id>)
 USE_ASYNC_QUEUE = os.environ.get("USE_ASYNC_QUEUE", "").lower() in ("1", "true", "yes")

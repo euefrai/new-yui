@@ -24,6 +24,7 @@ def index():
         supabase_url=settings.SUPABASE_URL or "",
         supabase_key=settings.SUPABASE_ANON_KEY or "",
         use_minified=settings.USE_MINIFIED_STATIC,
+        static_version=settings.STATIC_VERSION,
     )
 
 
