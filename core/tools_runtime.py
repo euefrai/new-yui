@@ -77,7 +77,13 @@ def tool_buscar_web(query: str, limite: int = 5) -> Dict[str, Any]:
         return {
             "ok": True,
             "resultados": [
-                {"titulo": r.get("title", ""), "snippet": r.get("body", ""), "url": r.get("href", "")}
+                {
+                    "titulo": r.get("title", ""),
+                    "snippet": r.get("body", ""),
+                    "resumo": r.get("body", ""),
+                    "url": r.get("href", ""),
+                    "link": r.get("href", ""),
+                }
                 for r in (results or [])
             ],
         }
@@ -309,6 +315,19 @@ def _resolve_project_dir(root_dir: str) -> Optional[Path]:
     return None
 
 
+def _latest_generated_project_dir() -> Optional[Path]:
+    """Retorna a pasta de projeto mais recente em generated_projects/."""
+    try:
+        GENERATED_ROOT.mkdir(parents=True, exist_ok=True)
+        dirs = [p for p in GENERATED_ROOT.iterdir() if p.is_dir()]
+        if not dirs:
+            return None
+        dirs.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+        return dirs[0]
+    except Exception:
+        return None
+
+
 def tool_criar_zip_projeto(
     root_dir: str,
     zip_name: Optional[str] = None,
@@ -319,9 +338,10 @@ def tool_criar_zip_projeto(
     Usa sempre Path absoluto (BASE_DIR) para funcionar no Render.
     background=True (padrão): agenda no scheduler, não bloqueia o chat.
     """
-    if not root_dir:
-        return {"ok": False, "script_path": "", "zip_output": "", "command": "", "error": "root_dir obrigatório"}
-    root_path = _resolve_project_dir(root_dir)
+    root_path = _resolve_project_dir(root_dir) if (root_dir and root_dir.strip()) else None
+    if not root_path:
+        # Fallback útil para prompts como "compacte" sem informar a pasta.
+        root_path = _latest_generated_project_dir()
     if not root_path or not root_path.is_dir():
         return {"ok": False, "script_path": "", "zip_output": "", "command": "", "error": "Pasta do projeto não encontrada."}
 
@@ -392,18 +412,22 @@ if __name__ == "__main__":
             "error": None,
         }
         if background:
-            # Agenda no scheduler — não bloqueia o chat
+            # Agenda no scheduler — não bloqueia o chat.
+            # Se scheduler falhar/indisponível, usa thread local como fallback.
             def _run_zip(data):
-                spath = data["script_path"]
+                spath = Path(data["script_path"])
                 durl = data["download_url"]
+                zpath = Path(data["zip_output"])
                 try:
-                    subprocess.run(
+                    proc = subprocess.run(
                         [sys.executable, str(spath)],
                         cwd=str(PROJECT_ROOT),
                         timeout=60,
                         capture_output=True,
                         check=False,
                     )
+                    if proc.returncode != 0 or not zpath.exists() or zpath.stat().st_size == 0:
+                        return
                     try:
                         from core.event_bus import emit
                         from core.pending_downloads import add_ready
@@ -414,11 +438,26 @@ if __name__ == "__main__":
                 except Exception:
                     pass
 
+            job_data = {
+                "script_path": str(script_path),
+                "download_url": download_url,
+                "zip_output": str(zip_output),
+            }
+            scheduled = False
             try:
                 from core.task_scheduler import get_scheduler
-                get_scheduler().add(_run_zip, data={"script_path": str(script_path), "download_url": download_url})
+                get_scheduler().add(_run_zip, data=job_data)
+                scheduled = True
             except Exception:
-                pass  # fallback: executa síncrono
+                scheduled = False
+
+            if not scheduled:
+                try:
+                    import threading
+                    threading.Thread(target=_run_zip, args=(job_data,), daemon=True).start()
+                except Exception:
+                    pass
+
             return {**base_result, "zip_pending": True, "download_url": download_url}
         # Síncrono (background=False)
         try:
@@ -544,5 +583,4 @@ def tool_fs_delete_file(path: str) -> Dict[str, Any]:
         return {"ok": False, "error": str(e)}
     except Exception as e:
         return {"ok": False, "error": str(e)}
-
 

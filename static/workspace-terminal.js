@@ -87,13 +87,31 @@
     }
   }
 
+  function fitTerminalSoon() {
+    if (term && fitAddon) setTimeout(function () { fitAddon.fit(); }, 100);
+  }
+
   function toggleTerminal() {
     var wrap = document.getElementById("workspaceTerminalWrap");
+    var toggleBtn = document.getElementById("workspaceTerminalToggle");
     if (!wrap) return;
     wrap.classList.toggle("collapsed");
-    if (term && fitAddon && !wrap.classList.contains("collapsed")) {
-      setTimeout(function () { fitAddon.fit(); }, 100);
+    if (!wrap.classList.contains("collapsed")) wrap.classList.remove("expanded");
+    if (toggleBtn) toggleBtn.textContent = wrap.classList.contains("collapsed") ? "▲" : "▼";
+    if (!wrap.classList.contains("collapsed")) fitTerminalSoon();
+  }
+
+  function toggleTerminalExpand() {
+    var wrap = document.getElementById("workspaceTerminalWrap");
+    var expandBtn = document.getElementById("workspaceTerminalExpand");
+    if (!wrap) return;
+    wrap.classList.remove("collapsed");
+    wrap.classList.toggle("expanded");
+    if (expandBtn) {
+      expandBtn.textContent = wrap.classList.contains("expanded") ? "🗗" : "⤢";
+      expandBtn.title = wrap.classList.contains("expanded") ? "Restaurar tamanho do terminal" : "Ampliar terminal";
     }
+    fitTerminalSoon();
   }
 
   function onWorkspaceVisible() {
@@ -103,12 +121,14 @@
     if (!term) {
       if (window.Terminal) initTerminal();
       else setTimeout(onWorkspaceVisible, 300);
-    } else if (fitAddon) setTimeout(function () { fitAddon.fit(); }, 100);
+    } else if (fitAddon) fitTerminalSoon();
   }
 
   document.addEventListener("DOMContentLoaded", function () {
     var toggleBtn = document.getElementById("workspaceTerminalToggle");
+    var expandBtn = document.getElementById("workspaceTerminalExpand");
     if (toggleBtn) toggleBtn.addEventListener("click", toggleTerminal);
+    if (expandBtn) expandBtn.addEventListener("click", toggleTerminalExpand);
     var observer = new MutationObserver(function () { onWorkspaceVisible(); });
     var mainSplit = document.getElementById("mainSplit");
     if (mainSplit) observer.observe(mainSplit, { attributes: true, attributeFilter: ["class"] });
@@ -118,6 +138,7 @@
         setTimeout(onWorkspaceVisible, 300);
       });
     }
+    window.addEventListener("resize", function () { if (term && fitAddon) fitAddon.fit(); });
     setTimeout(onWorkspaceVisible, 500);
   });
 })();
