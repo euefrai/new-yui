@@ -2,9 +2,8 @@ from web_server import app
 from core.tools_runtime import tool_criar_projeto_arquivos, tool_criar_zip_projeto
 from yui_ai.services import memory_service as mem
 
-
 def test_legacy_routes_modules_reexport_public_api():
-    # Import legado deve continuar funcionando para funções e blueprints.
+    """Garante que as rotas legadas continuam funcionando após a migração."""
     from routes.routes_api import clear_chat, main_bp
     from routes.routes_chat import api_new_chat, chat_bp
     from routes.routes_auth import api_user_profile, user_bp
@@ -16,8 +15,8 @@ def test_legacy_routes_modules_reexport_public_api():
     assert chat_bp.name == "chat"
     assert user_bp.name == "user"
 
-
 def test_api_new_chat_persists_local_chat():
+    """Testa a criação de chat e persistência de mensagens."""
     client = app.test_client()
     user_id = "reg-user-local"
 
@@ -31,18 +30,16 @@ def test_api_new_chat_persists_local_chat():
     assert messages_resp.status_code == 200
     assert isinstance(messages_resp.get_json(), list)
 
-
 def test_remove_message_returns_false_when_message_missing():
+    """Garante que a remoção de mensagens inexistentes falhe graciosamente."""
     user_id = "reg-user-remove"
     chat = mem.create_chat(user_id)
-    assert chat and chat.get("id")
-
     chat_id = chat["id"]
     mem.save_message(chat_id, "user", "olá", user_id)
     assert mem.remove_message("inexistente", user_id) is False
 
-
 def test_zip_tool_fallbacks_to_latest_generated_project_when_root_missing():
+    """Testa a ferramenta de ZIP do Heathcliff com fallback de diretório."""
     project = tool_criar_projeto_arquivos(
         root_dir="reg-zip-fallback",
         files=[{"path": "main.py", "content": "print('ok')\n"}],
