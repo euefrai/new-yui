@@ -172,6 +172,18 @@
     triggerEditorPulse(); 
   };
 
+  function triggerEditorPulse() {
+    var panel = document.getElementById("workspacePanel");
+    if (panel) {
+      panel.classList.remove("editorPulse");
+      panel.offsetHeight;
+      panel.classList.add("editorPulse");
+      setTimeout(function () { panel.classList.remove("editorPulse"); }, 1200);
+    }
+  }
+
+  function initWorkspaceButtons() {
+    if (workspaceButtonsBound) return;
   // 6. Setup de Botões e Interações
   function initWorkspaceButtons() {
     if (workspaceButtonsBound) return;

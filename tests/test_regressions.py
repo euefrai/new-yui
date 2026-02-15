@@ -1,5 +1,7 @@
 from pathlib import Path
 import time
+import py_compile
+
 
 """
 Yui Regression Tests — Garantia de estabilidade e performance.
@@ -251,4 +253,8 @@ def test_zip_tool_background_fallback_runs_without_scheduler(monkeypatch):
         time.sleep(0.1)
 
     assert found is True
+
+
+def test_ai_service_module_has_valid_python_syntax():
+    py_compile.compile('services/ai_service.py', doraise=True)
     assert "sandbox_executor" in payload

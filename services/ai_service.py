@@ -136,6 +136,11 @@ def stream_resposta(
             if resposta_web:
                 yield resposta_web
                 return
+        if rota in ("time", "zip_builder", "terminal", "deploy"):
+            resposta_local = responder_local(message)
+            if resposta_local:
+                yield resposta_local
+                return
         
         if rota == "web_search":
             yield _responder_busca_web_local(message)
