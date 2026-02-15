@@ -17,8 +17,8 @@ from typing import Optional, Dict, Any
 try:
     from config.settings import SANDBOX_DIR
 except Exception:
-    # Fallback caso a config não esteja disponível
     SANDBOX_DIR = Path(__file__).resolve().parents[2] / "sandbox"
+
 
 @dataclass
 class RunResult:
@@ -43,7 +43,6 @@ _metrics: Dict[str, Any] = {
 
 
 def _bump_metric(lang: str, ok: bool, timed_out: bool = False) -> None:
-def _bump_metric(lang: str, ok: bool, timed_out: bool = False) -> None:
     """Atualiza as métricas de execução de forma thread-safe."""
     lang_key = (lang or "unknown").lower()
     with _metrics_lock:
@@ -54,10 +53,7 @@ def _bump_metric(lang: str, ok: bool, timed_out: bool = False) -> None:
             _metrics["failed_total"] += 1
         if timed_out:
             _metrics["timed_out_total"] += 1
-        
-        if timed_out:
-            _metrics["timed_out_total"] += 1
-            
+
         by_lang = _metrics.setdefault("by_lang", {})
         current = by_lang.get(lang_key, {"executions": 0, "success": 0, "failed": 0, "timed_out": 0})
         current["executions"] += 1
@@ -71,8 +67,6 @@ def _bump_metric(lang: str, ok: bool, timed_out: bool = False) -> None:
 
 
 def get_execution_metrics() -> Dict[str, Any]:
-    """Métricas leves de execução para observabilidade/admin."""
-def get_execution_metrics() -> Dict[str, Any]:
     """Retorna estatísticas de uso do Sandbox para observabilidade."""
     with _metrics_lock:
         return {
@@ -84,20 +78,16 @@ def get_execution_metrics() -> Dict[str, Any]:
         }
 
 
-def _preexec_limit_memory(max_ram_mb: int = 256):
-    """Limita RAM do processo-filho (apenas Unix)."""
-# --- Lógica de Execução ---
-
-def _preexec_limit_memory(max_ram_mb: int = 256):
+def _preexec_limit_memory(max_ram_mb: int = 256) -> None:
     """Limita RAM do processo-filho (apenas Unix/Linux)."""
     try:
         import resource
         ram_mb = max(128, int(max_ram_mb or 256))
         limit = ram_mb * 1024 * 1024
-        # Define limite de memória virtual (Address Space)
         resource.setrlimit(resource.RLIMIT_AS, (limit, limit))
     except (ImportError, OSError, ValueError, TypeError):
         pass
+
 
 def run_code(
     code: str,
@@ -107,7 +97,6 @@ def run_code(
     max_ram_mb: int = 256,
 ) -> RunResult:
     """Executa código em subprocess isolado com limites de recurso."""
-    
     if not code or not code.strip():
         _bump_metric(lang, ok=False)
         return RunResult(ok=False, stderr="Código vazio", exit_code=-1)
@@ -116,7 +105,6 @@ def run_code(
     work_dir.mkdir(parents=True, exist_ok=True)
     work_dir = work_dir.resolve()
 
-    # Sanitização de timeout
     timeout = max(1, min(timeout, 60))
 
     script_name = "_run_script.py" if lang in ("python", "py") else "_run_script.js"
@@ -127,9 +115,7 @@ def run_code(
     except Exception as e:
         _bump_metric(lang, ok=False)
         return RunResult(ok=False, stderr=str(e), exit_code=-1)
-        return RunResult(ok=False, stderr=f"Erro ao salvar script: {e}", exit_code=-1)
 
-    # Definição do comando baseado na linguagem
     cmd = None
     if lang in ("python", "py"):
         cmd = [sys.executable, str(script_path)]
@@ -141,10 +127,6 @@ def run_code(
         return RunResult(ok=False, stderr=f"Linguagem '{lang}' não suportada", exit_code=-1)
 
     preexec_fn = None
-    # Node/V8 pode falhar com RLIMIT_AS muito agressivo (CodeRange reserve).
-    # Mantemos limite para Python e evitamos falso OOM em JavaScript.
-    # Aplicar limites apenas em Linux/Unix e prioritariamente para Python.
-    # Node.js/V8 costuma reservar muita memória virtual no início e pode sofrer crash falso com limites baixos.
     if sys.platform != "win32" and lang in ("python", "py"):
         preexec_fn = lambda: _preexec_limit_memory(max_ram_mb)
 
@@ -157,7 +139,7 @@ def run_code(
             timeout=timeout,
             preexec_fn=preexec_fn,
         )
-        
+
         run_result = RunResult(
             ok=result.returncode == 0,
             stdout=result.stdout or "",
@@ -175,7 +157,7 @@ def run_code(
             stderr=f"Timeout na execução ({timeout}s).",
             exit_code=-1,
             timed_out=True,
-            feedback="O código demorou demais para responder. Verifique loops infinitos."
+            feedback="O código demorou demais para responder. Verifique loops infinitos.",
         )
     except FileNotFoundError:
         _bump_metric(lang, ok=False)
@@ -189,8 +171,3 @@ def run_code(
     except Exception as e:
         _bump_metric(lang, ok=False)
         return RunResult(ok=False, stdout="", stderr=str(e), exit_code=-1)
-        interp = "Python" if lang in ("python", "py") else "Node.js"
-        return RunResult(ok=False, stderr=f"{interp} não instalado no servidor.", exit_code=-1)
-    except Exception as e:
-        _bump_metric(lang, ok=False)
-        return RunResult(ok=False, stderr=str(e), exit_code=-1)
