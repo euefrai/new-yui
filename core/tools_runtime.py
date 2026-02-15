@@ -412,18 +412,22 @@ if __name__ == "__main__":
             "error": None,
         }
         if background:
-            # Agenda no scheduler — não bloqueia o chat
+            # Agenda no scheduler — não bloqueia o chat.
+            # Se scheduler falhar/indisponível, usa thread local como fallback.
             def _run_zip(data):
-                spath = data["script_path"]
+                spath = Path(data["script_path"])
                 durl = data["download_url"]
+                zpath = Path(data["zip_output"])
                 try:
-                    subprocess.run(
+                    proc = subprocess.run(
                         [sys.executable, str(spath)],
                         cwd=str(PROJECT_ROOT),
                         timeout=60,
                         capture_output=True,
                         check=False,
                     )
+                    if proc.returncode != 0 or not zpath.exists() or zpath.stat().st_size == 0:
+                        return
                     try:
                         from core.event_bus import emit
                         from core.pending_downloads import add_ready
@@ -434,11 +438,26 @@ if __name__ == "__main__":
                 except Exception:
                     pass
 
+            job_data = {
+                "script_path": str(script_path),
+                "download_url": download_url,
+                "zip_output": str(zip_output),
+            }
+            scheduled = False
             try:
                 from core.task_scheduler import get_scheduler
-                get_scheduler().add(_run_zip, data={"script_path": str(script_path), "download_url": download_url})
+                get_scheduler().add(_run_zip, data=job_data)
+                scheduled = True
             except Exception:
-                pass  # fallback: executa síncrono
+                scheduled = False
+
+            if not scheduled:
+                try:
+                    import threading
+                    threading.Thread(target=_run_zip, args=(job_data,), daemon=True).start()
+                except Exception:
+                    pass
+
             return {**base_result, "zip_pending": True, "download_url": download_url}
         # Síncrono (background=False)
         try:

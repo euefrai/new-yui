@@ -2,14 +2,24 @@
   "use strict";
 
   function apiUrl(path) {
-    var host = window.location.host || "";
-    var hostname = (window.location.hostname || "").toLowerCase();
-    var isLocal = hostname === "localhost" || hostname === "127.0.0.1" || hostname === "";
-    var origin = window.location.origin || (window.location.protocol + "//" + host);
-    if (!isLocal && origin.indexOf("https://") !== 0) {
-      origin = "https://" + host;
+    var p = String(path || "").trim();
+    if (!p) return "/";
+
+    // Já é URL absoluta: em página HTTPS, evita mixed-content forçando https.
+    if (/^https?:\/\//i.test(p)) {
+      if (window.location.protocol === "https:" && p.indexOf("http://") === 0) {
+        return "https://" + p.slice(7);
+      }
+      return p;
     }
-    return origin + (path.charAt(0) === "/" ? path : "/" + path);
+
+    // URL protocol-relative
+    if (p.indexOf("//") === 0) {
+      return window.location.protocol + p;
+    }
+
+    // Mantém chamadas same-origin como caminho relativo para respeitar protocolo atual.
+    return p.charAt(0) === "/" ? p : "/" + p;
   }
   window.apiUrl = apiUrl;
 

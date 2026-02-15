@@ -168,6 +168,8 @@
     workspaceButtonsBound = true;
   }
 
+  window.getMonacoEditor = function () { return monacoEditor; };
+
   window.initYuiWorkspace = function () {
     initWorkspaceButtons();
     initMonacoEditor();

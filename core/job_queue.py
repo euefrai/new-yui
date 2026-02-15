@@ -97,7 +97,7 @@ def enqueue_chat(
     if get_scheduler and get_scheduler():
         get_scheduler().add(_run_job, payload, task_id=job_id)
     else:
-        # Fallback para threads caso o scheduler não esteja disponível
+        # fallback: executa em thread
         thread = threading.Thread(target=lambda: _run_job(payload), daemon=True)
         thread.start()
 
@@ -115,8 +115,6 @@ def cleanup_old_jobs(ttl_seconds: Optional[int] = None) -> int:
     if ttl <= 0: return 0
     
     now = time.time()
-    removed = 0
-
     with _lock:
         to_remove = [
             j_id for j_id, data in _results.items()
@@ -134,8 +132,10 @@ def get_job_metrics() -> Dict[str, Any]:
     """Retorna estatísticas de uso da fila para observabilidade."""
     with _lock:
         queued = sum(1 for j in _results.values() if j.get("status") == "queued")
+        running = sum(1 for j in _results.values() if j.get("status") == "running")
         return {
             "queued_now": queued,
+            "running_now": running,
             "stored_in_memory": len(_results),
             "enqueued_total": _metrics["enqueued"],
             "done_total": _metrics["done"],
