@@ -141,6 +141,45 @@
     }, 2000);
   }
 
+
+  function tryAttachPendingDownloadButton(container, rawText) {
+    if (!container) return;
+    if (container.querySelector(".download-btn, .btn-download")) return;
+    var text = (rawText || "").toLowerCase();
+    if (text.indexOf("baixar projeto") < 0 && text.indexOf("compact") < 0 && text.indexOf("download") < 0) return;
+
+    var link = document.createElement("a");
+    link.href = "#";
+    link.innerText = "⏳ Preparando download...";
+    link.className = "download-btn btn-download";
+    link.style.opacity = "0.8";
+    link.style.pointerEvents = "none";
+    container.appendChild(link);
+
+    var tries = 0;
+    var poll = setInterval(function () {
+      tries++;
+      if (tries > 30) {
+        clearInterval(poll);
+        link.innerText = "⚠️ ZIP não ficou pronto. Tente compactar novamente.";
+        return;
+      }
+      fetch(apiUrl("/api/system/pending_downloads"))
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          var urls = (data && data.ok && data.urls) ? data.urls : [];
+          if (!urls.length) return;
+          var url = urls[urls.length - 1];
+          clearInterval(poll);
+          link.style.opacity = "";
+          link.style.pointerEvents = "";
+          setupDownloadButton(link, url);
+          link.setAttribute("data-ready", "1");
+          link.innerText = "✓ Baixar Projeto";
+        })
+        .catch(function () {});
+    }, 2000);
+  }
   function initDownloadButtons(container, rawText) {
     if (!container) return;
     var text = rawText || (container.textContent || "").replace(/\s+/g, " ");
@@ -1043,6 +1082,8 @@
         var link = document.createElement("a");
         setupDownloadButton(link, downloadUrl);
         div.appendChild(link);
+      } else if (m.role === "assistant") {
+        tryAttachPendingDownloadButton(div, m.content || raw);
       }
       if (previewUrl) {
         var btnPrev = document.createElement("button");

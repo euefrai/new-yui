@@ -201,7 +201,10 @@ def remove_message(message_id: str, user_id: str) -> bool:
     for cid, msgs in data.get("messages_by_chat", {}).items():
         if data.get("chats", {}).get(cid, {}).get("user_id") != user_id:
             continue
-        data["messages_by_chat"][cid] = [m for m in msgs if m.get("id") != message_id]
+        new_msgs = [m for m in msgs if m.get("id") != message_id]
+        if len(new_msgs) == len(msgs):
+            continue
+        data["messages_by_chat"][cid] = new_msgs
         _write_local(data)
         return True
     return False
