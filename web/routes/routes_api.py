@@ -819,7 +819,14 @@ def api_sandbox_execute():
     if not code.strip():
         return jsonify({"ok": False, "stdout": "", "stderr": "Código vazio", "exit_code": -1, "feedback": "", "executed_at": executed_at}), 400
 
-    result = run_code(code=code, lang=lang, cwd=Path(settings.SANDBOX_DIR), timeout=timeout)
+    max_ram_mb = 512 if lang in ("javascript", "js", "node") else 256
+    result = run_code(
+        code=code,
+        lang=lang,
+        cwd=Path(settings.SANDBOX_DIR),
+        timeout=timeout,
+        max_ram_mb=max_ram_mb,
+    )
 
     feedback = result.feedback
     if result.exit_code != 0 and not feedback:

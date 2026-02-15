@@ -77,7 +77,13 @@ def tool_buscar_web(query: str, limite: int = 5) -> Dict[str, Any]:
         return {
             "ok": True,
             "resultados": [
-                {"titulo": r.get("title", ""), "snippet": r.get("body", ""), "url": r.get("href", "")}
+                {
+                    "titulo": r.get("title", ""),
+                    "snippet": r.get("body", ""),
+                    "resumo": r.get("body", ""),
+                    "url": r.get("href", ""),
+                    "link": r.get("href", ""),
+                }
                 for r in (results or [])
             ],
         }

@@ -9,6 +9,7 @@
 # ==========================================================
 
 import uuid
+import time
 from threading import Lock
 from typing import Any, Callable, Dict, Optional
 
@@ -45,10 +46,10 @@ def _run_job(payload: Dict[str, Any]) -> None:
         else:
             result = None
         with _lock:
-            _results[job_id] = {"status": "done", "result": result}
+            _results[job_id] = {"status": "done", "result": result, "created_at": _results.get(job_id, {}).get("created_at", time.time()), "updated_at": time.time()}
     except Exception as e:
         with _lock:
-            _results[job_id] = {"status": "failed", "error": str(e)}
+            _results[job_id] = {"status": "failed", "error": str(e), "created_at": _results.get(job_id, {}).get("created_at", time.time()), "updated_at": time.time()}
 
 
 def enqueue_chat(
@@ -58,6 +59,7 @@ def enqueue_chat(
     model: str = "yui",
 ) -> str:
     """Enfileira processamento de chat. Retorna job_id."""
+    cleanup_old_jobs()
     job_id = str(uuid.uuid4())[:12]
     payload = {
         "job_id": job_id,
@@ -65,7 +67,7 @@ def enqueue_chat(
         "args": {"user_id": user_id, "chat_id": chat_id, "message": message, "model": model},
     }
     with _lock:
-        _results[job_id] = {"status": "queued"}
+        _results[job_id] = {"status": "queued", "created_at": time.time(), "updated_at": time.time()}
     if get_scheduler:
         get_scheduler().add(_run_job, payload, task_id=job_id)
     else:
@@ -79,11 +81,27 @@ def enqueue_chat(
 
 def get_job_result(job_id: str) -> Optional[Dict[str, Any]]:
     """Retorna status do job: {status: queued|done|failed, result?, error?}."""
+    cleanup_old_jobs()
     with _lock:
         return _results.get(job_id)
 
 
-def cleanup_old_jobs() -> int:
+def cleanup_old_jobs(ttl_seconds: Optional[int] = None) -> int:
     """Remove jobs antigos. Retorna quantidade removida."""
-    # TODO: implementar TTL se necessário
-    return 0
+    ttl = int(ttl_seconds or TTL)
+    if ttl <= 0:
+        return 0
+    now = time.time()
+    removed = 0
+    with _lock:
+        to_remove = []
+        for job_id, data in _results.items():
+            ts = data.get("updated_at") or data.get("created_at")
+            if ts is None:
+                continue
+            if (now - float(ts)) > ttl:
+                to_remove.append(job_id)
+        for job_id in to_remove:
+            _results.pop(job_id, None)
+        removed = len(to_remove)
+    return removed

@@ -4,6 +4,7 @@ from core.tools_runtime import tool_criar_projeto_arquivos, tool_criar_zip_proje
 from yui_ai.services import memory_service as mem
 from yui_ai.core.intent_router import decidir_rota
 from config import settings
+from core import job_queue
 
 def test_legacy_routes_modules_reexport_public_api():
     """Garante que as rotas legadas continuam funcionando após a migração."""
@@ -76,3 +77,39 @@ def test_sandbox_zip_endpoint_creates_downloadable_archive():
     filename = payload["url"].split("/download/", 1)[-1]
     archive = Path(settings.GENERATED_PROJECTS_DIR) / filename
     assert archive.exists()
+
+def test_web_search_local_fallback_when_provider_fails(monkeypatch):
+    """Garante que o sistema exibe erro amigável se o provedor de busca falhar."""
+    def _fake_fail(_query, limite=5):
+        return {"ok": False, "resultados": [], "error": "provider down"}
+
+    monkeypatch.setattr("core.tools_runtime.tool_buscar_web", _fake_fail)
+    from services.ai_service import processar_mensagem_sync
+
+    resp = processar_mensagem_sync(
+        user_id="reg-web-fallback",
+        chat_id="reg-web-fallback-chat",
+        message="que jogos do brasileirão vai acontecer hoje?",
+        model="yui",
+    )
+    assert "Não consegui consultar a web" in resp
+
+def test_job_queue_cleanup_removes_expired_entries():
+    """Testa se a fila de tarefas limpa resultados antigos corretamente."""
+    job_queue._results.clear()
+    job_queue._results["old"] = {"status": "done", "updated_at": 1.0}
+    job_queue._results["new"] = {"status": "queued", "updated_at": 9_999_999_999.0}
+
+    removed = job_queue.cleanup_old_jobs(ttl_seconds=10)
+    assert removed == 1
+    assert "old" not in job_queue._results
+    assert "new" in job_queue._results
+
+def test_sandbox_execute_javascript_basic_success():
+    """Testa a execução básica de código no Sandbox."""
+    client = app.test_client()
+    resp = client.post('/api/sandbox/execute', json={'lang': 'javascript', 'code': 'console.log(1+1)'})
+    assert resp.status_code == 200
+    payload = resp.get_json() or {}
+    assert payload.get('ok') is True
+    assert (payload.get('stdout') or '').strip() == '2'

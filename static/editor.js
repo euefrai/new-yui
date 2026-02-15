@@ -1,6 +1,6 @@
 /**
  * YUI Workspace — Monaco Editor & Smart Preview
- * Estilo Cursor IDE com injeção automática de CSS.
+ * Estilo Cursor IDE com injeção automática de CSS e efeitos visuais.
  */
 (function () {
   "use strict";
@@ -73,7 +73,18 @@
     });
   }
 
-  // 3. Lógica de Preview Inteligente (Injeta CSS no HTML)
+  // 3. Efeito Visual de Atualização (Pulse)
+  function triggerEditorPulse() {
+    var panel = document.getElementById("workspacePanel");
+    if (panel) {
+      panel.classList.remove("editorPulse");
+      panel.offsetHeight; // Trigger reflow
+      panel.classList.add("editorPulse");
+      setTimeout(function () { panel.classList.remove("editorPulse"); }, 1200);
+    }
+  }
+
+  // 4. Lógica de Preview Inteligente (Injeta CSS no HTML)
   window.updatePreview = function() {
     var frame = document.getElementById("workspacePreviewFrame");
     if (!frame || !monacoEditor) return;
@@ -83,7 +94,6 @@
     var lang = model ? model.getLanguageId() : "";
 
     if (lang === "html") {
-      // Tenta capturar CSS do sandbox ou de arquivos abertos (se disponível)
       var cssContent = window.lastKnownCSS || ""; 
       
       var fullHtml = `
@@ -106,7 +116,7 @@
     }
   };
 
-  // 4. Mapeamento de Linguagens
+  // 5. Mapeamento de Linguagens e Atualização Externa
   function getLangToMonaco(lang) {
     var map = { js: "javascript", py: "python", ts: "typescript", html: "html", css: "css", md: "markdown" };
     return map[(lang || "").toLowerCase()] || "plaintext";
@@ -122,22 +132,26 @@
     var monacoLang = getLangToMonaco(lang);
     window.monaco.editor.setModelLanguage(monacoEditor.getModel(), monacoLang);
     
-    // Se for CSS, armazena para o próximo preview de HTML
     if (lang === "css") window.lastKnownCSS = code;
+    triggerEditorPulse(); // Ativa o feedback visual
   };
 
-  // 5. Setup de Botões (Limpando conflito de mesclagem)
+  // 6. Setup de Botões e Tabs
   function initWorkspaceButtons() {
     if (workspaceButtonsBound) return;
     workspaceButtonsBound = true;
 
     var copyBtn = document.getElementById("workspaceCopy");
-    var downloadBtn = document.getElementById("workspaceDownload");
     var tabPreview = document.querySelector('[data-tab="preview"]');
 
-    if (copyBtn) copyBtn.onclick = function() {
-      navigator.clipboard.writeText(monacoEditor.getValue());
-    };
+    if (copyBtn) {
+      copyBtn.onclick = function() {
+        navigator.clipboard.writeText(monacoEditor.getValue());
+        // Feedback simples de cópia
+        copyBtn.innerText = "Copiado!";
+        setTimeout(() => { copyBtn.innerText = "Copiar"; }, 2000);
+      };
+    }
     
     if (tabPreview) {
       tabPreview.addEventListener("click", window.updatePreview);
