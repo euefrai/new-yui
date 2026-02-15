@@ -184,6 +184,8 @@
 
   function initWorkspaceButtons() {
     if (workspaceButtonsBound) return;
+  function initWorkspaceButtons() {
+    if (workspaceButtonsBound) return;
   // 6. Setup de Botões e Interações
   function initWorkspaceButtons() {
     if (workspaceButtonsBound) return;

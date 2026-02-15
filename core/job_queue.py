@@ -35,6 +35,13 @@ _metrics: Dict[str, int] = {
     "cleaned": 0,
 }
 
+_metrics: Dict[str, int] = {
+    "enqueued": 0,
+    "done": 0,
+    "failed": 0,
+    "cleaned": 0,
+}
+
 
 def _run_job(payload: Dict[str, Any]) -> None:
     """Worker: executa a tarefa e armazena resultado."""

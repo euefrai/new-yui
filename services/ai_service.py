@@ -62,6 +62,47 @@ def _responder_busca_web_local(message: str) -> Optional[str]:
         itens = result.get("resultados") or []
         if not itens:
             return "Não achei resultados confiáveis agora. Tente reformular a pergunta com mais contexto."
+        linhas = ["Encontrei isso na web:"]
+        for i, r in enumerate(itens[:5], 1):
+            titulo = (r.get("titulo") or r.get("title") or "Sem título").strip()
+            link = (r.get("link") or r.get("url") or r.get("href") or "").strip()
+            resumo = (r.get("resumo") or r.get("snippet") or r.get("body") or "").strip()
+            bloco = f"{i}. {titulo}"
+            if resumo:
+                bloco += f" — {resumo}"
+            if link:
+                bloco += f"\n   Fonte: {link}"
+            linhas.append(bloco)
+        resposta = "\n".join(linhas)
+        _web_cache_set(message, resposta)
+        return resposta
+    except Exception:
+        return (
+            "Não consegui consultar a web neste momento. "
+            "Tente novamente em instantes ou reformule sua pergunta com mais contexto."
+        )
+
+
+
+def _responder_busca_web_local(message: str) -> Optional[str]:
+    """Resposta factual rápida via tool buscar_web sem depender da LLM."""
+    try:
+        from core.tools_runtime import tool_buscar_web
+        result = tool_buscar_web(message, limite=5)
+        if not result or not result.get("ok"):
+            cached = _web_cache_get(message)
+            if cached:
+                return "(Resultado recente em cache)\n" + cached
+            error = (result or {}).get("error") if isinstance(result, dict) else None
+            detalhe = f" Detalhe: {error}." if error else ""
+            return (
+                "Não consegui consultar a web neste momento. "
+                "Tente novamente em instantes ou reformule sua pergunta com mais contexto."
+                + detalhe
+            )
+        itens = result.get("resultados") or []
+        if not itens:
+            return "Não achei resultados confiáveis agora. Tente reformular a pergunta com mais contexto."
 def _web_cache_set(query: str, text: str) -> None:
     key = (query or "").strip().lower()
     if not key or not text: return
