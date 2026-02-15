@@ -1051,15 +1051,26 @@ def agent_controller(
                     if root_dir:
                         slug = Path(root_dir).name if root_dir else ""
                         zip_result = {}
-                        if get_energy_manager and get_energy_manager().can_execute():
-                            get_energy_manager().consume(COST_TOOL)
-                            zip_result = get_task_engine().executar_tool("criar_zip_projeto", {"root_dir": root_dir, "zip_name": slug or None, "background": True})
+                        if get_energy_manager:
+                            try:
+                                get_energy_manager().consume(COST_TOOL)
+                            except Exception:
+                                pass
+                        try:
+                            zip_result = get_task_engine().executar_tool(
+                                "criar_zip_projeto",
+                                {"root_dir": root_dir, "zip_name": slug or None, "background": True},
+                            )
+                        except Exception:
+                            zip_result = {}
                         if zip_result.get("ok"):
                             zpayload = zip_result.get("result") or {}
                             zip_output = zpayload.get("zip_output") or ""
                             zip_basename = Path(zip_output).name if zip_output else ""
                             if zip_basename and zip_basename.endswith(".zip"):
                                 partes.append(f"Projeto compactado. [DOWNLOAD]:/download/{zip_basename}")
+                        else:
+                            partes.append("Projeto criado, mas não consegui compactar automaticamente agora.")
 
             final_answer = str(data.get("final_answer") or "").strip()
             if final_answer:
@@ -1087,7 +1098,16 @@ def agent_controller(
             if raw_content and "mode" in raw_content and ("steps" in raw_content or '"tool"' in raw_content):
                 reply = processar_resposta_ai(raw_clean)
                 if not reply or reply == raw_clean:
-                    reply = "Projeto criado. Se pediu download, use o botão «Baixar Projeto» abaixo."
+                    reply = "Projeto criado."
+                    try:
+                        from core.pending_downloads import get_recent
+                        urls = get_recent()
+                        if urls:
+                            reply += f" [DOWNLOAD]:{urls[-1]}"
+                        else:
+                            reply += " Se quiser o arquivo, peça para compactar novamente."
+                    except Exception:
+                        reply += " Se quiser o arquivo, peça para compactar novamente."
             else:
                 reply = _strip_json_wrapper(raw_clean)
 

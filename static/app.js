@@ -2,16 +2,43 @@
   "use strict";
 
   function apiUrl(path) {
-    var host = window.location.host || "";
-    var hostname = (window.location.hostname || "").toLowerCase();
-    var isLocal = hostname === "localhost" || hostname === "127.0.0.1" || hostname === "";
-    var origin = window.location.origin || (window.location.protocol + "//" + host);
-    if (!isLocal && origin.indexOf("https://") !== 0) {
-      origin = "https://" + host;
+    var p = String(path || "").trim();
+    if (!p) return "/";
+
+    // Já é URL absoluta: em página HTTPS, evita mixed-content forçando https.
+    if (/^https?:\/\//i.test(p)) {
+      if (window.location.protocol === "https:" && p.indexOf("http://") === 0) {
+        return "https://" + p.slice(7);
+      }
+      return p;
     }
-    return origin + (path.charAt(0) === "/" ? path : "/" + path);
+
+    // URL protocol-relative
+    if (p.indexOf("//") === 0) {
+      return window.location.protocol + p;
+    }
+
+    // Mantém chamadas same-origin como caminho relativo para respeitar protocolo atual.
+    return p.charAt(0) === "/" ? p : "/" + p;
   }
   window.apiUrl = apiUrl;
+
+  // Hardening extra: evita mixed-content mesmo se alguma chamada absoluta escapar.
+  if (window.location.protocol === "https:" && typeof window.fetch === "function" && !window.__yuiFetchPatched) {
+    var _origFetch = window.fetch.bind(window);
+    window.fetch = function (input, init) {
+      try {
+        if (typeof input === "string") {
+          if (input.indexOf("http://") === 0) input = "https://" + input.slice(7);
+          else if (input.indexOf("//") === 0) input = "https:" + input;
+        } else if (input && typeof input.url === "string" && input.url.indexOf("http://") === 0) {
+          input = "https://" + input.url.slice(7);
+        }
+      } catch (e) {}
+      return _origFetch(input, init);
+    };
+    window.__yuiFetchPatched = true;
+  }
 
   var user = null;
   var chatAtual = null;
@@ -141,6 +168,45 @@
     }, 2000);
   }
 
+
+  function tryAttachPendingDownloadButton(container, rawText) {
+    if (!container) return;
+    if (container.querySelector(".download-btn, .btn-download")) return;
+    var text = (rawText || "").toLowerCase();
+    if (text.indexOf("baixar projeto") < 0 && text.indexOf("compact") < 0 && text.indexOf("download") < 0) return;
+
+    var link = document.createElement("a");
+    link.href = "#";
+    link.innerText = "⏳ Preparando download...";
+    link.className = "download-btn btn-download";
+    link.style.opacity = "0.8";
+    link.style.pointerEvents = "none";
+    container.appendChild(link);
+
+    var tries = 0;
+    var poll = setInterval(function () {
+      tries++;
+      if (tries > 30) {
+        clearInterval(poll);
+        link.innerText = "⚠️ ZIP não ficou pronto. Tente compactar novamente.";
+        return;
+      }
+      fetch(apiUrl("/api/system/pending_downloads"))
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          var urls = (data && data.ok && data.urls) ? data.urls : [];
+          if (!urls.length) return;
+          var url = urls[urls.length - 1];
+          clearInterval(poll);
+          link.style.opacity = "";
+          link.style.pointerEvents = "";
+          setupDownloadButton(link, url);
+          link.setAttribute("data-ready", "1");
+          link.innerText = "✓ Baixar Projeto";
+        })
+        .catch(function () {});
+    }, 2000);
+  }
   function initDownloadButtons(container, rawText) {
     if (!container) return;
     var text = rawText || (container.textContent || "").replace(/\s+/g, " ");
@@ -535,7 +601,7 @@
     if (!resizer || !chatArea || !workspacePanel || !mainSplit) return;
     var STORAGE_KEY = "yui_chat_width";
     var MIN_CHAT = 280;
-    var MAX_CHAT_PERCENT = 0.6;
+    var MAX_CHAT_PERCENT = 0.5;
     function getMaxChatWidth() {
       return Math.floor(mainSplit.offsetWidth * MAX_CHAT_PERCENT);
     }
@@ -1043,6 +1109,8 @@
         var link = document.createElement("a");
         setupDownloadButton(link, downloadUrl);
         div.appendChild(link);
+      } else if (m.role === "assistant") {
+        tryAttachPendingDownloadButton(div, m.content || raw);
       }
       if (previewUrl) {
         var btnPrev = document.createElement("button");
@@ -1287,6 +1355,17 @@
     var trecho = texto.length > 180 ? texto.slice(0, 177) + "..." : texto;
     msgInput.value = "↩ " + trecho + "\n\n";
     msgInput.focus();
+  }
+
+  var refreshBtn = document.getElementById("refreshPage");
+  if (refreshBtn) {
+    refreshBtn.addEventListener("click", function () {
+      try {
+        refreshBtn.disabled = true;
+        refreshBtn.textContent = "Atualizando...";
+      } catch (e) {}
+      window.location.reload();
+    });
   }
 
   document.getElementById("novoChat").addEventListener("click", async function () {
@@ -1794,7 +1873,7 @@
     if (!user || !user.id) return;
     var uid = encodeURIComponent(user.id);
     var cid = chatAtual ? encodeURIComponent(chatAtual) : "";
-    var url = apiUrl("/api/missions?user_id=" + uid + (cid ? "&chat_id=" + cid : ""));
+    var url = apiUrl("/api/missions/?user_id=" + uid + (cid ? "&chat_id=" + cid : ""));
     fetch(url)
       .then(function (r) { return r.json(); })
       .then(function (data) {
