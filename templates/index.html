@@ -3,8 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
   <title>Yui</title>
-  <link rel="stylesheet" href="/static/{% if use_minified|default(false) %}style.min.css{% else %}style.css{% endif %}" />
+  <link rel="stylesheet" href="/static/style.css?v={{ static_version }}" />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/styles/github-dark.min.css" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -40,6 +41,7 @@
         <span class="btnToggleLabel">Editor</span>
       </button>
       <button type="button" id="clearChat" class="btnClearChat" title="Limpar memória da sessão">Excluir Chat</button>
+      <button type="button" id="refreshPage" class="btnRefreshPage" title="Atualizar a página agora">Atualizar Tela</button>
       <button type="button" id="btnDeployYui" class="btnDeployYui" title="Commit e push no repositório Zeabur">Deploy via Yui</button>
       <div id="listaChats" class="listaChats"></div>
       <div class="tasksPanel" id="tasksPanel" title="Afazeres — Heathcliff pode criar tarefas automaticamente">
@@ -113,136 +115,127 @@
         <div class="telemetryRow">
           <span class="telemetryLabel">Escrita em disco</span>
           <span class="telemetryValue" id="telemetryDiskWrites">—</span>
+      
+      <aside class="sidebar">
+        <div class="logo" id="sidebarLogo">
+          <img src="/static/yui-icon.png" alt="Yui" class="yuiLogoImg" id="sidebarAvatar" />
         </div>
-      </div>
-      <div class="userFooter">
-        <div class="userAvatar" id="userAvatar" title="Avatar"></div>
-        <span id="userName">Usuário</span>
-        <button type="button" id="btnSair" class="btnSair" title="Sair">Sair</button>
-      </div>
-    </aside>
-    <div class="mainSplit" id="mainSplit">
-      <main class="chatArea" id="chatArea">
-        <div class="chatContainer">
-          <div id="chat" class="chatMessages"></div>
-          <div class="modelSwitcherWrap">
-            <label class="modelSwitcherLabel">Modelo</label>
-            <select id="modelSwitcher" class="modelSwitcher" title="Yui, Heathcliff ou Auto (Arbiter decide)">
-              <option value="auto">Auto — Arbiter decide</option>
-              <option value="yui">Yui — Modo Padrão</option>
-              <option value="heathcliff">Heathcliff — Modo Engenheiro</option>
-            </select>
-          </div>
-          <div class="inputArea" id="inputArea">
-          <label class="btnAnexo" title="Enviar arquivo para análise">
-            <span class="btnAnexoIcon">&#128206;</span>
-            <input type="file" id="fileInput" hidden accept=".py,.js,.ts,.json,.txt,.md,.html,.css,.yml,.yaml,.java,.tsx,.jsx" />
-          </label>
-          <input id="msg" type="text" placeholder="Digite sua mensagem..." autocomplete="off" />
-          <button type="button" id="btnEnviar">Enviar</button>
-          </div>
-          <div class="systemHealthBar" id="systemHealthBar" aria-hidden="true">
-            <div class="systemHealthIndicator" id="systemHealthIndicator"></div>
-            <span class="systemHealthLabel" id="systemHealthLabel">Sistema: —</span>
-          </div>
+        
+        <nav class="sidebarNav">
+          <button type="button" id="novoChat" class="btnNovoChat">+ Novo chat</button>
+          <button type="button" id="toggleWorkspace" class="btnToggleWorkspace" title="Abrir/fechar Editor (Ctrl+L)">
+            <span class="btnToggleIcon">&#60;/&#62;</span>
+            <span class="btnToggleLabel">Editor</span>
+          </button>
+          <button type="button" id="clearChat" class="btnClearChat">Excluir Chat</button>
+          <button type="button" id="btnDeployYui" class="btnDeployYui">Deploy via Yui</button>
+        </nav>
+
+        <div id="listaChats" class="listaChats"></div>
+
+        <div class="activityPanel" id="activityPanel">
+          <div class="activityTitle">⚙️ System Activity</div>
+          <ul class="activityList" id="activityList"></ul>
         </div>
-      </main>
-      <div class="mainSplitResizer" id="mainSplitResizer" title="Arraste para redimensionar"></div>
-      <aside class="workspacePanel" id="workspacePanel">
-        <div class="workspaceProgressBar" id="workspaceProgressBar" style="display:none">
-          <div class="workspaceProgressFill" id="workspaceProgressFill"></div>
-          <span class="workspaceProgressLabel" id="workspaceProgressLabel">Sincronizando Projeto...</span>
+
+        <div class="telemetryPanel" id="telemetryPanel">
+          <div class="telemetryTitle">Telemetria</div>
+          <div class="telemetryRow"><span>Custo hoje</span><span id="telemetryCost">—</span></div>
+          <div class="telemetryRow"><span>Tokens</span><span id="telemetryTokens">—</span></div>
+        </div>
+
+        <div class="userFooter">
+          <div class="userAvatar" id="userAvatar"></div>
+          <span id="userName">Usuário</span>
+          <button type="button" id="btnSair" class="btnSair">Sair</button>
         </div>
         <div class="workspaceHeader">
           <span class="workspaceTitle">Workspace</span>
           <div class="workspaceActions">
             <input type="file" id="workspaceImportInput" webkitdirectory directory multiple hidden />
             <button type="button" id="workspaceRun" class="workspaceBtn workspaceBtnPlay" title="Executar código (Ctrl+Enter)">▶ Executar</button>
+            <button type="button" id="workspaceNewFile" class="workspaceBtn" title="Novo arquivo no Workspace">+ Arquivo</button>
+            <button type="button" id="workspaceNewFolder" class="workspaceBtn" title="Nova pasta no Workspace">+ Pasta</button>
+            <button type="button" id="workspaceRename" class="workspaceBtn" title="Renomear arquivo/pasta selecionado">Renomear</button>
+            <button type="button" id="workspaceDelete" class="workspaceBtn" title="Excluir arquivo/pasta selecionado">Excluir</button>
             <button type="button" id="workspaceSyncSandbox" class="workspaceBtn" title="Salvar no Sandbox">Salvar no Sandbox</button>
             <button type="button" id="workspaceLoadSandbox" class="workspaceBtn" title="Carregar do Sandbox (lazy)">Carregar Sandbox</button>
             <button type="button" id="workspaceImport" class="workspaceBtn" title="Importar projeto">Importar</button>
-            <button type="button" id="workspaceExport" class="workspaceBtn" title="Exportar ZIP">Exportar ZIP</button>
+            <button type="button" id="workspaceExport" class="workspaceBtn" title="Compactar e baixar projeto completo">Compactar Projeto</button>
             <button type="button" id="workspaceFeedYui" class="workspaceBtn workspaceBtnHighlight" title="Enviar arquivo para o chat">Alimentar Yui</button>
-            <button type="button" id="workspaceCopy" class="workspaceBtn" title="Copiar">Copiar</button>
             <button type="button" id="workspaceDiff" class="workspaceBtn" title="Ver diferenças do arquivo">Ver Diff</button>
-            <button type="button" id="workspaceDownload" class="workspaceBtn" title="Baixar arquivo">Baixar</button>
-          </div>
-        </div>
-        <div class="workspaceBody workspace-container">
-          <div class="fileTreeSidebar" id="fileTreeSidebar">
-            <div class="fileTreeEmpty" id="fileTreeEmpty">Importe um projeto para ver os arquivos</div>
-            <div class="fileTreeList" id="fileTreeList" style="display: none;"></div>
-          </div>
-          <div class="workspaceEditorColumn">
-            <div class="workspaceTabs" id="workspaceTabs">
-              <button type="button" class="workspaceTab active" data-tab="editor">Editor</button>
-              <button type="button" class="workspaceTab" data-tab="preview">Preview</button>
+      </aside>
+
+      <div class="mainSplit" id="mainSplit">
+        
+        <main class="chatArea" id="chatArea">
+          <div class="chatContainer">
+            <div id="chat" class="chatMessages"></div>
+            
+            <div class="modelSwitcherWrap">
+              <select id="modelSwitcher" class="modelSwitcher">
+                <option value="auto">Auto — Arbiter decide</option>
+                <option value="yui">Yui — Modo Padrão</option>
+                <option value="heathcliff">Heathcliff — Modo Engenheiro</option>
+              </select>
             </div>
-            <div class="workspaceTabContent" id="workspaceTabEditor">
-              <div id="monacoContainer" class="monacoContainer"></div>
-            <div class="workspaceConsole" id="workspaceConsole">
-              <div class="workspaceConsoleHeader">Console</div>
-              <pre class="workspaceConsoleOutput" id="workspaceConsoleOutput">$ Aguardando execução...</pre>
-              <div class="workspaceConsoleActions" id="workspaceConsoleActions" style="display:none">
-                <button type="button" id="workspaceSuggestFix" class="workspaceConsoleBtn">Sugerir correção ao Heathcliff</button>
+
+            <div class="inputArea" id="inputArea">
+              <label class="btnAnexo">
+                <span class="btnAnexoIcon">&#128206;</span>
+                <input type="file" id="fileInput" hidden />
+              </label>
+              <input id="msg" type="text" placeholder="Digite sua mensagem..." autocomplete="off" />
+              <button type="button" id="btnEnviar">Enviar</button>
+            </div>
+          </div>
+        </main>
+
+        <div class="mainSplitResizer" id="mainSplitResizer"></div>
+
+        <aside class="workspacePanel" id="workspacePanel">
+          <div class="workspaceHeader">
+            <span class="workspaceTitle">Workspace</span>
+            <div class="workspaceActions">
+              <button type="button" id="workspaceRun" class="workspaceBtn workspaceBtnPlay">▶ Executar</button>
+              <button type="button" id="workspaceSyncSandbox" class="workspaceBtn">Salvar</button>
+              <button type="button" id="workspaceExport" class="workspaceBtn">Compactar</button>
+            </div>
+          </div>
+
+          <div class="workspaceBody">
+            <div class="fileTreeSidebar" id="fileTreeSidebar">
+              <div id="fileTreeList"></div>
+            </div>
+            
+            <div class="workspaceEditorColumn">
+              <div class="workspaceTabs" id="workspaceTabs">
+                <button type="button" class="workspaceTab active" data-tab="editor">Editor</button>
+                <button type="button" class="workspaceTab" data-tab="preview">Preview</button>
               </div>
             </div>
             <div class="workspaceTerminalWrap" id="workspaceTerminalWrap">
               <div class="workspaceTerminalHeader">
                 <span>Terminal</span>
-                <button type="button" id="workspaceTerminalToggle" class="workspaceTerminalToggle" title="Expandir/Recolher">▼</button>
+                <div class="workspaceTerminalHeaderActions">
+                  <button type="button" id="workspaceTerminalExpand" class="workspaceTerminalToggle" title="Ampliar terminal">⤢</button>
+                  <button type="button" id="workspaceTerminalToggle" class="workspaceTerminalToggle" title="Expandir/Recolher">▼</button>
+              
+              <div class="workspaceTabContent" id="workspaceTabEditor">
+                <div id="monacoContainer" class="monacoContainer"></div>
+                <div class="workspaceTerminalWrap" id="workspaceTerminalWrap">
+                  <div id="workspaceTerminal"></div>
+                </div>
               </div>
-              <div id="workspaceTerminal" class="workspaceTerminal"></div>
-            </div>
-            </div>
-            <div class="workspaceTabContent" id="workspaceTabPreview" style="display:none">
-              <div class="workspacePreviewWrap">
-                <iframe id="workspacePreviewFrame" class="workspacePreviewFrame" src="about:blank" title="Preview do HTML"></iframe>
-                <div class="workspacePreviewEmpty" id="workspacePreviewEmpty">Abra um arquivo HTML para visualizar a prévia</div>
+
+              <div class="workspaceTabContent" id="workspaceTabPreview" style="display:none">
+                <iframe id="workspacePreviewFrame" class="workspacePreviewFrame"></iframe>
               </div>
             </div>
           </div>
-        </div>
-      </aside>
+        </aside>
+      </div>
     </div>
-    </div>
-  </div>
-
-  <div id="previewPanel" class="previewPanel">
-    <div class="previewHeader">
-      <span id="previewTitle">Preview</span>
-      <button type="button" id="closePreview" class="previewClose">×</button>
-    </div>
-    <iframe id="previewFrame" class="previewFrame" src="about:blank"></iframe>
-  </div>
-
-  <div id="userMenu" class="userMenu">
-    <div class="userMenuHeader">
-      <div class="userMenuName" id="userMenuName">Usuário</div>
-      <div class="userMenuEmail" id="userMenuEmail"></div>
-    </div>
-    <div class="userMenuSectionTitle">Tema</div>
-    <div class="userMenuRow">
-      <button type="button" id="themeDarkBtn" class="userMenuItem">Modo escuro</button>
-      <button type="button" id="themeLightBtn" class="userMenuItem">Modo claro</button>
-    </div>
-    <div class="userMenuSectionTitle">Preferências da Yui</div>
-    <label class="userMenuLabel" for="prefNivel">Nível técnico</label>
-    <select id="prefNivel" class="userMenuSelect">
-      <option value="desconhecido">Indefinido</option>
-      <option value="iniciante">Iniciante</option>
-      <option value="intermediario">Intermediário</option>
-      <option value="avancado">Avançado</option>
-    </select>
-    <label class="userMenuLabel" for="prefModo">Modo de resposta</label>
-    <select id="prefModo" class="userMenuSelect">
-      <option value="dev">Modo dev (direto e focado em código)</option>
-      <option value="explicativo">Explicativo (mais didático)</option>
-      <option value="resumido">Resumido</option>
-    </select>
-    <label class="userMenuLabel" for="prefLangs">Linguagens preferidas</label>
-    <input id="prefLangs" class="userMenuInput" type="text" placeholder="Ex: python, js, ts" />
-    <button type="button" id="saveProfileBtn" class="userMenuSave">Salvar preferências</button>
   </div>
 
   <script>
@@ -258,10 +251,12 @@
       });
     };
   </script>
-  <script src="/static/{% if use_minified|default(false) %}app.min.js{% else %}app.js{% endif %}"></script>
-  <script src="/static/{% if use_minified|default(false) %}chat.min.js{% else %}chat.js{% endif %}"></script>
-  <script src="/static/{% if use_minified|default(false) %}editor.min.js{% else %}editor.js{% endif %}"></script>
-  <script src="/static/{% if use_minified|default(false) %}workspace-project.min.js{% else %}workspace-project.js{% endif %}"></script>
-  <script src="/static/{% if use_minified|default(false) %}workspace-terminal.min.js{% else %}workspace-terminal.js{% endif %}"></script>
+
+  <script src="/static/app.js?v={{ static_version }}"></script>
+  <script src="/static/chat.js?v={{ static_version }}"></script>
+  <script src="/static/editor.js?v={{ static_version }}"></script>
+  <script src="/static/workspace-project.js?v={{ static_version }}"></script>
+  <script src="/static/workspace-terminal.js?v={{ static_version }}"></script>
+  <script src="/static/app.js?v={{ static_version }}"></script>
 </body>
 </html>

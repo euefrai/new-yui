@@ -1,12 +1,7 @@
 """
-AI Service — orquestração da IA (streaming, título, mensagem síncrona).
-
-Rotas chamam o serviço; o serviço usa agent_controller, engine, yui_ai.
-Route -> Service -> Core; rotas NÃO importam yui_ai.
-
-Lazy loading: IA carrega só na primeira requisição (reduz RAM no startup).
-Intent Router: porteiro — decide Local / Cache / Tools / LLM antes de tudo.
-Local Brain + Cache Brain: 70% resolvido sem IA.
+AI Service — Orquestração da IA (streaming, título, mensagem síncrona).
+Fluxo: Route -> Service -> Core (Lazy Loading & Intent Router).
+Controle de Custo: Cache de Busca Web e Cache de Respostas (Token Shield).
 """
 
 import time
@@ -52,20 +47,34 @@ def _responder_busca_web_local(message: str) -> Optional[str]:
         result = tool_buscar_web(message, limite=5)
 
         if not result or not result.get("ok"):
-            return None
+            error = (result or {}).get("error") if isinstance(result, dict) else None
+            detalhe = f" Detalhe: {error}." if error else ""
+            return f"Não consegui consultar a web agora.{detalhe}"
 
         itens = result.get("resultados") or []
+        if not itens:
+            return "Não achei resultados confiáveis para essa pergunta."
+
         linhas = ["Encontrei isso na web:"]
-        for i, r in enumerate(itens[:3], 1):
-            link = r.get("url") or r.get("link") or ""
-            titulo = r.get("titulo") or r.get("title") or "—"
-            linhas.append(f"{i}. {titulo} - {link}")
+        for i, r in enumerate(itens[:5], 1):
+            titulo = (r.get("titulo") or r.get("title") or "Sem título").strip()
+            link = (r.get("link") or r.get("url") or r.get("href") or "").strip()
+            resumo = (r.get("resumo") or r.get("snippet") or r.get("body") or "").strip()
+            bloco = f"{i}. {titulo}"
+            if resumo:
+                bloco += f" — {resumo}"
+            if link:
+                bloco += f"\n   Fonte: {link}"
+            linhas.append(bloco)
 
         resposta = "\n".join(linhas)
         _web_cache_set(message, resposta)
         return resposta
     except Exception:
-        return None
+        return (
+            "Não consegui consultar a web neste momento. "
+            "Tente novamente em instantes ou reformule sua pergunta com mais contexto."
+        )
 
 
 def stream_resposta(
@@ -77,27 +86,28 @@ def stream_resposta(
     active_files: Optional[list] = None,
     console_errors: Optional[list] = None,
     workspace_open: bool = False,
+    **kwargs
 ) -> Generator[str, None, None]:
-    """Streaming da resposta da YUI. Intent Router → Local → Cache → IA."""
-    # Intent Router: roteia antes de tudo
+    """Streaming da resposta: Intent Router → Local → Cache → IA."""
+    # 1. Intent Router
     try:
         from yui_ai.core.intent_router import decidir_rota
         from yui_ai.core.local_brain import responder_local
         rota = decidir_rota(message)
-        if rota in ("time", "zip_builder", "terminal", "deploy"):
-            resposta_local = responder_local(message)
-            if resposta_local:
-                yield resposta_local
-                return
         if rota == "web_search":
             resposta_web = _responder_busca_web_local(message)
             if resposta_web:
                 yield resposta_web
                 return
+        if rota in ("time", "zip_builder", "terminal", "deploy"):
+            resposta_local = responder_local(message)
+            if resposta_local:
+                yield resposta_local
+                return
     except Exception:
         pass
 
-    # Local Brain (fallback para oi, etc)
+    # 2. Local Brain (fallback)
     try:
         from yui_ai.core.local_brain import responder_local
         resposta_local = responder_local(message)
@@ -107,7 +117,7 @@ def stream_resposta(
     except Exception:
         pass
 
-    # Cache Brain (Token Shield): perguntas repetidas = zero tokens
+    # 3. Cache Brain (Token Shield)
     try:
         from yui_ai.core.cache_brain import buscar_cache
         cached = buscar_cache(message)
@@ -117,6 +127,7 @@ def stream_resposta(
     except Exception:
         pass
 
+    # 4. LLM Agent
     from core.ai_loader import get_agent_controller
     agent = get_agent_controller()
     full_reply: list[str] = []
@@ -131,7 +142,7 @@ def stream_resposta(
         full_reply.append(chunk)
         yield chunk
 
-    # Salvar no cache para reutilizar
+    # 5. Salvar no cache
     reply = "".join(full_reply).strip()
     if reply:
         try:
@@ -152,55 +163,10 @@ def processar_mensagem_sync(
     user_id: str, chat_id: str, message: str, model: str = "yui"
 ) -> str:
     """Resposta síncrona. Intent Router → Local → Cache → IA."""
-    # Intent Router
-    try:
-        from yui_ai.core.intent_router import decidir_rota
-        from yui_ai.core.local_brain import responder_local
-        rota = decidir_rota(message)
-        if rota in ("time", "zip_builder", "terminal", "deploy"):
-            resposta_local = responder_local(message)
-            if resposta_local:
-                return resposta_local
-        if rota == "web_search":
-            resposta_web = _responder_busca_web_local(message)
-            if resposta_web:
-                return resposta_web
-    except Exception:
-        pass
-
-    # Local Brain
-    try:
-        from yui_ai.core.local_brain import responder_local
-        resposta_local = responder_local(message)
-        if resposta_local:
-            return resposta_local
-    except Exception:
-        pass
-
-    # Cache Brain (Token Shield)
-    try:
-        from yui_ai.core.cache_brain import buscar_cache
-        cached = buscar_cache(message)
-        if cached:
-            return cached
-    except Exception:
-        pass
-
-    from core.ai_loader import get_agent_controller
-    agent = get_agent_controller()
-    full: list[str] = []
-    for chunk in agent(user_id, chat_id, message, model=model):
-        full.append(chunk)
-    reply = "".join(full).strip()
-
-    # Salvar no cache para reutilizar
-    if reply:
-        try:
-            from yui_ai.core.cache_brain import salvar_cache
-            salvar_cache(message, reply)
-        except Exception:
-            pass
-    return reply
+    full_text = ""
+    for chunk in stream_resposta(user_id, chat_id, message, model=model):
+        full_text += chunk
+    return full_text
 
 
 def handle_chat_stream(
@@ -212,31 +178,30 @@ def handle_chat_stream(
     active_files: Optional[list] = None,
     console_errors: Optional[list] = None,
     workspace_open: bool = False,
+    **kwargs
 ) -> Generator[str, None, None]:
-    """
-    Orquestra o stream: Intent Router → Local → Cache → Tools → IA.
-    """
+    """Orquestra o stream: Intent Router → Local → Cache → Tools → IA."""
     from core.ai_loader import get_session_memory, get_detect_intent, get_tool_executor
     session_memory = get_session_memory()
 
-    # Intent Router: roteia antes de tudo
+    # Intent Router
     try:
         from yui_ai.core.intent_router import decidir_rota
         from yui_ai.core.local_brain import responder_local
         rota = decidir_rota(message)
-        if rota in ("time", "zip_builder", "terminal", "deploy"):
-            resposta_local = responder_local(message)
-            if resposta_local:
-                session_memory.add(user_id, "user", message)
-                session_memory.add(user_id, "assistant", resposta_local)
-                yield resposta_local
-                return
         if rota == "web_search":
             resposta_web = _responder_busca_web_local(message)
             if resposta_web:
                 session_memory.add(user_id, "user", message)
                 session_memory.add(user_id, "assistant", resposta_web)
                 yield resposta_web
+                return
+        if rota in ("time", "zip_builder", "terminal", "deploy"):
+            resposta_local = responder_local(message)
+            if resposta_local:
+                session_memory.add(user_id, "user", message)
+                session_memory.add(user_id, "assistant", resposta_local)
+                yield resposta_local
                 return
     except Exception:
         pass
@@ -294,7 +259,6 @@ def handle_chat_stream(
     reply = "".join(full_reply)
     session_memory.add(user_id, "assistant", reply)
 
-    # Salvar no Cache Brain para reutilizar
     if reply:
         try:
             from yui_ai.core.cache_brain import salvar_cache

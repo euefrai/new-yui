@@ -29,7 +29,14 @@ def decidir_rota(texto: str) -> Rota:
         return "deploy"
 
     # busca factual na web (sem LLM)
-    if any(x in t for x in ["pesquisar", "buscar", "o que é", "quem é", "como funciona", "o que significa"]):
+    web_hints = [
+        "pesquisar", "buscar", "o que é", "quem é", "como funciona", "o que significa",
+        "brasileirão", "brasileirao", "jogos", "jogo de hoje", "jogos de hoje",
+        "notícia", "noticia", "notícias", "news", "placar", "rodada",
+        "playstation", "ps5", "xbox", "steam", "nintendo",
+        "mais jogados", "tendência", "tendencia", "ranking",
+    ]
+    if any(k in t for k in web_hints):
         return "web_search"
 
     # pergunta geral → LLM

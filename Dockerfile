@@ -10,6 +10,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copia o projeto
 COPY . .
 
+# Fail-fast: evita deploy com erro de sintaxe (ex.: worker failed to boot).
+RUN python -m compileall -q /app
+
 # Porta (Zeabur injeta PORT)
 ENV PORT=8080
 EXPOSE 8080
