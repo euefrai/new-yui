@@ -9,6 +9,7 @@
   var monacoLoaded = false;
   var monacoLoadPromise = null;
   var currentLang = "text";
+  var workspaceButtonsBound = false;
 
   function loadMonacoAsync() {
     if (monacoLoaded) return Promise.resolve();
@@ -163,6 +164,8 @@
   }
 
   function initWorkspaceButtons() {
+    if (workspaceButtonsBound) return;
+    workspaceButtonsBound = true;
     var copyBtn = document.getElementById("workspaceCopy");
     var downloadBtn = document.getElementById("workspaceDownload");
     if (copyBtn) copyBtn.addEventListener("click", workspaceCopy);

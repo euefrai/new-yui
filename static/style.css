@@ -1357,8 +1357,9 @@ select:focus-visible {
 
 .workspaceHeader {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
+  gap: 10px;
   padding: 10px 14px;
   background: var(--slate-100);
   border-bottom: 1px solid var(--border);
@@ -1375,15 +1376,18 @@ select:focus-visible {
 .workspaceActions {
   display: flex;
   gap: 8px;
+  align-items: center;
 }
 
 .workspaceBtn {
   padding: 6px 12px;
   background: var(--slate-100);
   border: 1px solid var(--border);
+  border-radius: 8px;
   color: var(--accent);
   font-size: 13px;
   cursor: pointer;
+  white-space: nowrap;
 }
 
 .workspaceBtn:hover {
@@ -1394,7 +1398,7 @@ select:focus-visible {
 .workspace-container {
   flex: 1;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   min-height: 0;
   overflow: hidden;
   border-left: 1px solid var(--border);
