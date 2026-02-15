@@ -1,6 +1,8 @@
 # Rotas de API: index, estáticos, download, clear_chat, upload, analyze, tools.
 
 from pathlib import Path
+import zipfile
+from datetime import datetime
 
 from flask import Blueprint, request, render_template, send_from_directory, jsonify, session
 
@@ -586,6 +588,27 @@ def api_sandbox_generate_map():
         if result.get("ok"):
             return jsonify(result)
         return jsonify({"ok": False, "error": result.get("error", "erro desconhecido")}), 400
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@sandbox_bp.get("/zip")
+def api_sandbox_zip():
+    """Compacta todo o sandbox e retorna URL de download do ZIP."""
+    sandbox = Path(settings.SANDBOX_DIR)
+    sandbox.mkdir(parents=True, exist_ok=True)
+    files = [p for p in sandbox.rglob("*") if p.is_file()]
+    if not files:
+        return jsonify({"ok": False, "error": "Sandbox vazio, nada para compactar."}), 400
+    settings.GENERATED_PROJECTS_DIR.mkdir(parents=True, exist_ok=True)
+    zip_name = f"workspace_sandbox_{datetime.now().strftime('%Y%m%d_%H%M%S')}.zip"
+    zip_path = settings.GENERATED_PROJECTS_DIR / zip_name
+    try:
+        with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
+            for file_path in files:
+                zf.write(file_path, file_path.relative_to(sandbox))
+        _record_disk_write()
+        return jsonify({"ok": True, "filename": zip_name, "url": f"/download/{zip_name}"})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
 

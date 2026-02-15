@@ -1,7 +1,9 @@
+from pathlib import Path
 from web_server import app
 from core.tools_runtime import tool_criar_projeto_arquivos, tool_criar_zip_projeto
 from yui_ai.services import memory_service as mem
 from yui_ai.core.intent_router import decidir_rota
+from config import settings
 
 def test_legacy_routes_modules_reexport_public_api():
     """Garante que as rotas legadas continuam funcionando após a migração."""
@@ -55,3 +57,22 @@ def test_intent_router_routes_factual_questions_to_web_search():
     """Testa se o roteador de intenção identifica perguntas factuais para busca web."""
     assert decidir_rota("que jogos do brasileirão vai acontecer hoje?") == "web_search"
     assert decidir_rota("quais são os jogos mais jogados de playstation?") == "web_search"
+
+def test_sandbox_zip_endpoint_creates_downloadable_archive():
+    """Garante que o endpoint de exportação do Sandbox gera um link válido de download."""
+    sandbox = Path(settings.SANDBOX_DIR)
+    sandbox.mkdir(parents=True, exist_ok=True)
+    sample = sandbox / "regression_zip" / "hello.txt"
+    sample.parent.mkdir(parents=True, exist_ok=True)
+    sample.write_text("ok", encoding="utf-8")
+
+    client = app.test_client()
+    resp = client.get("/api/sandbox/zip")
+    assert resp.status_code == 200
+    payload = resp.get_json()
+    assert payload and payload.get("ok") is True
+    assert str(payload.get("url") or "").startswith("/download/")
+
+    filename = payload["url"].split("/download/", 1)[-1]
+    archive = Path(settings.GENERATED_PROJECTS_DIR) / filename
+    assert archive.exists()

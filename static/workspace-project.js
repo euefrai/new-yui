@@ -9,6 +9,8 @@
   var originalFileContents = {};
   var projectTree = [];
   var currentFilePath = null;
+  var selectedTreePath = null;
+  var selectedTreeIsDir = false;
   var projectName = "projeto";
   var lastConsoleError = null;
   var sandboxMode = false;
@@ -57,6 +59,15 @@
     tree.forEach(function (node) { renderRec(container, node, 0); });
   }
 
+  function updateTreeSelection(path, isDir, el) {
+    selectedTreePath = path || null;
+    selectedTreeIsDir = !!isDir;
+    var list = document.getElementById("fileTreeList");
+    if (!list) return;
+    list.querySelectorAll(".fileTreeItem").forEach(function (n) { n.classList.remove("selected"); });
+    if (el) el.classList.add("selected");
+  }
+
   function renderRec(container, node, depth) {
     if (node.type === "file") {
       var el = document.createElement("div");
@@ -64,7 +75,10 @@
       el.dataset.path = node.path;
       el.style.paddingLeft = (depth * 12 + 8) + "px";
       el.innerHTML = ICON_FILE + "<span>" + escapeHtml(node.name) + "</span>";
-      el.addEventListener("click", function () { loadFile(node.path); });
+      el.addEventListener("click", function () {
+        updateTreeSelection(node.path, false, el);
+        loadFile(node.path);
+      });
       container.appendChild(el);
     } else {
       var folderEl = document.createElement("div");
@@ -73,6 +87,7 @@
       folderEl.innerHTML = '<span class="folderArrowWrap">' + ICON_ARROW_DOWN + '</span>' + ICON_FOLDER + "<span>" + escapeHtml(node.name) + "</span>";
       folderEl.addEventListener("click", function (e) {
         e.stopPropagation();
+        updateTreeSelection(node.name, true, folderEl);
         var isOpen = folderEl.classList.toggle("open");
         var arrowWrap = folderEl.querySelector(".folderArrowWrap");
         if (arrowWrap) arrowWrap.innerHTML = isOpen ? ICON_ARROW_DOWN : ICON_ARROW_RIGHT;
@@ -211,6 +226,7 @@
         childWrap.dataset.path = path;
         folderEl.addEventListener("click", function (ev) {
           ev.stopPropagation();
+          updateTreeSelection(path, true, folderEl);
           var isOpen = folderEl.classList.toggle("open");
           var arrowWrap = folderEl.querySelector(".folderArrowWrap");
           if (arrowWrap) arrowWrap.innerHTML = isOpen ? ICON_ARROW_DOWN : ICON_ARROW_RIGHT;
@@ -235,10 +251,198 @@
         fileEl.dataset.path = path;
         fileEl.style.paddingLeft = (depth * 12 + 8) + "px";
         fileEl.innerHTML = ICON_FILE + "<span>" + escapeHtml(e.name) + "</span>";
-        fileEl.addEventListener("click", function () { loadFile(path); });
+        fileEl.addEventListener("click", function () {
+          updateTreeSelection(path, false, fileEl);
+          loadFile(path);
+        });
         container.appendChild(fileEl);
       }
     });
+  }
+
+  function _parentDir(path) {
+    if (!path || path.indexOf("/") < 0) return "";
+    return path.replace(/\/[^/]+$/, "");
+  }
+
+  function _joinPath(dir, name) {
+    var d = (dir || "").replace(/^\/+|\/+$/g, "");
+    var n = (name || "").replace(/^\/+|\/+$/g, "");
+    return d ? (d + "/" + n) : n;
+  }
+
+  function _refreshLocalTreeAndOpen(pathToOpen) {
+    var paths = Object.keys(projectFiles);
+    projectTree = buildTreeFromPaths(paths);
+    var list = document.getElementById("fileTreeList");
+    var empty = document.getElementById("fileTreeEmpty");
+    if (list) {
+      if (paths.length === 0) {
+        list.style.display = "none";
+      } else {
+        list.style.display = "block";
+        renderFileTree(projectTree, list);
+      }
+    }
+    if (empty) empty.style.display = paths.length === 0 ? "block" : "none";
+    if (pathToOpen && projectFiles.hasOwnProperty(pathToOpen)) {
+      loadFile(pathToOpen);
+    }
+  }
+
+  function createWorkspaceFile() {
+    var baseDir = selectedTreePath ? (selectedTreeIsDir ? selectedTreePath : _parentDir(selectedTreePath)) : _parentDir(currentFilePath || "");
+    var name = (window.prompt("Nome do novo arquivo (ex: src/main.py):", "main.py") || "").trim();
+    if (!name) return;
+    if (name.indexOf("..") >= 0) return alert("Caminho inválido.");
+    var path = _joinPath(baseDir, name);
+
+    if (sandboxMode) {
+      fetch((window.apiUrl || function(p){return p;})("/api/sandbox/files"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "create_file", path: path, content: "" }),
+      }).then(function (r) { return r.json(); }).then(function (data) {
+        if (!data.ok) return logToConsole("$ Erro ao criar arquivo: " + (data.error || "desconhecido"), true);
+        projectFiles[path] = "";
+        originalFileContents[path] = "";
+        _refreshLocalTreeAndOpen(path);
+        updateTreeSelection(path, false);
+      }).catch(function (e) {
+        logToConsole("$ Erro de rede ao criar arquivo: " + (e.message || String(e)), true);
+      });
+      return;
+    }
+
+    projectFiles[path] = "";
+    originalFileContents[path] = "";
+    _refreshLocalTreeAndOpen(path);
+    updateTreeSelection(path, false);
+  }
+
+  function createWorkspaceFolder() {
+    var baseDir = selectedTreePath ? (selectedTreeIsDir ? selectedTreePath : _parentDir(selectedTreePath)) : _parentDir(currentFilePath || "");
+    var name = (window.prompt("Nome da nova pasta:", "nova-pasta") || "").trim();
+    if (!name) return;
+    if (name.indexOf("..") >= 0) return alert("Caminho inválido.");
+    var path = _joinPath(baseDir, name);
+
+    if (!sandboxMode) {
+      alert("Criação de pasta está disponível ao usar o modo Sandbox.");
+      return;
+    }
+
+    fetch((window.apiUrl || function(p){return p;})("/api/sandbox/files"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "create_folder", path: path }),
+    }).then(function (r) { return r.json(); }).then(function (data) {
+      if (!data.ok) return logToConsole("$ Erro ao criar pasta: " + (data.error || "desconhecido"), true);
+      loadFromSandbox();
+    }).catch(function (e) {
+      logToConsole("$ Erro de rede ao criar pasta: " + (e.message || String(e)), true);
+    });
+  }
+
+  function renameWorkspaceEntry() {
+    if (!selectedTreePath) {
+      alert("Selecione um arquivo/pasta na árvore para renomear.");
+      return;
+    }
+    var oldPath = selectedTreePath;
+    var baseDir = _parentDir(oldPath);
+    var currentName = oldPath.split("/").pop();
+    var newName = (window.prompt("Novo nome:", currentName) || "").trim();
+    if (!newName || newName === currentName) return;
+    if (newName.indexOf("..") >= 0 || newName.indexOf("/") >= 0) return alert("Nome inválido.");
+    var newPath = _joinPath(baseDir, newName);
+
+    // rename = create + delete (compatível com API atual)
+    if (selectedTreeIsDir) {
+      alert("Renomear pasta ainda não está habilitado. Renomeie os arquivos dentro da pasta.");
+      return;
+    }
+
+    var content = projectFiles[oldPath] || "";
+    if (sandboxMode) {
+      fetch((window.apiUrl || function(p){return p;})("/api/sandbox/files"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "create_file", path: newPath, content: content }),
+      }).then(function (r) { return r.json(); }).then(function (created) {
+        if (!created.ok) return logToConsole("$ Erro ao renomear arquivo: " + (created.error || "desconhecido"), true);
+        return fetch((window.apiUrl || function(p){return p;})("/api/sandbox/files"), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "delete", path: oldPath }),
+        }).then(function (r) { return r.json(); }).then(function (deleted) {
+          if (!deleted.ok) return logToConsole("$ Erro ao remover arquivo antigo: " + (deleted.error || "desconhecido"), true);
+          delete projectFiles[oldPath];
+          delete originalFileContents[oldPath];
+          projectFiles[newPath] = content;
+          originalFileContents[newPath] = content;
+          _refreshLocalTreeAndOpen(newPath);
+          updateTreeSelection(newPath, false);
+        });
+      }).catch(function (e) {
+        logToConsole("$ Erro de rede ao renomear arquivo: " + (e.message || String(e)), true);
+      });
+      return;
+    }
+
+    delete projectFiles[oldPath];
+    delete originalFileContents[oldPath];
+    projectFiles[newPath] = content;
+    originalFileContents[newPath] = content;
+    _refreshLocalTreeAndOpen(newPath);
+    updateTreeSelection(newPath, false);
+  }
+
+  function deleteWorkspaceEntry() {
+    if (!selectedTreePath) {
+      alert("Selecione um arquivo/pasta na árvore para excluir.");
+      return;
+    }
+    if (!window.confirm("Tem certeza que deseja excluir: " + selectedTreePath + " ?")) return;
+    var path = selectedTreePath;
+
+    if (sandboxMode) {
+      fetch((window.apiUrl || function(p){return p;})("/api/sandbox/files"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "delete", path: path }),
+      }).then(function (r) { return r.json(); }).then(function (data) {
+        if (!data.ok) return logToConsole("$ Erro ao excluir: " + (data.error || "desconhecido"), true);
+        Object.keys(projectFiles).forEach(function (k) {
+          if (k === path || k.indexOf(path + "/") === 0) {
+            delete projectFiles[k];
+            delete originalFileContents[k];
+          }
+        });
+        if (currentFilePath && (currentFilePath === path || currentFilePath.indexOf(path + "/") === 0)) {
+          currentFilePath = null;
+          if (window.updateEditor) window.updateEditor("", "plaintext");
+        }
+        _refreshLocalTreeAndOpen(Object.keys(projectFiles)[0] || null);
+        updateTreeSelection(null, false);
+      }).catch(function (e) {
+        logToConsole("$ Erro de rede ao excluir: " + (e.message || String(e)), true);
+      });
+      return;
+    }
+
+    Object.keys(projectFiles).forEach(function (k) {
+      if (k === path || k.indexOf(path + "/") === 0) {
+        delete projectFiles[k];
+        delete originalFileContents[k];
+      }
+    });
+    if (currentFilePath && (currentFilePath === path || currentFilePath.indexOf(path + "/") === 0)) {
+      currentFilePath = null;
+      if (window.updateEditor) window.updateEditor("", "plaintext");
+    }
+    _refreshLocalTreeAndOpen(Object.keys(projectFiles)[0] || null);
+    updateTreeSelection(null, false);
   }
 
   function importProject() {
@@ -293,6 +497,27 @@
   }
 
   function exportZip() {
+    if (sandboxMode) {
+      logToConsole("$ Compactando projeto completo do sandbox...", false);
+      fetch((window.apiUrl || function(p){return p;})("/api/sandbox/zip"))
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          if (!data || !data.ok || !data.url) {
+            throw new Error((data && data.error) || "Não foi possível compactar o sandbox.");
+          }
+          var a = document.createElement("a");
+          a.href = data.url;
+          a.download = data.filename || "workspace.zip";
+          a.click();
+          logToConsole("$ ZIP do projeto pronto para download.", false);
+        })
+        .catch(function (e) {
+          logToConsole("$ Erro ao compactar projeto: " + (e.message || String(e)), true);
+          alert("Não foi possível compactar o projeto completo agora.");
+        });
+      return;
+    }
+
     if (Object.keys(projectFiles).length === 0) {
       alert("Importe um projeto primeiro.");
       return;
@@ -322,6 +547,7 @@
       a.download = (projectName || "projeto") + ".zip";
       a.click();
       URL.revokeObjectURL(a.href);
+      logToConsole("$ ZIP do projeto pronto para download.", false);
     });
   }
 
@@ -597,6 +823,10 @@
     var exportBtn = document.getElementById("workspaceExport");
     var feedBtn = document.getElementById("workspaceFeedYui");
     var runBtn = document.getElementById("workspaceRun");
+    var newFileBtn = document.getElementById("workspaceNewFile");
+    var newFolderBtn = document.getElementById("workspaceNewFolder");
+    var renameBtn = document.getElementById("workspaceRename");
+    var deleteBtn = document.getElementById("workspaceDelete");
     var syncBtn = document.getElementById("workspaceSyncSandbox");
     var diffBtn = document.getElementById("workspaceDiff");
     var suggestBtn = document.getElementById("workspaceSuggestFix");
@@ -606,6 +836,10 @@
     if (exportBtn) exportBtn.addEventListener("click", exportZip);
     if (feedBtn) feedBtn.addEventListener("click", feedToYui);
     if (runBtn) runBtn.addEventListener("click", executeCode);
+    if (newFileBtn) newFileBtn.addEventListener("click", createWorkspaceFile);
+    if (newFolderBtn) newFolderBtn.addEventListener("click", createWorkspaceFolder);
+    if (renameBtn) renameBtn.addEventListener("click", renameWorkspaceEntry);
+    if (deleteBtn) deleteBtn.addEventListener("click", deleteWorkspaceEntry);
     if (syncBtn) syncBtn.addEventListener("click", syncToSandbox);
     if (diffBtn) diffBtn.addEventListener("click", showDiffView);
     if (suggestBtn) {

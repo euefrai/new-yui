@@ -574,7 +574,7 @@
     if (!resizer || !chatArea || !workspacePanel || !mainSplit) return;
     var STORAGE_KEY = "yui_chat_width";
     var MIN_CHAT = 280;
-    var MAX_CHAT_PERCENT = 0.6;
+    var MAX_CHAT_PERCENT = 0.5;
     function getMaxChatWidth() {
       return Math.floor(mainSplit.offsetWidth * MAX_CHAT_PERCENT);
     }

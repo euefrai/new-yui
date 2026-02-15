@@ -732,7 +732,7 @@ body.theme-light .inputArea {
 .chatArea {
   flex: 1;
   min-width: 280px;
-  max-width: 60%;
+  max-width: 50%;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1460,6 +1460,10 @@ select:focus-visible {
   border-left: 2px solid var(--accent);
 }
 
+.fileTreeItem.selected {
+  background: rgba(88, 166, 255, 0.12);
+}
+
 .fileTreeFile.active svg {
   color: var(--accent);
 }
@@ -1508,6 +1512,7 @@ select:focus-visible {
 .workspaceHeader .workspaceActions {
   flex-wrap: wrap;
   gap: 6px;
+  justify-content: flex-end;
 }
 
 .workspaceBtnPlay {
@@ -1841,9 +1846,9 @@ select:focus-visible {
 
 /* Terminal Xterm.js — sempre visível na base */
 .workspaceTerminalWrap {
-  flex: 0 0 200px;
-  min-height: 120px;
-  max-height: 280px;
+  flex: 0 0 230px;
+  min-height: 140px;
+  max-height: 60vh;
   display: flex !important;
   flex-direction: column;
   margin-top: 8px;
@@ -1851,12 +1856,19 @@ select:focus-visible {
   border: 1px solid var(--border);
   overflow: hidden;
   z-index: 2;
+  resize: vertical;
+}
+
+.workspaceTerminalWrap.expanded {
+  flex: 0 0 clamp(280px, 45vh, 560px);
+  max-height: 75vh;
 }
 
 .workspaceTerminalWrap.collapsed {
   flex: 0 0 36px;
   min-height: 36px;
   max-height: 36px;
+  resize: none;
 }
 
 .workspaceTerminalWrap.collapsed .workspaceTerminal {
@@ -1876,6 +1888,12 @@ select:focus-visible {
   border-bottom: 1px solid var(--slate-700);
 }
 
+
+.workspaceTerminalHeaderActions {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
 .workspaceTerminalToggle {
   background: none;
   border: none;
