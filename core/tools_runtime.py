@@ -309,6 +309,19 @@ def _resolve_project_dir(root_dir: str) -> Optional[Path]:
     return None
 
 
+def _latest_generated_project_dir() -> Optional[Path]:
+    """Retorna a pasta de projeto mais recente em generated_projects/."""
+    try:
+        GENERATED_ROOT.mkdir(parents=True, exist_ok=True)
+        dirs = [p for p in GENERATED_ROOT.iterdir() if p.is_dir()]
+        if not dirs:
+            return None
+        dirs.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+        return dirs[0]
+    except Exception:
+        return None
+
+
 def tool_criar_zip_projeto(
     root_dir: str,
     zip_name: Optional[str] = None,
@@ -319,9 +332,10 @@ def tool_criar_zip_projeto(
     Usa sempre Path absoluto (BASE_DIR) para funcionar no Render.
     background=True (padrão): agenda no scheduler, não bloqueia o chat.
     """
-    if not root_dir:
-        return {"ok": False, "script_path": "", "zip_output": "", "command": "", "error": "root_dir obrigatório"}
-    root_path = _resolve_project_dir(root_dir)
+    root_path = _resolve_project_dir(root_dir) if (root_dir and root_dir.strip()) else None
+    if not root_path:
+        # Fallback útil para prompts como "compacte" sem informar a pasta.
+        root_path = _latest_generated_project_dir()
     if not root_path or not root_path.is_dir():
         return {"ok": False, "script_path": "", "zip_output": "", "command": "", "error": "Pasta do projeto não encontrada."}
 
@@ -544,5 +558,4 @@ def tool_fs_delete_file(path: str) -> Dict[str, Any]:
         return {"ok": False, "error": str(e)}
     except Exception as e:
         return {"ok": False, "error": str(e)}
-
 
