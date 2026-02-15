@@ -43,7 +43,7 @@ def test_remove_message_returns_false_when_message_missing():
     assert mem.remove_message("inexistente", user_id) is False
 
 def test_zip_tool_fallbacks_to_latest_generated_project_when_root_missing():
-    """Testa a ferramenta de ZIP do Heathcliff com fallback de diretório."""
+    """Testa a ferramenta de ZIP com fallback de diretório."""
     project = tool_criar_projeto_arquivos(
         root_dir="reg-zip-fallback",
         files=[{"path": "main.py", "content": "print('ok')\n"}],

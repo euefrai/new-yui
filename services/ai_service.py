@@ -122,7 +122,7 @@ def stream_resposta(
 def processar_mensagem_sync(
     user_id: str, chat_id: str, message: str, model: str = "yui"
 ) -> str:
-    """Versão síncrona para requisições rápidas (API/Mobile)."""
+    """Versão síncrona simplificada que reusa a lógica de stream."""
     full_text = ""
     for chunk in stream_resposta(user_id, chat_id, message, model=model):
         full_text += chunk
@@ -131,7 +131,7 @@ def processar_mensagem_sync(
 def handle_chat_stream(
     user_id: str, chat_id: str, message: str, **kwargs
 ) -> Generator[str, None, None]:
-    """Orquestrador mestre para rotas de Chat com Gerenciamento de Memória."""
+    """Orquestrador mestre com persistência em memória."""
     from core.ai_loader import get_session_memory
     session_memory = get_session_memory()
 

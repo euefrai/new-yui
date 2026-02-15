@@ -1330,6 +1330,17 @@
     msgInput.focus();
   }
 
+  var refreshBtn = document.getElementById("refreshPage");
+  if (refreshBtn) {
+    refreshBtn.addEventListener("click", function () {
+      try {
+        refreshBtn.disabled = true;
+        refreshBtn.textContent = "Atualizando...";
+      } catch (e) {}
+      window.location.reload();
+    });
+  }
+
   document.getElementById("novoChat").addEventListener("click", async function () {
     if (!user || !user.id) return;
     var id = await criarNovoChat();

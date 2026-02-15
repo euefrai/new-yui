@@ -314,6 +314,25 @@ body.theme-light .inputArea {
   color: var(--slate-800);
 }
 
+.btnRefreshPage {
+  width: 100%;
+  padding: 8px 12px;
+  margin-bottom: 6px;
+  background: rgba(0, 242, 255, 0.08);
+  border: 1px solid rgba(0, 242, 255, 0.25);
+  border-radius: 10px;
+  color: var(--accent);
+  font-size: 13px;
+  cursor: pointer;
+  text-align: left;
+  transition: var(--transition-fast);
+}
+
+.btnRefreshPage:hover {
+  background: rgba(0, 242, 255, 0.14);
+  color: var(--slate-700);
+}
+
 /* ========== Painel Cognitive Status ========== */
 .cognitivePanel {
   padding: 10px 12px;

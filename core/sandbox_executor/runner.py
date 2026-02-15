@@ -65,9 +65,15 @@ def _bump_metric(lang: str, ok: bool, timed_out: bool = False) -> None:
         by_lang[lang_key] = current
 
 def get_execution_metrics() -> Dict[str, Any]:
-    """Retorna estatísticas de uso do Sandbox."""
+    """Retorna estatísticas de uso do Sandbox para observabilidade."""
     with _metrics_lock:
-        return dict(_metrics)
+        return {
+            "executions_total": _metrics.get("executions_total", 0),
+            "success_total": _metrics.get("success_total", 0),
+            "failed_total": _metrics.get("failed_total", 0),
+            "timed_out_total": _metrics.get("timed_out_total", 0),
+            "by_lang": dict(_metrics.get("by_lang", {})),
+        }
 
 # --- Lógica de Execução ---
 
@@ -123,8 +129,8 @@ def run_code(
         return RunResult(ok=False, stderr=f"Linguagem '{lang}' não suportada", exit_code=-1)
 
     preexec_fn = None
-    # Aplicar limites apenas em Linux/Unix e para Python.
-    # Node.js/V8 costuma reservar muita memória virtual no início e pode sofrer crash falso.
+    # Aplicar limites apenas em Linux/Unix e prioritariamente para Python.
+    # Node.js/V8 costuma reservar muita memória virtual no início e pode sofrer crash falso com limites baixos.
     if sys.platform != "win32" and lang in ("python", "py"):
         preexec_fn = lambda: _preexec_limit_memory(max_ram_mb)
 

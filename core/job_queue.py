@@ -6,6 +6,7 @@ Gerencia picos de carga e evita timeouts no Zeabur.
 
 import uuid
 import time
+import threading
 from threading import Lock
 from typing import Any, Dict, Optional
 
@@ -14,9 +15,10 @@ try:
 except ImportError:
     get_scheduler = None
 
+# Armazenamento em memória dos estados dos Jobs
 _results: Dict[str, Dict[str, Any]] = {}
 _lock = Lock()
-TTL = 600  # 10 min (Tempo de vida dos resultados no cache)
+TTL = 600  # 10 min (Tempo de vida dos resultados no cache para economizar RAM)
 
 # Métricas globais para monitoramento administrativo
 _metrics: Dict[str, int] = {
@@ -76,7 +78,7 @@ def enqueue_chat(
     model: str = "yui",
 ) -> str:
     """Enfileira processamento de chat. Retorna job_id para o Poll do cliente."""
-    cleanup_old_jobs()
+    cleanup_old_jobs() # Limpa memória antes de cada novo job
     job_id = str(uuid.uuid4())[:12]
     payload = {
         "job_id": job_id,
@@ -85,15 +87,19 @@ def enqueue_chat(
     }
 
     with _lock:
-        _results[job_id] = {"status": "queued", "created_at": time.time(), "updated_at": time.time()}
+        _results[job_id] = {
+            "status": "queued", 
+            "created_at": time.time(), 
+            "updated_at": time.time()
+        }
         _metrics["enqueued"] += 1
 
-    if get_scheduler:
+    if get_scheduler and get_scheduler():
         get_scheduler().add(_run_job, payload, task_id=job_id)
     else:
         # Fallback para threads caso o scheduler não esteja disponível
-        import threading
-        threading.Thread(target=lambda: _run_job(payload), daemon=True).start()
+        thread = threading.Thread(target=lambda: _run_job(payload), daemon=True)
+        thread.start()
 
     return job_id
 
@@ -104,28 +110,28 @@ def get_job_result(job_id: str) -> Optional[Dict[str, Any]]:
         return _results.get(job_id)
 
 def cleanup_old_jobs(ttl_seconds: Optional[int] = None) -> int:
-    """Remove jobs expirados para economizar memória RAM."""
+    """Remove jobs expirados para economizar memória RAM (crucial para o Zeabur)."""
     ttl = int(ttl_seconds or TTL)
+    if ttl <= 0: return 0
+    
     now = time.time()
     removed = 0
 
     with _lock:
-        to_remove = []
-        for j_id, data in _results.items():
-            ts = data.get("updated_at") or data.get("created_at")
-            if ts and (now - float(ts)) > ttl:
-                to_remove.append(j_id)
+        to_remove = [
+            j_id for j_id, data in _results.items()
+            if (now - float(data.get("updated_at") or data.get("created_at", 0))) > ttl
+        ]
         
         for j_id in to_remove:
             _results.pop(j_id, None)
         
         removed = len(to_remove)
         _metrics["cleaned"] += removed
-
     return removed
 
 def get_job_metrics() -> Dict[str, Any]:
-    """Retorna estatísticas de uso da fila."""
+    """Retorna estatísticas de uso da fila para observabilidade."""
     with _lock:
         queued = sum(1 for j in _results.values() if j.get("status") == "queued")
         return {

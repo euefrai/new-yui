@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Yui</title>
-  <link rel="stylesheet" href="/static/{% if use_minified|default(false) %}style.min.css{% else %}style.css{% endif %}" />
+  <link rel="stylesheet" href="/static/style.css" />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/styles/github-dark.min.css" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -40,6 +40,7 @@
         <span class="btnToggleLabel">Editor</span>
       </button>
       <button type="button" id="clearChat" class="btnClearChat" title="Limpar memória da sessão">Excluir Chat</button>
+      <button type="button" id="refreshPage" class="btnRefreshPage" title="Atualizar a página agora">Atualizar Tela</button>
       <button type="button" id="btnDeployYui" class="btnDeployYui" title="Commit e push no repositório Zeabur">Deploy via Yui</button>
       <div id="listaChats" class="listaChats"></div>
       <div class="tasksPanel" id="tasksPanel" title="Afazeres — Heathcliff pode criar tarefas automaticamente">
@@ -263,10 +264,10 @@
       });
     };
   </script>
-  <script src="/static/{% if use_minified|default(false) %}app.min.js{% else %}app.js{% endif %}"></script>
-  <script src="/static/{% if use_minified|default(false) %}chat.min.js{% else %}chat.js{% endif %}"></script>
-  <script src="/static/{% if use_minified|default(false) %}editor.min.js{% else %}editor.js{% endif %}"></script>
-  <script src="/static/{% if use_minified|default(false) %}workspace-project.min.js{% else %}workspace-project.js{% endif %}"></script>
-  <script src="/static/{% if use_minified|default(false) %}workspace-terminal.min.js{% else %}workspace-terminal.js{% endif %}"></script>
+  <script src="/static/app.js"></script>
+  <script src="/static/chat.js"></script>
+  <script src="/static/editor.js"></script>
+  <script src="/static/workspace-project.js"></script>
+  <script src="/static/workspace-terminal.js"></script>
 </body>
 </html>

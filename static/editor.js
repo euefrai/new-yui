@@ -8,7 +8,6 @@
   var monacoEditor = null;
   var monacoLoaded = false;
   var monacoLoadPromise = null;
-  var currentLang = "text";
   var workspaceButtonsBound = false;
 
   // 1. Carregamento Assíncrono do Monaco (Evita travamentos no Zeabur)
@@ -59,10 +58,15 @@
         fontFamily: "'JetBrains Mono', monospace",
         renderLineHighlight: "all",
         padding: { top: 10 },
-        scrollbar: { vertical: 'visible', horizontal: 'visible', useShadows: false, verticalSliderSize: 4 }
+        scrollbar: { 
+            vertical: 'visible', 
+            horizontal: 'visible', 
+            useShadows: false, 
+            verticalSliderSize: 4 
+        }
       });
 
-      // Atalho estilo Cursor: Ctrl+Enter para Executar/Sync
+      // Atalho estilo Cursor: Ctrl+Enter para disparar ação principal
       monacoEditor.addCommand(window.monaco.KeyMod.CtrlCmd | window.monaco.KeyCode.Enter, function() {
         var runBtn = document.getElementById("workspaceRun");
         if (runBtn) runBtn.click();
@@ -78,7 +82,7 @@
     var panel = document.getElementById("workspacePanel");
     if (panel) {
       panel.classList.remove("editorPulse");
-      panel.offsetHeight; // Trigger reflow para reiniciar animação
+      void panel.offsetWidth; // Force reflow
       panel.classList.add("editorPulse");
       setTimeout(function () { panel.classList.remove("editorPulse"); }, 1200);
     }
@@ -100,6 +104,7 @@
         <!DOCTYPE html>
         <html>
         <head>
+          <meta charset="UTF-8">
           <style>${cssContent}</style>
         </head>
         <body>
@@ -111,14 +116,18 @@
       var blob = new Blob([fullHtml], { type: 'text/html' });
       frame.src = URL.createObjectURL(blob);
       
-      document.getElementById("workspacePreviewEmpty")?.style.display = "none";
+      var emptyMsg = document.getElementById("workspacePreviewEmpty");
+      if (emptyMsg) emptyMsg.style.display = "none";
       frame.style.display = "block";
     }
   };
 
   // 5. Mapeamento de Linguagens e Atualização Externa
   function getLangToMonaco(lang) {
-    var map = { js: "javascript", py: "python", ts: "typescript", html: "html", css: "css", md: "markdown" };
+    var map = { 
+        js: "javascript", py: "python", ts: "typescript", 
+        html: "html", css: "css", md: "markdown", json: "json" 
+    };
     return map[(lang || "").toLowerCase()] || "plaintext";
   }
 
@@ -133,30 +142,30 @@
     window.monaco.editor.setModelLanguage(monacoEditor.getModel(), monacoLang);
     
     if (lang === "css") window.lastKnownCSS = code;
-    triggerEditorPulse(); // Feedback visual de que o código mudou
+    triggerEditorPulse(); 
   };
 
-  // 6. Setup de Botões e Tabs
+  // 6. Setup de Botões e Interações
   function initWorkspaceButtons() {
     if (workspaceButtonsBound) return;
-    workspaceButtonsBound = true;
-
+    
     var copyBtn = document.getElementById("workspaceCopy");
-    var tabPreview = document.querySelector('[data-tab="preview"]');
-
     if (copyBtn) {
       copyBtn.onclick = function() {
+        if (!monacoEditor) return;
         navigator.clipboard.writeText(monacoEditor.getValue());
-        // Feedback visual no botão
         var oldText = copyBtn.innerText;
         copyBtn.innerText = "Copiado!";
         setTimeout(() => { copyBtn.innerText = oldText; }, 2000);
       };
     }
-    
+
+    var tabPreview = document.querySelector('[data-tab="preview"]');
     if (tabPreview) {
       tabPreview.addEventListener("click", window.updatePreview);
     }
+    
+    workspaceButtonsBound = true;
   }
 
   window.initYuiWorkspace = function () {
@@ -164,5 +173,9 @@
     initMonacoEditor();
   };
 
-  document.addEventListener("DOMContentLoaded", window.initYuiWorkspace);
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", window.initYuiWorkspace);
+  } else {
+    window.initYuiWorkspace();
+  }
 })();
