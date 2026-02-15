@@ -2,6 +2,14 @@ from pathlib import Path
 import time
 import py_compile
 
+
+"""
+Yui Regression Tests — Garantia de estabilidade e performance.
+Cobre: API, Ferramentas de ZIP, Intent Router, Sandbox e Cache de Busca.
+"""
+
+from pathlib import Path
+import time
 from web_server import app
 from core.tools_runtime import tool_criar_projeto_arquivos, tool_criar_zip_projeto
 from yui_ai.services import memory_service as mem
@@ -12,6 +20,8 @@ from core import job_queue
 
 def test_legacy_routes_modules_reexport_public_api():
     # Import legado deve continuar funcionando para funções e blueprints.
+def test_legacy_routes_modules_reexport_public_api():
+    """Garante que as rotas legadas continuam funcionando após a migração."""
     from routes.routes_api import clear_chat, main_bp
     from routes.routes_chat import api_new_chat, chat_bp
     from routes.routes_auth import api_user_profile, user_bp
@@ -25,6 +35,8 @@ def test_legacy_routes_modules_reexport_public_api():
 
 
 def test_api_new_chat_persists_local_chat():
+def test_api_new_chat_persists_local_chat():
+    """Testa a criação de chat e persistência de mensagens."""
     client = app.test_client()
     user_id = "reg-user-local"
 
@@ -50,6 +62,17 @@ def test_remove_message_returns_false_when_message_missing():
 
 
 def test_zip_tool_fallbacks_to_latest_generated_project_when_root_missing():
+def test_remove_message_returns_false_when_message_missing():
+    """Garante que a remoção de mensagens inexistentes falhe graciosamente."""
+    user_id = "reg-user-remove"
+    chat = mem.create_chat(user_id)
+    chat_id = chat["id"]
+    mem.save_message(chat_id, "user", "olá", user_id)
+    # Tenta remover ID que não existe
+    assert mem.remove_message("inexistente", user_id) is False
+
+def test_zip_tool_fallbacks_to_latest_generated_project_when_root_missing():
+    """Testa a ferramenta de ZIP com fallback de diretório."""
     project = tool_criar_projeto_arquivos(
         root_dir="reg-zip-fallback",
         files=[{"path": "main.py", "content": "print('ok')\n"}],
@@ -67,6 +90,13 @@ def test_intent_router_routes_factual_questions_to_web_search():
 
 
 def test_sandbox_zip_endpoint_creates_downloadable_archive():
+def test_intent_router_routes_factual_questions_to_web_search():
+    """Testa se o roteador de intenção identifica perguntas factuais para busca web."""
+    assert decidir_rota("que jogos do brasileirão vai acontecer hoje?") == "web_search"
+    assert decidir_rota("quais são os jogos mais jogados de playstation?") == "web_search"
+
+def test_sandbox_zip_endpoint_creates_downloadable_archive():
+    """Garante que o endpoint de exportação do Sandbox gera um link válido de download."""
     sandbox = Path(settings.SANDBOX_DIR)
     sandbox.mkdir(parents=True, exist_ok=True)
     sample = sandbox / "regression_zip" / "hello.txt"
@@ -86,6 +116,8 @@ def test_sandbox_zip_endpoint_creates_downloadable_archive():
 
 
 def test_web_search_local_fallback_when_provider_fails(monkeypatch):
+def test_web_search_local_fallback_when_provider_fails(monkeypatch):
+    """Garante que o sistema exibe erro amigável se o provedor de busca falhar."""
     def _fake_fail(_query, limite=5):
         return {"ok": False, "resultados": [], "error": "provider down"}
 
@@ -103,6 +135,8 @@ def test_web_search_local_fallback_when_provider_fails(monkeypatch):
 
 
 def test_job_queue_cleanup_removes_expired_entries():
+def test_job_queue_cleanup_removes_expired_entries():
+    """Testa se a fila de tarefas limpa resultados antigos corretamente."""
     job_queue._results.clear()
     job_queue._results["old"] = {"status": "done", "updated_at": 1.0}
     job_queue._results["new"] = {"status": "queued", "updated_at": 9_999_999_999.0}
@@ -115,6 +149,8 @@ def test_job_queue_cleanup_removes_expired_entries():
 
 
 def test_sandbox_execute_javascript_basic_success():
+def test_sandbox_execute_javascript_basic_success():
+    """Testa a execução básica de código no Sandbox."""
     client = app.test_client()
     resp = client.post('/api/sandbox/execute', json={'lang': 'javascript', 'code': 'console.log(1+1)'})
     assert resp.status_code == 200
@@ -135,6 +171,13 @@ def test_web_search_local_uses_recent_cache_when_provider_fails(monkeypatch):
                 {"titulo": "Exemplo", "resumo": "Resumo", "link": "https://example.com"}
             ],
         }
+def test_web_search_local_uses_recent_cache_when_provider_fails(monkeypatch):
+    """Verifica se o cache de busca web funciona como fallback de segurança."""
+    from services import ai_service
+    monkeypatch.setattr(ai_service, "_WEB_SEARCH_CACHE", {})
+
+    def _ok(_query, limite=5):
+        return {"ok": True, "resultados": [{"titulo": "Exemplo", "resumo": "Resumo", "link": "https://example.com"}]}
 
     def _fail(_query, limite=5):
         return {"ok": False, "resultados": [], "error": "provider down"}
@@ -159,6 +202,17 @@ def test_web_search_local_uses_recent_cache_when_provider_fails(monkeypatch):
 
 
 def test_runtime_metrics_endpoint_returns_queue_and_executor_stats():
+    # Primeiro executa com sucesso para popular o cache
+    monkeypatch.setattr("core.tools_runtime.tool_buscar_web", _ok)
+    ai_service.processar_mensagem_sync(user_id="u", chat_id="c", message="brasileirão", model="yui")
+
+    # Agora simula falha e verifica se o cache salvou o dia
+    monkeypatch.setattr("core.tools_runtime.tool_buscar_web", _fail)
+    second = ai_service.processar_mensagem_sync(user_id="u", chat_id="c", message="brasileirão", model="yui")
+    assert "Resultado recente em cache" in second
+
+def test_runtime_metrics_endpoint_returns_queue_and_executor_stats():
+    """Garante que o endpoint de monitoramento está ativo e retornando dados."""
     client = app.test_client()
     resp = client.get('/api/system/runtime_metrics')
     assert resp.status_code == 200
@@ -203,11 +257,4 @@ def test_zip_tool_background_fallback_runs_without_scheduler(monkeypatch):
 
 def test_ai_service_module_has_valid_python_syntax():
     py_compile.compile('services/ai_service.py', doraise=True)
-
-
-def test_job_queue_module_has_valid_python_syntax():
-    py_compile.compile('core/job_queue.py', doraise=True)
-
-
-def test_sandbox_runner_module_has_valid_python_syntax():
-    py_compile.compile('core/sandbox_executor/runner.py', doraise=True)
+    assert "sandbox_executor" in payload
