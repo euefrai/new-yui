@@ -9,6 +9,7 @@
   var monacoLoaded = false;
   var monacoLoadPromise = null;
   var currentLang = "text";
+  var workspaceButtonsBound = false;
 
   function loadMonacoAsync() {
     if (monacoLoaded) return Promise.resolve();
@@ -134,39 +135,9 @@
     }
   }
 
-  function workspaceCopy() {
-    if (!monacoEditor) return;
-    var content = monacoEditor.getValue();
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(content).then(function () {
-        var btn = document.getElementById("workspaceCopy");
-        if (btn) {
-          var orig = btn.textContent;
-          btn.textContent = "Copiado!";
-          setTimeout(function () { btn.textContent = orig; }, 1500);
-        }
-      }).catch(function () {});
-    }
-  }
-
-  function workspaceDownload() {
-    if (!monacoEditor) return;
-    var content = monacoEditor.getValue();
-    var ext = getLangToExt(currentLang);
-    var filename = "code." + ext;
-    var blob = new Blob([content], { type: "text/plain;charset=utf-8" });
-    var a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = filename;
-    a.click();
-    URL.revokeObjectURL(a.href);
-  }
-
   function initWorkspaceButtons() {
-    var copyBtn = document.getElementById("workspaceCopy");
-    var downloadBtn = document.getElementById("workspaceDownload");
-    if (copyBtn) copyBtn.addEventListener("click", workspaceCopy);
-    if (downloadBtn) downloadBtn.addEventListener("click", workspaceDownload);
+    if (workspaceButtonsBound) return;
+    workspaceButtonsBound = true;
   }
 
   window.getMonacoEditor = function () { return monacoEditor; };
