@@ -115,58 +115,16 @@
         <div class="telemetryRow">
           <span class="telemetryLabel">Escrita em disco</span>
           <span class="telemetryValue" id="telemetryDiskWrites">—</span>
-      
-      <aside class="sidebar">
-        <div class="logo" id="sidebarLogo">
-          <img src="/static/yui-icon.png" alt="Yui" class="yuiLogoImg" id="sidebarAvatar" />
         </div>
-        
-        <nav class="sidebarNav">
-          <button type="button" id="novoChat" class="btnNovoChat">+ Novo chat</button>
-          <button type="button" id="toggleWorkspace" class="btnToggleWorkspace" title="Abrir/fechar Editor (Ctrl+L)">
-            <span class="btnToggleIcon">&#60;/&#62;</span>
-            <span class="btnToggleLabel">Editor</span>
-          </button>
-          <button type="button" id="clearChat" class="btnClearChat">Excluir Chat</button>
-          <button type="button" id="btnDeployYui" class="btnDeployYui">Deploy via Yui</button>
-        </nav>
+      </div>
+      <div class="userFooter">
+        <div class="userAvatar" id="userAvatar"></div>
+        <span id="userName">Usuário</span>
+        <button type="button" id="btnSair" class="btnSair">Sair</button>
+      </div>
+    </aside>
 
-        <div id="listaChats" class="listaChats"></div>
-
-        <div class="activityPanel" id="activityPanel">
-          <div class="activityTitle">⚙️ System Activity</div>
-          <ul class="activityList" id="activityList"></ul>
-        </div>
-
-        <div class="telemetryPanel" id="telemetryPanel">
-          <div class="telemetryTitle">Telemetria</div>
-          <div class="telemetryRow"><span>Custo hoje</span><span id="telemetryCost">—</span></div>
-          <div class="telemetryRow"><span>Tokens</span><span id="telemetryTokens">—</span></div>
-        </div>
-
-        <div class="userFooter">
-          <div class="userAvatar" id="userAvatar"></div>
-          <span id="userName">Usuário</span>
-          <button type="button" id="btnSair" class="btnSair">Sair</button>
-        </div>
-        <div class="workspaceHeader">
-          <span class="workspaceTitle">Workspace</span>
-          <div class="workspaceActions">
-            <input type="file" id="workspaceImportInput" webkitdirectory directory multiple hidden />
-            <button type="button" id="workspaceRun" class="workspaceBtn workspaceBtnPlay" title="Executar código (Ctrl+Enter)">▶ Executar</button>
-            <button type="button" id="workspaceNewFile" class="workspaceBtn" title="Novo arquivo no Workspace">+ Arquivo</button>
-            <button type="button" id="workspaceNewFolder" class="workspaceBtn" title="Nova pasta no Workspace">+ Pasta</button>
-            <button type="button" id="workspaceRename" class="workspaceBtn" title="Renomear arquivo/pasta selecionado">Renomear</button>
-            <button type="button" id="workspaceDelete" class="workspaceBtn" title="Excluir arquivo/pasta selecionado">Excluir</button>
-            <button type="button" id="workspaceSyncSandbox" class="workspaceBtn" title="Salvar no Sandbox">Salvar no Sandbox</button>
-            <button type="button" id="workspaceLoadSandbox" class="workspaceBtn" title="Carregar do Sandbox (lazy)">Carregar Sandbox</button>
-            <button type="button" id="workspaceImport" class="workspaceBtn" title="Importar projeto">Importar</button>
-            <button type="button" id="workspaceExport" class="workspaceBtn" title="Compactar e baixar projeto completo">Compactar Projeto</button>
-            <button type="button" id="workspaceFeedYui" class="workspaceBtn workspaceBtnHighlight" title="Enviar arquivo para o chat">Alimentar Yui</button>
-            <button type="button" id="workspaceDiff" class="workspaceBtn" title="Ver diferenças do arquivo">Ver Diff</button>
-      </aside>
-
-      <div class="mainSplit" id="mainSplit">
+    <div class="mainSplit" id="mainSplit">
         
         <main class="chatArea" id="chatArea">
           <div class="chatContainer">
@@ -213,6 +171,12 @@
                 <button type="button" class="workspaceTab active" data-tab="editor">Editor</button>
                 <button type="button" class="workspaceTab" data-tab="preview">Preview</button>
               </div>
+              <div class="workspaceTabContent" id="workspaceTabEditor">
+                <div id="monacoContainer" class="monacoContainer"></div>
+              </div>
+              <div class="workspaceTabContent" id="workspaceTabPreview" style="display:none">
+                <iframe id="workspacePreviewFrame" class="workspacePreviewFrame"></iframe>
+              </div>
             </div>
             <div class="workspaceTerminalWrap" id="workspaceTerminalWrap">
               <div class="workspaceTerminalHeader">
@@ -220,17 +184,9 @@
                 <div class="workspaceTerminalHeaderActions">
                   <button type="button" id="workspaceTerminalExpand" class="workspaceTerminalToggle" title="Ampliar terminal">⤢</button>
                   <button type="button" id="workspaceTerminalToggle" class="workspaceTerminalToggle" title="Expandir/Recolher">▼</button>
-              
-              <div class="workspaceTabContent" id="workspaceTabEditor">
-                <div id="monacoContainer" class="monacoContainer"></div>
-                <div class="workspaceTerminalWrap" id="workspaceTerminalWrap">
-                  <div id="workspaceTerminal"></div>
                 </div>
               </div>
-
-              <div class="workspaceTabContent" id="workspaceTabPreview" style="display:none">
-                <iframe id="workspacePreviewFrame" class="workspacePreviewFrame"></iframe>
-              </div>
+              <div id="workspaceTerminal"></div>
             </div>
           </div>
         </aside>
@@ -257,6 +213,5 @@
   <script src="/static/editor.js?v={{ static_version }}"></script>
   <script src="/static/workspace-project.js?v={{ static_version }}"></script>
   <script src="/static/workspace-terminal.js?v={{ static_version }}"></script>
-  <script src="/static/app.js?v={{ static_version }}"></script>
 </body>
 </html>
