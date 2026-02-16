@@ -1,0 +1,19 @@
+# Evita copiar arquivos desnecessários para a imagem
+.venv/
+venv/
+env/
+__pycache__/
+*.pyc
+.git/
+.gitignore
+.env
+*.log
+yui-envio.zip
+generated_projects/
+chroma/
+yui_vector_db/
+data/
+.idea/
+.vscode/
+*.md
+tests/

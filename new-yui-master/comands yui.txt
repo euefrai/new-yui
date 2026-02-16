@@ -1,0 +1,39 @@
+comands yui 
+
+abrir arquivo C:\caminho\arquivo.txt
+
+abrir pasta C:\caminho
+
+listar arquivos em C:\caminho
+
+criar pasta C:\caminho\nova
+
+copiar C:\origem\arquivo.txt para C:\destino\arquivo.txt
+
+mover C:\origem\arquivo.txt para C:\destino\arquivo.txt
+
+excluir C:\caminho\arquivo.txt
+
+excluir definitivamente C:\caminho\arquivo.txt (perigoso, sem lixeira)
+
+renomear C:\origem\arquivo.txt para novo_nome.txt
+
+ler arquivo C:\caminho\arquivo.txt
+
+escrever arquivo C:\caminho\arquivo.txt: algum texto aqui
+
+anexar em C:\caminho\arquivo.txt: mais uma linha
+
+buscar arquivos *.pdf em C:\Users\seu_usuario\Downloads
+
+compactar C:\caminho\pasta em C:\caminho\backup.zip
+
+extrair C:\caminho\backup.zip em C:\caminho\destino
+
+Processos
+listar processos
+encerrar processo chrome
+Comandos gerais
+texto → força modo texto.
+voz → tenta modo voz (se dependências estiverem instaladas).
+sair → encerra a Yui.

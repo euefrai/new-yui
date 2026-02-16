@@ -1,0 +1,7 @@
+{
+  "calculadora": {
+    "descricao": "Faz contas simples: soma, subtração, multiplicação, divisão. Dados: a, b (números), op (soma, subtracao, multiplicacao, divisao).",
+    "arquivo": "calculadora.py",
+    "criado_em": "2025-02-09T00:00:00"
+  }
+}

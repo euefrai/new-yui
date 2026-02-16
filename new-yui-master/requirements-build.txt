@@ -1,0 +1,5 @@
+# Dependências para gerar o executável Yui.exe (PyInstaller)
+pyinstaller>=5.0
+PySide6
+python-dotenv
+openai

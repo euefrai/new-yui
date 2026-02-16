@@ -1,0 +1,11 @@
+openai
+python-dotenv
+flask
+flask-cors
+flask-sock
+gunicorn
+supabase
+chromadb
+psutil>=5.9.0
+duckduckgo-search>=4.0.0
+pytz>=2024.1

@@ -1,0 +1,58 @@
+# Python
+__pycache__/
+.pytest_cache/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+*.egg-info/
+.eggs/
+dist/
+build/
+*.spec
+
+# Ambiente e secrets
+.env
+*.log
+logs/
+*api*key*.txt
+
+# Memória local (opcional: descomente se não quiser versionar)
+# memoria.json
+# yui_ai/memory/memoria.json
+
+# IDE / OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Executáveis e binários
+*.exe
+*.pyz
+*.zip
+yui-envio.zip
+
+# Projetos gerados e dados locais
+generated_projects/
+chroma/
+yui_vector_db/
+data/
+sandbox/
+
+# Mapa do projeto (gerado pelo Project Mapper)
+.yui_map.json
+
+# Scripts ZIP gerados pela tool criar_zip_projeto
+scripts/make_zip_*.py
+
+# Minificados (gerados por scripts/minify_static.py no build)
+static/*.min.js
+static/*.min.css
+
+# Lessons Learned (memória de erros por projeto)
+.yui_lessons.md

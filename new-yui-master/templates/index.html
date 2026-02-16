@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
+  <title>Yui</title>
+  <link rel="stylesheet" href="/static/style.css?v={{ static_version }}" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/styles/github-dark.min.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0"></script>
+</head>
+<body>
+
+  <div id="loginScreen" class="loginScreen">
+    <div class="loginCard">
+      <h1 class="loginLogo">
+        <img src="/static/yui-icon.png" alt="Yui" class="yuiLogoImg" />
+      </h1>
+      <p class="loginSub">Entre para acessar seus chats</p>
+      <form id="loginForm">
+        <input type="email" id="loginEmail" placeholder="E-mail" required />
+        <input type="password" id="loginPassword" placeholder="Senha" required />
+        <button type="submit">Entrar</button>
+      </form>
+      <p class="loginHint">Não tem conta? <a href="#" id="toggleSignUp">Cadastrar</a></p>
+      <p id="loginError" class="loginError"></p>
+    </div>
+  </div>
+
+  <div id="appScreen" class="app" style="display: none;">
+    <div class="appContent" id="appContent" data-model="yui">
+    <aside class="sidebar">
+      <div class="logo" id="sidebarLogo">
+        <img src="/static/yui-icon.png" alt="Yui" class="yuiLogoImg" id="sidebarAvatar" />
+      </div>
+      <button type="button" id="novoChat" class="btnNovoChat">+ Novo chat</button>
+      <button type="button" id="toggleWorkspace" class="btnToggleWorkspace" title="Abrir/fechar Editor (Ctrl+L)">
+        <span class="btnToggleIcon">&#60;/&#62;</span>
+        <span class="btnToggleLabel">Editor</span>
+      </button>
+      <button type="button" id="clearChat" class="btnClearChat" title="Limpar memória da sessão">Excluir Chat</button>
+      <button type="button" id="refreshPage" class="btnRefreshPage" title="Atualizar a página agora">Atualizar Tela</button>
+      <button type="button" id="btnDeployYui" class="btnDeployYui" title="Commit e push no repositório Zeabur">Deploy via Yui</button>
+      <div id="listaChats" class="listaChats"></div>
+      <div class="tasksPanel" id="tasksPanel" title="Afazeres — Heathcliff pode criar tarefas automaticamente">
+        <div class="tasksPanelHeader">
+          <span class="tasksPanelTitle">Afazeres</span>
+          <button type="button" id="tasksAddBtn" class="tasksAddBtn" title="Nova tarefa">+</button>
+        </div>
+        <ul class="tasksList" id="tasksList"></ul>
+        <input type="text" id="tasksInput" class="tasksInput" placeholder="Nova tarefa..." style="display:none" />
+      </div>
+      <div class="missionPanel" id="missionPanel" title="Missão ativa — Project Brain" style="display:none">
+        <div class="missionPanelHeader">
+          <span class="missionPanelTitle">✨ Missão Ativa</span>
+        </div>
+        <div class="missionPanelContent" id="missionPanelContent">
+          <div class="missionGoal" id="missionGoal">—</div>
+          <div class="missionProgressWrap">
+            <div class="missionProgressBar" id="missionProgressBar">
+              <div class="missionProgressFill" id="missionProgressFill"></div>
+            </div>
+            <span class="missionProgressLabel" id="missionProgressLabel">0%</span>
+          </div>
+          <div class="missionCurrentTask" id="missionCurrentTask"></div>
+        </div>
+      </div>
+      <div class="activityPanel" id="activityPanel" title="System Activity — Observability">
+        <div class="activityTitle">⚙️ System Activity</div>
+        <div class="skillsSection" id="skillsSection">
+          <div class="skillsSectionTitle">🧠 Skills Ativas</div>
+          <ul class="skillsList" id="skillsList"></ul>
+        </div>
+        <ul class="activityList" id="activityList"></ul>
+        <div class="activityTimeline" id="activityTimeline">
+          <div class="activityTimelineTitle">🧠 Execution Timeline</div>
+          <ul class="activityTimelineList" id="activityTimelineList"></ul>
+        </div>
+      </div>
+      <div class="cognitivePanel" id="cognitivePanel" title="Cognitive Loop — Observability">
+        <div class="cognitiveTitle">🧠 Cognitive Status</div>
+        <div class="cognitiveRow">
+          <span class="cognitiveLabel">Planner Confidence</span>
+          <span class="cognitiveValue" id="cognitiveConfidence">—</span>
+        </div>
+        <div class="cognitiveRow">
+          <span class="cognitiveLabel">Last Action Score</span>
+          <span class="cognitiveValue" id="cognitiveScore">—</span>
+        </div>
+        <div class="cognitiveRow">
+          <span class="cognitiveLabel">RAM Impact</span>
+          <span class="cognitiveValue" id="cognitiveRam">—</span>
+        </div>
+      </div>
+      <div class="telemetryPanel" id="telemetryPanel" title="Custo acumulado do dia">
+        <div class="telemetryTitle">Telemetria</div>
+        <div class="telemetryRow">
+          <span class="telemetryLabel">Custo hoje</span>
+          <span class="telemetryValue" id="telemetryCost">—</span>
+        </div>
+        <div class="telemetryRow">
+          <span class="telemetryLabel">Requisições</span>
+          <span class="telemetryValue" id="telemetryRequests">—</span>
+        </div>
+        <div class="telemetryRow">
+          <span class="telemetryLabel">Custo da última resposta</span>
+          <span class="telemetryValue" id="telemetryLastResponse">—</span>
+        </div>
+        <div class="telemetryRow">
+          <span class="telemetryLabel">Tokens (entrada/saída)</span>
+          <span class="telemetryValue" id="telemetryTokens">—</span>
+        </div>
+        <div class="telemetryRow">
+          <span class="telemetryLabel">Escrita em disco</span>
+          <span class="telemetryValue" id="telemetryDiskWrites">—</span>
+      
+      <aside class="sidebar">
+        <div class="logo" id="sidebarLogo">
+          <img src="/static/yui-icon.png" alt="Yui" class="yuiLogoImg" id="sidebarAvatar" />
+        </div>
+        
+        <nav class="sidebarNav">
+          <button type="button" id="novoChat" class="btnNovoChat">+ Novo chat</button>
+          <button type="button" id="toggleWorkspace" class="btnToggleWorkspace" title="Abrir/fechar Editor (Ctrl+L)">
+            <span class="btnToggleIcon">&#60;/&#62;</span>
+            <span class="btnToggleLabel">Editor</span>
+          </button>
+          <button type="button" id="clearChat" class="btnClearChat">Excluir Chat</button>
+          <button type="button" id="btnDeployYui" class="btnDeployYui">Deploy via Yui</button>
+        </nav>
+
+        <div id="listaChats" class="listaChats"></div>
+
+        <div class="activityPanel" id="activityPanel">
+          <div class="activityTitle">⚙️ System Activity</div>
+          <ul class="activityList" id="activityList"></ul>
+        </div>
+
+        <div class="telemetryPanel" id="telemetryPanel">
+          <div class="telemetryTitle">Telemetria</div>
+          <div class="telemetryRow"><span>Custo hoje</span><span id="telemetryCost">—</span></div>
+          <div class="telemetryRow"><span>Tokens</span><span id="telemetryTokens">—</span></div>
+        </div>
+
+        <div class="userFooter">
+          <div class="userAvatar" id="userAvatar"></div>
+          <span id="userName">Usuário</span>
+          <button type="button" id="btnSair" class="btnSair">Sair</button>
+        </div>
+        <div class="workspaceHeader">
+          <span class="workspaceTitle">Workspace</span>
+          <div class="workspaceActions">
+            <input type="file" id="workspaceImportInput" webkitdirectory directory multiple hidden />
+            <button type="button" id="workspaceRun" class="workspaceBtn workspaceBtnPlay" title="Executar código (Ctrl+Enter)">▶ Executar</button>
+            <button type="button" id="workspaceNewFile" class="workspaceBtn" title="Novo arquivo no Workspace">+ Arquivo</button>
+            <button type="button" id="workspaceNewFolder" class="workspaceBtn" title="Nova pasta no Workspace">+ Pasta</button>
+            <button type="button" id="workspaceRename" class="workspaceBtn" title="Renomear arquivo/pasta selecionado">Renomear</button>
+            <button type="button" id="workspaceDelete" class="workspaceBtn" title="Excluir arquivo/pasta selecionado">Excluir</button>
+            <button type="button" id="workspaceSyncSandbox" class="workspaceBtn" title="Salvar no Sandbox">Salvar no Sandbox</button>
+            <button type="button" id="workspaceLoadSandbox" class="workspaceBtn" title="Carregar do Sandbox (lazy)">Carregar Sandbox</button>
+            <button type="button" id="workspaceImport" class="workspaceBtn" title="Importar projeto">Importar</button>
+            <button type="button" id="workspaceExport" class="workspaceBtn" title="Compactar e baixar projeto completo">Compactar Projeto</button>
+            <button type="button" id="workspaceFeedYui" class="workspaceBtn workspaceBtnHighlight" title="Enviar arquivo para o chat">Alimentar Yui</button>
+            <button type="button" id="workspaceDiff" class="workspaceBtn" title="Ver diferenças do arquivo">Ver Diff</button>
+      </aside>
+
+      <div class="mainSplit" id="mainSplit">
+        
+        <main class="chatArea" id="chatArea">
+          <div class="chatContainer">
+            <div id="chat" class="chatMessages"></div>
+            
+            <div class="modelSwitcherWrap">
+              <select id="modelSwitcher" class="modelSwitcher">
+                <option value="auto">Auto — Arbiter decide</option>
+                <option value="yui">Yui — Modo Padrão</option>
+                <option value="heathcliff">Heathcliff — Modo Engenheiro</option>
+              </select>
+            </div>
+
+            <div class="inputArea" id="inputArea">
+              <label class="btnAnexo">
+                <span class="btnAnexoIcon">&#128206;</span>
+                <input type="file" id="fileInput" hidden />
+              </label>
+              <input id="msg" type="text" placeholder="Digite sua mensagem..." autocomplete="off" />
+              <button type="button" id="btnEnviar">Enviar</button>
+            </div>
+          </div>
+        </main>
+
+        <div class="mainSplitResizer" id="mainSplitResizer"></div>
+
+        <aside class="workspacePanel" id="workspacePanel">
+          <div class="workspaceHeader">
+            <span class="workspaceTitle">Workspace</span>
+            <div class="workspaceActions">
+              <button type="button" id="workspaceRun" class="workspaceBtn workspaceBtnPlay">▶ Executar</button>
+              <button type="button" id="workspaceSyncSandbox" class="workspaceBtn">Salvar</button>
+              <button type="button" id="workspaceExport" class="workspaceBtn">Compactar</button>
+            </div>
+          </div>
+
+          <div class="workspaceBody">
+            <div class="fileTreeSidebar" id="fileTreeSidebar">
+              <div id="fileTreeList"></div>
+            </div>
+            
+            <div class="workspaceEditorColumn">
+              <div class="workspaceTabs" id="workspaceTabs">
+                <button type="button" class="workspaceTab active" data-tab="editor">Editor</button>
+                <button type="button" class="workspaceTab" data-tab="preview">Preview</button>
+              </div>
+            </div>
+            <div class="workspaceTerminalWrap" id="workspaceTerminalWrap">
+              <div class="workspaceTerminalHeader">
+                <span>Terminal</span>
+                <div class="workspaceTerminalHeaderActions">
+                  <button type="button" id="workspaceTerminalExpand" class="workspaceTerminalToggle" title="Ampliar terminal">⤢</button>
+                  <button type="button" id="workspaceTerminalToggle" class="workspaceTerminalToggle" title="Expandir/Recolher">▼</button>
+              
+              <div class="workspaceTabContent" id="workspaceTabEditor">
+                <div id="monacoContainer" class="monacoContainer"></div>
+                <div class="workspaceTerminalWrap" id="workspaceTerminalWrap">
+                  <div id="workspaceTerminal"></div>
+                </div>
+              </div>
+
+              <div class="workspaceTabContent" id="workspaceTabPreview" style="display:none">
+                <iframe id="workspacePreviewFrame" class="workspacePreviewFrame"></iframe>
+              </div>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    window.SUPABASE_URL = "{{ supabase_url or '' }}";
+    window.SUPABASE_KEY = "{{ supabase_key or '' }}";
+    window.loadWorkspaceLibs = function (cb) {
+      if (window._workspaceLibsLoaded) { if (cb) cb(); return; }
+      var pending = 3;
+      function done() { if (--pending === 0) { window._workspaceLibsLoaded = true; if (cb) cb(); } }
+      var l = document.createElement("link"); l.rel = "stylesheet"; l.href = "https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.min.css"; document.head.appendChild(l);
+      ["https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js","https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.min.js","https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.min.js"].forEach(function(url){
+        var s = document.createElement("script"); s.src = url; s.onload = done; document.body.appendChild(s);
+      });
+    };
+  </script>
+
+  <script src="/static/app.js?v={{ static_version }}"></script>
+  <script src="/static/chat.js?v={{ static_version }}"></script>
+  <script src="/static/editor.js?v={{ static_version }}"></script>
+  <script src="/static/workspace-project.js?v={{ static_version }}"></script>
+  <script src="/static/workspace-terminal.js?v={{ static_version }}"></script>
+  <script src="/static/app.js?v={{ static_version }}"></script>
+</body>
+</html>
