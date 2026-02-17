@@ -224,11 +224,214 @@ body.theme-light .inputArea {
   border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
-  padding: 16px 12px;
+  padding: 0;
+  overflow: hidden;
+  min-height: 0;
+  font-size: 13px;
+  transition: width 0.25s ease, min-width 0.25s ease;
+}
+
+.sidebar.collapsed {
+  width: 60px;
+  min-width: 60px;
+  overflow: visible;
+}
+
+.sidebar.collapsed .sidebarTabContainer,
+.sidebar.collapsed .btnLabel,
+.sidebar.collapsed .sidebarTabLabel,
+.sidebar.collapsed .listaChats,
+.sidebar.collapsed .userFooter span,
+.sidebar.collapsed .userFooter .btnSair {
+  display: none !important;
+}
+
+.sidebar.collapsed .sidebarHeader {
+  padding: 12px 8px;
+  justify-content: center;
+}
+
+.sidebar.collapsed .logo {
+  margin: 0;
+}
+
+.sidebar.collapsed .logo .yuiLogoImg {
+  width: 36px;
+  height: 36px;
+}
+
+.sidebar.collapsed .sidebarToggle {
+  position: absolute;
+  right: -28px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border-radius: 4px;
+  background: var(--slate-100);
+  border: 1px solid var(--border);
+}
+
+.sidebar.collapsed .sidebarToggleIcon {
+  transform: rotate(180deg);
+}
+
+.sidebar.collapsed .sidebarMain {
+  padding: 8px;
+  align-items: center;
+}
+
+.sidebar.collapsed .btnNovoChat,
+.sidebar.collapsed .btnToggleWorkspace,
+.sidebar.collapsed .btnClearChat,
+.sidebar.collapsed .btnRefreshPage,
+.sidebar.collapsed .btnDeployYui {
+  justify-content: center;
+  padding: 10px;
+  margin-bottom: 4px;
+}
+
+.sidebar.collapsed .userFooter {
+  flex-direction: column;
+  padding: 8px;
+  align-items: center;
+}
+
+.sidebar.collapsed .userFooter .userAvatar {
+  margin: 0;
+}
+
+.sidebarHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 12px 8px;
+  padding-left: calc(12px + env(safe-area-inset-left));
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  position: relative;
+}
+
+.sidebar:not(.collapsed) .sidebarToggleIcon {
+  transform: none;
+}
+
+.sidebarToggle {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--slate-600);
+  transition: var(--transition-fast);
+}
+
+.sidebarToggle:hover {
+  background: var(--slate-100);
+  color: var(--slate-800);
+}
+
+.sidebarToggleIcon {
+  font-size: 10px;
+  transition: transform 0.25s ease;
+}
+
+.sidebarMain {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 12px;
   padding-left: calc(12px + env(safe-area-inset-left));
   overflow-y: auto;
   min-height: 0;
-  font-size: 13px;
+}
+
+.btnIcon,
+.btnToggleIcon {
+  flex-shrink: 0;
+  font-size: 14px;
+}
+
+.btnLabel,
+.btnToggleLabel {
+  flex: 1;
+  text-align: left;
+}
+
+.sidebarTabContainer {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  margin-top: 8px;
+}
+
+.sidebarTabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 8px;
+  flex-shrink: 0;
+}
+
+.sidebarTab {
+  flex: 1;
+  padding: 8px 10px;
+  background: var(--slate-100);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--slate-600);
+  font-size: 11px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  transition: var(--transition-fast);
+}
+
+.sidebarTab:hover {
+  background: var(--slate-50);
+  color: var(--slate-700);
+}
+
+.sidebarTab.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.sidebarTabIcon {
+  font-size: 12px;
+}
+
+.sidebarTabLabel {
+  white-space: nowrap;
+}
+
+.sidebarTabContentWrap {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebarTabContent {
+  display: none;
+  flex-direction: column;
+  gap: 10px;
+  overflow-y: auto;
+  min-height: 0;
+  padding-right: 4px;
+}
+
+.sidebarTabContent.active {
+  display: flex;
 }
 
 .logo {
@@ -240,18 +443,28 @@ body.theme-light .inputArea {
   transition: opacity 0.2s ease;
 }
 
-.btnNovoChat {
+.btnNovoChat,
+.btnToggleWorkspace,
+.btnClearChat,
+.btnRefreshPage,
+.btnDeployYui {
   width: 100%;
   padding: 10px 12px;
-  margin-bottom: 10px;
+  margin-bottom: 6px;
   background: var(--slate-100);
   border: 1px solid var(--border);
   border-radius: 10px;
   color: var(--slate-600);
   font-size: 13px;
   cursor: pointer;
-  text-align: left;
+  display: flex;
+  align-items: center;
+  gap: 8px;
   transition: var(--transition-fast);
+}
+
+.btnNovoChat {
+  margin-bottom: 10px;
 }
 
 .btnNovoChat:hover {

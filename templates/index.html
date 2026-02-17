@@ -31,90 +31,127 @@
 
   <div id="appScreen" class="app" style="display: none;">
     <div class="appContent" id="appContent" data-model="yui">
-    <aside class="sidebar">
-      <div class="logo" id="sidebarLogo">
-        <img src="/static/yui-icon.png" alt="Yui" class="yuiLogoImg" id="sidebarAvatar" />
-      </div>
-      <button type="button" id="novoChat" class="btnNovoChat">+ Novo chat</button>
-      <button type="button" id="toggleWorkspace" class="btnToggleWorkspace" title="Abrir/fechar Editor (Ctrl+L)">
-        <span class="btnToggleIcon">&#60;/&#62;</span>
-        <span class="btnToggleLabel">Editor</span>
-      </button>
-      <button type="button" id="clearChat" class="btnClearChat" title="Limpar memória da sessão">Excluir Chat</button>
-      <button type="button" id="refreshPage" class="btnRefreshPage" title="Atualizar a página agora">Atualizar Tela</button>
-      <button type="button" id="btnDeployYui" class="btnDeployYui" title="Commit e push no repositório Zeabur">Deploy via Yui</button>
-      <div id="listaChats" class="listaChats"></div>
-      <div class="tasksPanel" id="tasksPanel" title="Afazeres — Heathcliff pode criar tarefas automaticamente">
-        <div class="tasksPanelHeader">
-          <span class="tasksPanelTitle">Afazeres</span>
-          <button type="button" id="tasksAddBtn" class="tasksAddBtn" title="Nova tarefa">+</button>
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebarHeader">
+        <div class="logo" id="sidebarLogo">
+          <img src="/static/yui-icon.png" alt="Yui" class="yuiLogoImg" id="sidebarAvatar" />
         </div>
-        <ul class="tasksList" id="tasksList"></ul>
-        <input type="text" id="tasksInput" class="tasksInput" placeholder="Nova tarefa..." style="display:none" />
+        <button type="button" id="sidebarToggle" class="sidebarToggle" title="Recolher/Expandir sidebar" aria-label="Recolher sidebar">
+          <span class="sidebarToggleIcon">◀</span>
+        </button>
       </div>
-      <div class="missionPanel" id="missionPanel" title="Missão ativa — Project Brain" style="display:none">
-        <div class="missionPanelHeader">
-          <span class="missionPanelTitle">✨ Missão Ativa</span>
-        </div>
-        <div class="missionPanelContent" id="missionPanelContent">
-          <div class="missionGoal" id="missionGoal">—</div>
-          <div class="missionProgressWrap">
-            <div class="missionProgressBar" id="missionProgressBar">
-              <div class="missionProgressFill" id="missionProgressFill"></div>
-            </div>
-            <span class="missionProgressLabel" id="missionProgressLabel">0%</span>
+      <div class="sidebarMain">
+        <button type="button" id="novoChat" class="btnNovoChat">
+          <span class="btnIcon">+</span>
+          <span class="btnLabel">Novo chat</span>
+        </button>
+        <button type="button" id="toggleWorkspace" class="btnToggleWorkspace" title="Abrir/fechar Editor (Ctrl+L)">
+          <span class="btnIcon">&#60;/&#62;</span>
+          <span class="btnLabel">Editor</span>
+        </button>
+        <button type="button" id="clearChat" class="btnClearChat" title="Limpar memória da sessão">
+          <span class="btnIcon">🗑</span>
+          <span class="btnLabel">Excluir Chat</span>
+        </button>
+        <button type="button" id="refreshPage" class="btnRefreshPage" title="Atualizar a página agora">
+          <span class="btnIcon">↻</span>
+          <span class="btnLabel">Atualizar Tela</span>
+        </button>
+        <button type="button" id="btnDeployYui" class="btnDeployYui" title="Commit e push no repositório Zeabur">
+          <span class="btnIcon">🚀</span>
+          <span class="btnLabel">Deploy via Yui</span>
+        </button>
+        <div id="listaChats" class="listaChats"></div>
+        <div class="sidebarTabContainer">
+          <div class="sidebarTabs">
+            <button type="button" class="sidebarTab active" data-sidebar-tab="tarefas" title="Tarefas e Missão">
+              <span class="sidebarTabIcon">✓</span>
+              <span class="sidebarTabLabel">Tarefas</span>
+            </button>
+            <button type="button" class="sidebarTab" data-sidebar-tab="sistema" title="Sistema e Telemetria">
+              <span class="sidebarTabIcon">⚙</span>
+              <span class="sidebarTabLabel">Sistema</span>
+            </button>
           </div>
-          <div class="missionCurrentTask" id="missionCurrentTask"></div>
-        </div>
-      </div>
-      <div class="activityPanel" id="activityPanel" title="System Activity — Observability">
-        <div class="activityTitle">⚙️ System Activity</div>
-        <div class="skillsSection" id="skillsSection">
-          <div class="skillsSectionTitle">🧠 Skills Ativas</div>
-          <ul class="skillsList" id="skillsList"></ul>
-        </div>
-        <ul class="activityList" id="activityList"></ul>
-        <div class="activityTimeline" id="activityTimeline">
-          <div class="activityTimelineTitle">🧠 Execution Timeline</div>
-          <ul class="activityTimelineList" id="activityTimelineList"></ul>
-        </div>
-      </div>
-      <div class="cognitivePanel" id="cognitivePanel" title="Cognitive Loop — Observability">
-        <div class="cognitiveTitle">🧠 Cognitive Status</div>
-        <div class="cognitiveRow">
-          <span class="cognitiveLabel">Planner Confidence</span>
-          <span class="cognitiveValue" id="cognitiveConfidence">—</span>
-        </div>
-        <div class="cognitiveRow">
-          <span class="cognitiveLabel">Last Action Score</span>
-          <span class="cognitiveValue" id="cognitiveScore">—</span>
-        </div>
-        <div class="cognitiveRow">
-          <span class="cognitiveLabel">RAM Impact</span>
-          <span class="cognitiveValue" id="cognitiveRam">—</span>
-        </div>
-      </div>
-      <div class="telemetryPanel" id="telemetryPanel" title="Custo acumulado do dia">
-        <div class="telemetryTitle">Telemetria</div>
-        <div class="telemetryRow">
-          <span class="telemetryLabel">Custo hoje</span>
-          <span class="telemetryValue" id="telemetryCost">—</span>
-        </div>
-        <div class="telemetryRow">
-          <span class="telemetryLabel">Requisições</span>
-          <span class="telemetryValue" id="telemetryRequests">—</span>
-        </div>
-        <div class="telemetryRow">
-          <span class="telemetryLabel">Custo da última resposta</span>
-          <span class="telemetryValue" id="telemetryLastResponse">—</span>
-        </div>
-        <div class="telemetryRow">
-          <span class="telemetryLabel">Tokens (entrada/saída)</span>
-          <span class="telemetryValue" id="telemetryTokens">—</span>
-        </div>
-        <div class="telemetryRow">
-          <span class="telemetryLabel">Escrita em disco</span>
-          <span class="telemetryValue" id="telemetryDiskWrites">—</span>
+          <div class="sidebarTabContentWrap">
+            <div class="sidebarTabContent active" id="sidebarTabTarefas">
+              <div class="tasksPanel" id="tasksPanel" title="Afazeres — Heathcliff pode criar tarefas automaticamente">
+                <div class="tasksPanelHeader">
+                  <span class="tasksPanelTitle">Afazeres</span>
+                  <button type="button" id="tasksAddBtn" class="tasksAddBtn" title="Nova tarefa">+</button>
+                </div>
+                <ul class="tasksList" id="tasksList"></ul>
+                <input type="text" id="tasksInput" class="tasksInput" placeholder="Nova tarefa..." style="display:none" />
+              </div>
+              <div class="missionPanel" id="missionPanel" title="Missão ativa — Project Brain" style="display:none">
+                <div class="missionPanelHeader">
+                  <span class="missionPanelTitle">✨ Missão Ativa</span>
+                </div>
+                <div class="missionPanelContent" id="missionPanelContent">
+                  <div class="missionGoal" id="missionGoal">—</div>
+                  <div class="missionProgressWrap">
+                    <div class="missionProgressBar" id="missionProgressBar">
+                      <div class="missionProgressFill" id="missionProgressFill"></div>
+                    </div>
+                    <span class="missionProgressLabel" id="missionProgressLabel">0%</span>
+                  </div>
+                  <div class="missionCurrentTask" id="missionCurrentTask"></div>
+                </div>
+              </div>
+            </div>
+            <div class="sidebarTabContent" id="sidebarTabSistema">
+              <div class="activityPanel" id="activityPanel" title="System Activity — Observability">
+                <div class="activityTitle">⚙️ System Activity</div>
+                <div class="skillsSection" id="skillsSection">
+                  <div class="skillsSectionTitle">🧠 Skills Ativas</div>
+                  <ul class="skillsList" id="skillsList"></ul>
+                </div>
+                <ul class="activityList" id="activityList"></ul>
+                <div class="activityTimeline" id="activityTimeline">
+                  <div class="activityTimelineTitle">🧠 Execution Timeline</div>
+                  <ul class="activityTimelineList" id="activityTimelineList"></ul>
+                </div>
+              </div>
+              <div class="cognitivePanel" id="cognitivePanel" title="Cognitive Loop — Observability">
+                <div class="cognitiveTitle">🧠 Cognitive Status</div>
+                <div class="cognitiveRow">
+                  <span class="cognitiveLabel">Planner Confidence</span>
+                  <span class="cognitiveValue" id="cognitiveConfidence">—</span>
+                </div>
+                <div class="cognitiveRow">
+                  <span class="cognitiveLabel">Last Action Score</span>
+                  <span class="cognitiveValue" id="cognitiveScore">—</span>
+                </div>
+                <div class="cognitiveRow">
+                  <span class="cognitiveLabel">RAM Impact</span>
+                  <span class="cognitiveValue" id="cognitiveRam">—</span>
+                </div>
+              </div>
+              <div class="telemetryPanel" id="telemetryPanel" title="Custo acumulado do dia">
+                <div class="telemetryTitle">Telemetria</div>
+                <div class="telemetryRow">
+                  <span class="telemetryLabel">Custo hoje</span>
+                  <span class="telemetryValue" id="telemetryCost">—</span>
+                </div>
+                <div class="telemetryRow">
+                  <span class="telemetryLabel">Requisições</span>
+                  <span class="telemetryValue" id="telemetryRequests">—</span>
+                </div>
+                <div class="telemetryRow">
+                  <span class="telemetryLabel">Custo da última resposta</span>
+                  <span class="telemetryValue" id="telemetryLastResponse">—</span>
+                </div>
+                <div class="telemetryRow">
+                  <span class="telemetryLabel">Tokens (entrada/saída)</span>
+                  <span class="telemetryValue" id="telemetryTokens">—</span>
+                </div>
+                <div class="telemetryRow">
+                  <span class="telemetryLabel">Escrita em disco</span>
+                  <span class="telemetryValue" id="telemetryDiskWrites">—</span>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
       <div class="userFooter">

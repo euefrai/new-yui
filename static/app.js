@@ -1680,6 +1680,47 @@
 
   initTasks();
 
+  (function initSidebarCollapse() {
+    var SIDEBAR_STORAGE_KEY = "yui_sidebar_collapsed";
+    var sidebar = document.getElementById("sidebar");
+    var toggleBtn = document.getElementById("sidebarToggle");
+    if (sidebar && toggleBtn) {
+      var collapsed = localStorage.getItem(SIDEBAR_STORAGE_KEY) === "true";
+      if (collapsed) sidebar.classList.add("collapsed");
+      toggleBtn.addEventListener("click", function () {
+        sidebar.classList.toggle("collapsed");
+        localStorage.setItem(SIDEBAR_STORAGE_KEY, sidebar.classList.contains("collapsed"));
+      });
+    }
+  })();
+
+  (function initSidebarTabs() {
+    var tabs = document.querySelectorAll(".sidebarTab[data-sidebar-tab]");
+    var contents = document.querySelectorAll(".sidebarTabContent");
+    function switchToTab(tab) {
+      var key = tab.getAttribute("data-sidebar-tab") || "";
+      var targetId = "sidebarTab" + key.charAt(0).toUpperCase() + key.slice(1);
+      tabs.forEach(function (t) { t.classList.remove("active"); });
+      contents.forEach(function (c) {
+        c.style.display = "none";
+        c.classList.remove("active");
+      });
+      tab.classList.add("active");
+      var target = document.getElementById(targetId);
+      if (target) {
+        target.style.display = "flex";
+        target.classList.add("active");
+      }
+      localStorage.setItem("yui_sidebar_tab", key);
+    }
+    tabs.forEach(function (tab) {
+      tab.addEventListener("click", function () { switchToTab(tab); });
+    });
+    var savedTab = localStorage.getItem("yui_sidebar_tab") || "tarefas";
+    var savedTabEl = document.querySelector('.sidebarTab[data-sidebar-tab="' + savedTab + '"]');
+    if (savedTabEl && savedTab !== "tarefas") switchToTab(savedTabEl);
+  })();
+
   var btnEnviarEl = document.getElementById("btnEnviar");
   if (btnEnviarEl) btnEnviarEl.addEventListener("click", function (e) { e.preventDefault(); enviar(); });
   if (msgInput) msgInput.addEventListener("keydown", function (e) {
