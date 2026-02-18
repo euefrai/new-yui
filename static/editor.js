@@ -184,32 +184,16 @@
 
   function initWorkspaceButtons() {
     if (workspaceButtonsBound) return;
-  function initWorkspaceButtons() {
-    if (workspaceButtonsBound) return;
-  function initWorkspaceButtons() {
-    if (workspaceButtonsBound) return;
-  // 6. Setup de Botões e Interações
-  function initWorkspaceButtons() {
-    if (workspaceButtonsBound) return;
-    
     var copyBtn = document.getElementById("workspaceCopy");
     if (copyBtn) {
-      copyBtn.onclick = function() {
+      copyBtn.onclick = function () {
         if (!monacoEditor) return;
         navigator.clipboard.writeText(monacoEditor.getValue());
         var oldText = copyBtn.innerText;
         copyBtn.innerText = "Copiado!";
-        setTimeout(() => { copyBtn.innerText = oldText; }, 2000);
+        setTimeout(function () { copyBtn.innerText = oldText; }, 2000);
       };
     }
-
-  function initWorkspaceButtons() {
-    if (workspaceButtonsBound) return;
-    var tabPreview = document.querySelector('[data-tab="preview"]');
-    if (tabPreview) {
-      tabPreview.addEventListener("click", window.updatePreview);
-    }
-    
     workspaceButtonsBound = true;
   }
 
@@ -218,6 +202,7 @@
   window.initYuiWorkspace = function () {
     initWorkspaceButtons();
     initMonacoEditor();
+    if (window.initWorkspaceProject) window.initWorkspaceProject();
   };
 
   // Inicialização Automática

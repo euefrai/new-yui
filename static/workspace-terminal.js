@@ -47,6 +47,9 @@
     if (fitAddon) fitAddon.fit();
     term.writeln("Conectando ao terminal...");
     connect();
+    container.addEventListener("click", function () {
+      if (term) term.focus();
+    });
   }
 
   function connect() {
@@ -98,7 +101,10 @@
     wrap.classList.toggle("collapsed");
     if (!wrap.classList.contains("collapsed")) wrap.classList.remove("expanded");
     if (toggleBtn) toggleBtn.textContent = wrap.classList.contains("collapsed") ? "▲" : "▼";
-    if (!wrap.classList.contains("collapsed")) fitTerminalSoon();
+    if (!wrap.classList.contains("collapsed")) {
+      fitTerminalSoon();
+      if (term) setTimeout(function () { term.focus(); }, 150);
+    }
   }
 
   function toggleTerminalExpand() {
@@ -115,12 +121,15 @@
   }
 
   function onWorkspaceVisible() {
-    if (!container) return;
     var panel = document.getElementById("workspacePanel");
     if (!panel || panel.offsetParent === null) return;
     if (!term) {
-      if (window.Terminal) initTerminal();
-      else setTimeout(onWorkspaceVisible, 300);
+      if (window.Terminal) {
+        container = document.getElementById("workspaceTerminal");
+        if (container) initTerminal();
+      } else {
+        setTimeout(onWorkspaceVisible, 300);
+      }
     } else if (fitAddon) fitTerminalSoon();
   }
 

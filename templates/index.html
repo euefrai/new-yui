@@ -192,6 +192,9 @@
           <div class="workspaceHeader">
             <span class="workspaceTitle">Workspace</span>
             <div class="workspaceActions">
+              <input type="file" id="workspaceImportInput" webkitdirectory directory multiple hidden />
+              <button type="button" id="workspaceImport" class="workspaceBtn" title="Importar pasta do computador">📂 Importar</button>
+              <button type="button" id="workspaceLoadSandbox" class="workspaceBtn" title="Carregar projeto do Sandbox">📁 Carregar Sandbox</button>
               <button type="button" id="workspaceRun" class="workspaceBtn workspaceBtnPlay">▶ Executar</button>
               <button type="button" id="workspaceSyncSandbox" class="workspaceBtn">Salvar</button>
               <button type="button" id="workspaceExport" class="workspaceBtn">Compactar</button>
@@ -199,20 +202,23 @@
           </div>
 
           <div class="workspaceBody">
-            <div class="fileTreeSidebar" id="fileTreeSidebar">
-              <div id="fileTreeList"></div>
-            </div>
-            
-            <div class="workspaceEditorColumn">
-              <div class="workspaceTabs" id="workspaceTabs">
-                <button type="button" class="workspaceTab active" data-tab="editor">Editor</button>
-                <button type="button" class="workspaceTab" data-tab="preview">Preview</button>
+            <div class="workspaceMainRow">
+              <div class="fileTreeSidebar" id="fileTreeSidebar">
+                <div id="fileTreeList"></div>
+                <div id="fileTreeEmpty" class="fileTreeEmpty" style="display:none">Nenhum arquivo. Importe uma pasta ou carregue o Sandbox.</div>
               </div>
-              <div class="workspaceTabContent" id="workspaceTabEditor">
-                <div id="monacoContainer" class="monacoContainer"></div>
-              </div>
-              <div class="workspaceTabContent" id="workspaceTabPreview" style="display:none">
-                <iframe id="workspacePreviewFrame" class="workspacePreviewFrame"></iframe>
+              <div class="workspaceEditorColumn">
+                <div class="workspaceTabs" id="workspaceTabs">
+                  <button type="button" class="workspaceTab active" data-tab="editor">Editor</button>
+                  <button type="button" class="workspaceTab" data-tab="preview">Preview</button>
+                </div>
+                <div class="workspaceTabContent" id="workspaceTabEditor">
+                  <div id="monacoContainer" class="monacoContainer"></div>
+                </div>
+                <div class="workspaceTabContent workspacePreviewWrap" id="workspaceTabPreview" style="display:none">
+                  <div id="workspacePreviewEmpty" class="workspacePreviewEmpty">Abra um arquivo HTML para visualizar o preview.</div>
+                  <iframe id="workspacePreviewFrame" class="workspacePreviewFrame"></iframe>
+                </div>
               </div>
             </div>
             <div class="workspaceTerminalWrap" id="workspaceTerminalWrap">
@@ -223,7 +229,7 @@
                   <button type="button" id="workspaceTerminalToggle" class="workspaceTerminalToggle" title="Expandir/Recolher">▼</button>
                 </div>
               </div>
-              <div id="workspaceTerminal"></div>
+              <div id="workspaceTerminal" class="workspaceTerminal" tabindex="0" title="Clique para focar e digitar comandos"></div>
             </div>
           </div>
         </aside>
