@@ -17,6 +17,15 @@
   var sandboxExpandedChildren = {};
   var workspaceProjectInitialized = false;
 
+  if (!window.getLangFromPath) {
+    window.getLangFromPath = function (path) {
+      if (!path) return "plaintext";
+      var ext = (path.split(".").pop() || "").toLowerCase();
+      var map = { py: "python", js: "javascript", ts: "typescript", jsx: "javascript", tsx: "javascript", html: "html", css: "css", json: "json", md: "markdown" };
+      return map[ext] || "plaintext";
+    };
+  }
+
   var ICON_FOLDER = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>';
   var ICON_FILE = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>';
   var ICON_ARROW_RIGHT = '<svg class="folderArrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>';
@@ -82,9 +91,9 @@
       container.appendChild(el);
     } else {
       var folderEl = document.createElement("div");
-      folderEl.className = "fileTreeItem fileTreeFolder open";
+      folderEl.className = "fileTreeItem fileTreeFolder";
       folderEl.style.paddingLeft = (depth * 12 + 8) + "px";
-      folderEl.innerHTML = '<span class="folderArrowWrap">' + ICON_ARROW_DOWN + '</span>' + ICON_FOLDER + "<span>" + escapeHtml(node.name) + "</span>";
+      folderEl.innerHTML = '<span class="folderArrowWrap">' + ICON_ARROW_RIGHT + '</span>' + ICON_FOLDER + "<span>" + escapeHtml(node.name) + "</span>";
       folderEl.addEventListener("click", function (e) {
         e.stopPropagation();
         updateTreeSelection(node.name, true, folderEl);
@@ -96,7 +105,7 @@
       });
       container.appendChild(folderEl);
       var childWrap = document.createElement("div");
-      childWrap.className = "fileTreeChildren";
+      childWrap.className = "fileTreeChildren collapsed";
       (node.children || []).forEach(function (c) { renderRec(childWrap, c, depth + 1); });
       container.appendChild(childWrap);
     }
@@ -328,7 +337,14 @@
     var path = _joinPath(baseDir, name);
 
     if (!sandboxMode) {
-      alert("Criação de pasta está disponível ao usar o modo Sandbox.");
+      projectFiles[path + "/.gitkeep"] = "";
+      originalFileContents[path + "/.gitkeep"] = "";
+      var paths = Object.keys(projectFiles);
+      projectTree = buildTreeFromPaths(paths);
+      var list = document.getElementById("fileTreeList");
+      var empty = document.getElementById("fileTreeEmpty");
+      if (list) { list.style.display = "block"; renderFileTree(projectTree, list); }
+      if (empty) empty.style.display = "none";
       return;
     }
 
@@ -576,6 +592,13 @@
       return;
     }
     var code = ed.getValue();
+    var filesToSync = [];
+    Object.keys(projectFiles).forEach(function (path) {
+      filesToSync.push({ path: path, content: projectFiles[path] });
+    });
+    if (filesToSync.length === 0 && code.trim()) {
+      filesToSync.push({ path: currentFilePath || "main.py", content: code });
+    }
     var path = currentFilePath;
     var lang = path ? (window.getLangFromPath ? window.getLangFromPath(path) : "python") : "python";
     if (lang === "plaintext") lang = "python";
@@ -601,6 +624,7 @@
     }
     var ts = new Date().toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "medium" });
     logToConsole("[" + ts + "] $ Executando...", false);
+    function run() {
     fetch((window.apiUrl || function(p){return p;})("/api/sandbox/execute"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -621,6 +645,21 @@
       .catch(function (e) {
         logToConsole("$ Erro de rede: " + (e.message || String(e)), true);
       });
+    }
+    if (filesToSync.length > 0) {
+      fetch((window.apiUrl || function(p){return p;})("/api/sandbox/save"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ files: filesToSync }),
+      }).then(function (r) { return r.json(); }).then(function (data) {
+        if (data.ok) run();
+        else logToConsole("$ Erro ao salvar: " + (data.error || "desconhecido"), true);
+      }).catch(function (e) {
+        logToConsole("$ Erro ao salvar: " + (e.message || String(e)), true);
+      });
+    } else {
+      run();
+    }
   }
 
   function syncToSandbox() {

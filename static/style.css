@@ -1663,6 +1663,12 @@ select:focus-visible {
   text-align: center;
 }
 
+.fileTreeLoading {
+  padding: 12px 16px;
+  color: var(--slate-500);
+  font-size: 0.8rem;
+}
+
 .fileTreeList {
   padding: 8px 0;
 }

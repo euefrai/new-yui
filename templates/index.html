@@ -195,6 +195,10 @@
               <input type="file" id="workspaceImportInput" webkitdirectory directory multiple hidden />
               <button type="button" id="workspaceImport" class="workspaceBtn" title="Importar pasta do computador">📂 Importar</button>
               <button type="button" id="workspaceLoadSandbox" class="workspaceBtn" title="Carregar projeto do Sandbox">📁 Carregar Sandbox</button>
+              <button type="button" id="workspaceNewFile" class="workspaceBtn" title="Novo arquivo">📄 Novo</button>
+              <button type="button" id="workspaceNewFolder" class="workspaceBtn" title="Nova pasta">📁 Nova pasta</button>
+              <button type="button" id="workspaceRename" class="workspaceBtn" title="Renomear arquivo/pasta selecionado">✏ Renomear</button>
+              <button type="button" id="workspaceDelete" class="workspaceBtn" title="Excluir arquivo/pasta selecionado">🗑 Excluir</button>
               <button type="button" id="workspaceRun" class="workspaceBtn workspaceBtnPlay">▶ Executar</button>
               <button type="button" id="workspaceSyncSandbox" class="workspaceBtn">Salvar</button>
               <button type="button" id="workspaceExport" class="workspaceBtn">Compactar</button>
@@ -219,6 +223,13 @@
                   <div id="workspacePreviewEmpty" class="workspacePreviewEmpty">Abra um arquivo HTML para visualizar o preview.</div>
                   <iframe id="workspacePreviewFrame" class="workspacePreviewFrame"></iframe>
                 </div>
+              </div>
+            </div>
+            <div class="workspaceConsole" id="workspaceConsole">
+              <div class="workspaceConsoleHeader">Saída da execução</div>
+              <pre id="workspaceConsoleOutput" class="workspaceConsoleOutput">$ Aguardando execução... (Ctrl+Enter ou clique em Executar)</pre>
+              <div id="workspaceConsoleActions" class="workspaceConsoleActions" style="display:none">
+                <button type="button" id="workspaceSuggestFix" class="workspaceConsoleBtn">Sugerir correção à IA</button>
               </div>
             </div>
             <div class="workspaceTerminalWrap" id="workspaceTerminalWrap">

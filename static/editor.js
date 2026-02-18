@@ -85,6 +85,10 @@
         fontFamily: "'JetBrains Mono', monospace",
         renderLineHighlight: "all",
         padding: { top: 10 },
+        lineNumbers: "on",
+        lineNumbersMinChars: 3,
+        multiCursorModifier: "alt",
+        wordWrap: "off",
         scrollbar: { 
             vertical: 'visible', 
             horizontal: 'visible', 
