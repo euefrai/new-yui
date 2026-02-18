@@ -6,6 +6,7 @@
 
   var term = null;
   var fitAddon = null;
+  var webLinksAddon = null;
   var ws = null;
   var container = null;
 
@@ -41,6 +42,13 @@
       if (window.FitAddon) {
         fitAddon = new window.FitAddon.FitAddon();
         term.loadAddon(fitAddon);
+      }
+    } catch (e) {}
+    try {
+      var WLA = window.WebLinksAddon && (window.WebLinksAddon.WebLinksAddon || window.WebLinksAddon);
+      if (WLA) {
+        webLinksAddon = new WLA();
+        term.loadAddon(webLinksAddon);
       }
     } catch (e) {}
     term.open(container);
@@ -83,6 +91,10 @@
     if (ws) {
       ws.close();
       ws = null;
+    }
+    if (webLinksAddon) {
+      try { webLinksAddon.dispose(); } catch (e) {}
+      webLinksAddon = null;
     }
     if (term) {
       term.dispose();

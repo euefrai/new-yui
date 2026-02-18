@@ -834,9 +834,9 @@ def api_sandbox_execute():
         executed_at = datetime.utcnow().strftime("%d/%m/%Y %H:%M:%S")
     code = data.get("code") or ""
     lang = (data.get("lang") or "python").lower()
-    timeout = int(data.get("timeout") or 15)
-    if timeout > 30:
-        timeout = 30
+    timeout = int(data.get("timeout") or 120)
+    if timeout > 300:
+        timeout = 300
     if not code.strip():
         return jsonify({"ok": False, "stdout": "", "stderr": "Código vazio", "exit_code": -1, "feedback": "", "executed_at": executed_at}), 400
 

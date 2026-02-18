@@ -253,10 +253,10 @@
     window.SUPABASE_KEY = "{{ supabase_key or '' }}";
     window.loadWorkspaceLibs = function (cb) {
       if (window._workspaceLibsLoaded) { if (cb) cb(); return; }
-      var pending = 3;
+      var pending = 4;
       function done() { if (--pending === 0) { window._workspaceLibsLoaded = true; if (cb) cb(); } }
       var l = document.createElement("link"); l.rel = "stylesheet"; l.href = "https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.min.css"; document.head.appendChild(l);
-      ["https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js","https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.min.js","https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.min.js"].forEach(function(url){
+      ["https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js","https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.min.js","https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.min.js","https://cdn.jsdelivr.net/npm/xterm-addon-web-links@0.9.0/lib/xterm-addon-web-links.js"].forEach(function(url){
         var s = document.createElement("script"); s.src = url; s.onload = done; document.body.appendChild(s);
       });
     };

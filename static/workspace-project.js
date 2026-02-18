@@ -628,7 +628,7 @@
     fetch((window.apiUrl || function(p){return p;})("/api/sandbox/execute"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ code: code, lang: lang, timeout: 15 }),
+      body: JSON.stringify({ code: code, lang: lang, timeout: 120 }),
     })
       .then(function (r) { return r.json(); })
       .then(function (data) {
