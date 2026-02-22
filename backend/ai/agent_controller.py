@@ -140,15 +140,9 @@ TOOL_SYSTEM_FOOTER = (
 
 
 def _build_tool_system(user_message: str = "") -> str:
-    """Monta TOOL_SYSTEM com Attention: filtra tools por intenção (menos RAM, menos tokens)."""
+    """Monta TOOL_SYSTEM: todas as tools disponíveis para Yui e Heathcliff."""
     all_tools = list(TOOL_DESCRIPTIONS.keys())
-    if filter_tools_by_intention:
-        tools = filter_tools_by_intention(all_tools, user_message)
-        if not tools:
-            tools = all_tools
-    else:
-        tools = all_tools
-    lines = [TOOL_DESCRIPTIONS.get(t, "") for t in tools if t in TOOL_DESCRIPTIONS]
+    lines = [TOOL_DESCRIPTIONS.get(t, "") for t in all_tools if t in TOOL_DESCRIPTIONS]
     return TOOL_SYSTEM_HEADER + "".join(lines) + TOOL_SYSTEM_FOOTER
 
 # Bloco de SKILLS (habilidades dinâmicas) — montado em tempo de execução

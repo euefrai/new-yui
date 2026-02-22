@@ -366,6 +366,29 @@ def api_system_observability():
         return jsonify({"ok": False, "error": str(e), "timeline": [], "activity": []}), 500
 
 
+@system_bp.post("/autodev")
+def api_system_autodev():
+    """
+    AutoDev Agent — agente autônomo com controle do workspace.
+    Body: { message, dry_run?, auto_approve? }
+    - dry_run: simula execução sem alterar arquivos
+    - auto_approve: executa tools sem confirmação (default true)
+    """
+    data = request.get_json(silent=True) or {}
+    message = (data.get("message") or data.get("msg") or "").strip()
+    if not message:
+        return jsonify({"ok": False, "error": "message obrigatória"}), 400
+    dry_run = data.get("dry_run", False)
+    auto_approve = data.get("auto_approve", True)
+    try:
+        from core.autodev_agent import run_autodev
+        chunks = list(run_autodev(message, dry_run=dry_run, auto_approve=auto_approve))
+        reply = "".join(chunks)
+        return jsonify({"ok": True, "reply": reply, "dry_run": dry_run})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
 @system_bp.get("/skills")
 def api_system_skills():
     """

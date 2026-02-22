@@ -1,7 +1,6 @@
 """
 Yui Core — Chat com agentes isolados (Yui / Heathcliff).
-- Yui: sem tools, amigável, qualquer pergunta
-- Heathcliff: com tools técnicas, especialista, só escopo técnico
+- Yui e Heathcliff: ambos têm acesso a todas as tools (analisar código, workspace, etc).
 """
 
 import asyncio
@@ -15,7 +14,7 @@ from yui.agent_prompts import YUI_SYSTEM_PROMPT, HEATHCLIFF_SYSTEM_PROMPT
 
 MAX_TOOL_ITERATIONS = 3
 
-# Tools apenas para Heathcliff
+# Tools disponíveis para Yui e Heathcliff
 TOOLS_SCHEMA = [
     {
         "type": "function",
@@ -114,7 +113,7 @@ TOOLS_SCHEMA = [
 
 
 def _detect_tool_intent(texto: str) -> Optional[str]:
-    """Tool Router: só Heathcliff usa. Sugere tool_choice."""
+    """Tool Router: sugere tool_choice para Yui e Heathcliff."""
     t = (texto or "").lower()
     if any(x in t for x in ["código", "codigo", "analisar", "vulnerabilidade", "```", "função", "funcao"]):
         return "analisar_codigo"
@@ -179,7 +178,7 @@ async def stream_chat_agent(
 ) -> AsyncIterator[str]:
     """
     Chat em streaming. agent: "yui" | "heathcliff".
-    Yui: sem tools. Heathcliff: com tools, fallback se tool falhar.
+    Yui e Heathcliff: ambos têm acesso a todas as tools.
     """
     from openai import AsyncOpenAI
     client = AsyncOpenAI(api_key=os.environ.get("OPENAI_API_KEY", ""))
@@ -198,13 +197,11 @@ async def stream_chat_agent(
 
     if agent == "yui":
         system = YUI_SYSTEM_PROMPT
-        tools = None
-        tool_choice = None
     else:
         system = HEATHCLIFF_SYSTEM_PROMPT
-        tools = TOOLS_SCHEMA
-        intent = _detect_tool_intent(mensagem)
-        tool_choice = {"type": "function", "function": {"name": intent}} if intent else "auto"
+    tools = TOOLS_SCHEMA
+    intent = _detect_tool_intent(mensagem)
+    tool_choice = {"type": "function", "function": {"name": intent}} if intent else "auto"
 
     sys_ctx = next((m.get("content", "") for m in messages if m.get("role") == "system"), None)
     if sys_ctx:

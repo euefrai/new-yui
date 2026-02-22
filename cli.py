@@ -37,6 +37,19 @@ def cmd_analyze(path: str) -> int:
     return 0
 
 
+def cmd_autodev(message: str, dry_run: bool = False) -> int:
+    """Executa o agente AutoDev: OpenAI + tool calling (listar, ler, escrever, git, PR)."""
+    from core.autodev_agent import run_autodev
+    try:
+        for chunk in run_autodev(message, dry_run=dry_run, auto_approve=True):
+            print(chunk, end="", flush=True)
+        print()
+        return 0
+    except Exception as e:
+        print(f"Erro: {e}", file=sys.stderr)
+        return 1
+
+
 def cmd_map(path: str) -> int:
     """Gera .yui_map.json com estrutura e dependências do projeto."""
     from core.project_mapper import generate_yui_map
@@ -82,8 +95,14 @@ def main() -> int:
         help="Caminho da raiz (default: sandbox)",
     )
 
+    autodev_parser = subparsers.add_parser("autodev", help="Agente AutoDev: executa tarefas no workspace (ler, escrever, git, PR).")
+    autodev_parser.add_argument("message", help="Instrução para o agente (ex: 'Liste os arquivos do projeto')")
+    autodev_parser.add_argument("--dry-run", action="store_true", help="Simula execução sem alterar arquivos")
+
     args = parser.parse_args()
 
+    if args.command == "autodev":
+        return cmd_autodev(args.message, dry_run=getattr(args, "dry_run", False))
     if args.command == "analyze":
         return cmd_analyze(args.path)
     if args.command == "map":

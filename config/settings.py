@@ -68,6 +68,11 @@ ENERGY_COST_PLANNER = float(os.environ.get("ENERGY_COST_PLANNER") or "3")
 ENERGY_COST_REFLECT = float(os.environ.get("ENERGY_COST_REFLECT") or "2")
 ENERGY_COST_RECOVERY = float(os.environ.get("ENERGY_COST_RECOVERY") or "10")
 
+# AutoDev Agent
+AUTODEV_DRY_RUN = os.environ.get("AUTODEV_DRY_RUN", "").lower() in ("1", "true", "yes")
+AUTODEV_AUTO_APPROVE = os.environ.get("AUTODEV_AUTO_APPROVE", "true").lower() in ("1", "true", "yes")
+GITHUB_TOKEN = _get("GITHUB_TOKEN")
+
 # Pastas derivadas
 GENERATED_PROJECTS_DIR = BASE_DIR / "generated_projects"
 WEB_LEGACY_DIR = BASE_DIR / "web"
