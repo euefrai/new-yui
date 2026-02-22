@@ -22,9 +22,16 @@ def gerar_hash(texto: str) -> str:
     return hashlib.md5(s.encode("utf-8")).hexdigest()
 
 
-def buscar_cache(pergunta: str) -> Optional[str]:
-    """Retorna resposta em cache se existir."""
-    chave = gerar_hash(pergunta)
+def gerar_chave_cache(user_id: str, pergunta: str, resumo_contexto: Optional[str] = None) -> str:
+    """Chave única: user_id + mensagem + resumo_contexto."""
+    parts = [str(user_id or ""), (pergunta or "").strip(), (resumo_contexto or "").strip()]
+    combined = "|".join(parts)
+    return hashlib.md5(combined.encode("utf-8")).hexdigest()
+
+
+def buscar_cache(pergunta: str, user_id: Optional[str] = None, resumo_contexto: Optional[str] = None) -> Optional[str]:
+    """Retorna resposta em cache se existir. Chave: user_id + pergunta + resumo."""
+    chave = gerar_chave_cache(user_id or "", pergunta, resumo_contexto) if user_id or resumo_contexto else gerar_hash(pergunta)
     if not chave:
         return None
     with _lock:
@@ -37,13 +44,13 @@ def buscar_cache(pergunta: str) -> Optional[str]:
 MAX_RESPOSTA_LEN = 15000  # não cachear respostas gigantes (ex.: código grande)
 
 
-def salvar_cache(pergunta: str, resposta: str) -> None:
-    """Armazena pergunta → resposta no cache."""
+def salvar_cache(pergunta: str, resposta: str, user_id: Optional[str] = None, resumo_contexto: Optional[str] = None) -> None:
+    """Armazena no cache. Chave: user_id + pergunta + resumo_contexto."""
     if not resposta or not isinstance(resposta, str):
         return
     if len(resposta) > MAX_RESPOSTA_LEN:
         return
-    chave = gerar_hash(pergunta)
+    chave = gerar_chave_cache(user_id or "", pergunta, resumo_contexto) if user_id or resumo_contexto else gerar_hash(pergunta)
     if not chave:
         return
     with _lock:

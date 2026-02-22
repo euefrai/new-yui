@@ -1,27 +1,33 @@
 /* ==========================================================
-   YUI — Cursor IDE Inspired
-   Bordas 1px #333, fundo #1a1a1a, sem blur/animações pesadas
+   YUI — Aurora Tech
+   Paleta: #10141E, #5DE4FF, #C4A7E7, #ECECEC, #8F95A1
    ========================================================== */
 
 :root {
-  --bg: #1a1a1a;
-  --border: #333;
-  --glass-bg: rgba(255, 255, 255, 0.02);
-  --glass-border: #333;
-  --slate-50: #2a2a2a;
-  --slate-100: #252525;
-  --slate-200: #333;
-  --slate-300: #444;
-  --slate-500: #888;
-  --slate-600: #aaa;
-  --slate-700: #ccc;
-  --slate-800: #e0e0e0;
-  --accent: #58a6ff;
-  --accent-hover: #79b8ff;
-  --user-msg: #58a6ff;
-  --yui-msg: #e0e0e0;
-  --heathcliff-msg: #7ee787;
-  --transition-fast: 0.15s ease;
+  --bg: #10141E;
+  --bg-gradient: radial-gradient(ellipse at 20% 20%, rgba(93, 228, 255, 0.06) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 80%, rgba(196, 167, 231, 0.05) 0%, transparent 50%),
+    linear-gradient(180deg, #10141E 0%, #0d1117 100%);
+  --border: rgba(143, 149, 161, 0.2);
+  --glass-bg: rgba(93, 228, 255, 0.04);
+  --glass-border: rgba(143, 149, 161, 0.25);
+  --slate-50: #1a1f2e;
+  --slate-100: #161b26;
+  --slate-200: #252b3b;
+  --slate-300: #3d4556;
+  --slate-500: #8F95A1;
+  --slate-600: #a8aeb9;
+  --slate-700: #c4c9d1;
+  --slate-800: #ECECEC;
+  --accent: #5DE4FF;
+  --accent-hover: #7deaff;
+  --accent-secondary: #C4A7E7;
+  --user-msg: #5DE4FF;
+  --yui-msg: #ECECEC;
+  --heathcliff-msg: #C4A7E7;
+  --transition-fast: 0.2s ease;
+  --shadow-soft: 0 4px 12px rgba(0, 0, 0, 0.25);
+  --radius: 12px;
 }
 
 * {
@@ -66,10 +72,11 @@ body {
   display: flex;
   margin: 0;
   background: var(--bg);
+  background-image: var(--bg-gradient);
   color: var(--slate-800);
   font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
   font-size: 14px;
-  line-height: 1.6;
+  line-height: 1.65;
   overflow: hidden;
 }
 
@@ -969,10 +976,10 @@ body.theme-light .inputArea {
   flex-direction: column;
   align-items: center;
   width: 100%;
-  background: var(--bg);
+  background: rgba(16, 20, 30, 0.95);
   padding-right: 0;
   border-right: 1px solid var(--border);
-  transition: border-color 0.2s;
+  transition: border-color 0.2s, background 0.2s;
 }
 
 .mainSplitResizer {
@@ -1041,18 +1048,26 @@ body.theme-light .inputArea {
   padding: 24px 20px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 20px;
   background: transparent;
 }
 
-/* ========== Message Bubbles — Minimalista, linha do tempo ========== */
+/* ========== Message Bubbles — Aurora Tech, cards com transparência ========== */
 .msgBubble,
 .chat-bubble {
   max-width: 90%;
-  padding: 10px 14px;
-  margin: 6px 0;
-  border-radius: 10px;
+  padding: 14px 18px;
+  margin: 10px 0;
+  border-radius: var(--radius);
   border-left: 3px solid transparent;
+  background: rgba(22, 27, 38, 0.6);
+  backdrop-filter: blur(8px);
+  box-shadow: var(--shadow-soft);
+  transition: box-shadow var(--transition-fast), transform var(--transition-fast);
+}
+.msgBubble:hover,
+.chat-bubble:hover {
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
 }
 
 .msgBubble {
@@ -1492,7 +1507,9 @@ body.theme-light .msgContent .codeBlockToWorkspace {
   background: var(--slate-50);
   border-color: var(--accent);
   color: var(--accent);
-  box-shadow: 0 2px 8px rgba(112, 0, 255, 0.2);
+  box-shadow: 0 2px 12px rgba(93, 228, 255, 0.2);
+  transform: translateY(-1px);
+  transition: all var(--transition-fast);
 }
 
 /* ========== Model Switcher — Toggle pílula ========== */
@@ -1574,11 +1591,12 @@ body.model-heathcliff .btn-download {
 .inputArea {
   flex-shrink: 0;
   display: flex;
-  gap: 10px;
-  padding: 14px 18px;
-  padding-bottom: calc(14px + env(safe-area-inset-bottom));
-  background: var(--bg);
+  gap: 12px;
+  padding: 16px 20px;
+  padding-bottom: calc(16px + env(safe-area-inset-bottom));
+  background: rgba(16, 20, 30, 0.98);
   border-top: 1px solid var(--border);
+  transition: border-color var(--transition-fast);
 }
 
 .inputArea input {
@@ -1599,6 +1617,7 @@ body.model-heathcliff .btn-download {
 .inputArea input:focus {
   outline: none;
   border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(93, 228, 255, 0.15);
 }
 
 .inputArea button {

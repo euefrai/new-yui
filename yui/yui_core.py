@@ -1,8 +1,7 @@
 """
-Yui Core — Chat + Tool Routing com OpenAI function calling.
-- model: gpt-4o-mini
-- temperature=0.2, top_p=1, max_tokens=800
-- Tool Use real com fallback
+Yui Core — Chat com agentes isolados (Yui / Heathcliff).
+- Yui: sem tools, amigável, qualquer pergunta
+- Heathcliff: com tools técnicas, especialista, só escopo técnico
 """
 
 import asyncio
@@ -12,22 +11,15 @@ import queue
 import threading
 from typing import Any, AsyncIterator, Dict, Generator, List, Optional
 
-SYSTEM_PROMPT = """Você é Yui, uma engenheira de software especialista.
-Regras:
-- Seja técnica e objetiva.
-- Priorize segurança e escalabilidade.
-- Explique raciocínio de forma estruturada.
-- Não invente bibliotecas inexistentes.
-- Se não souber, diga explicitamente.
-- Sugira melhorias arquiteturais quando possível.
-- Use ferramentas sempre que for mais adequado do que responder direto."""
+from yui.agent_prompts import YUI_SYSTEM_PROMPT, HEATHCLIFF_SYSTEM_PROMPT
 
+# Tools apenas para Heathcliff
 TOOLS_SCHEMA = [
     {
         "type": "function",
         "function": {
             "name": "analisar_codigo",
-            "description": "Analisa código: detecta vulnerabilidades, más práticas, problemas de arquitetura.",
+            "description": "Analisa código: vulnerabilidades, más práticas, arquitetura.",
             "parameters": {
                 "type": "object",
                 "properties": {"codigo": {"type": "string", "description": "Código fonte a analisar"}},
@@ -39,10 +31,10 @@ TOOLS_SCHEMA = [
         "type": "function",
         "function": {
             "name": "sugerir_arquitetura",
-            "description": "Sugere estrutura ideal de pastas e responsabilidades para um tipo de projeto.",
+            "description": "Sugere estrutura de pastas e responsabilidades.",
             "parameters": {
                 "type": "object",
-                "properties": {"tipo_projeto": {"type": "string", "description": "Ex: web, api, mobile, fullstack, microsaas"}},
+                "properties": {"tipo_projeto": {"type": "string", "description": "web, api, mobile, fullstack, microsaas"}},
                 "required": ["tipo_projeto"],
             },
         },
@@ -51,12 +43,12 @@ TOOLS_SCHEMA = [
         "type": "function",
         "function": {
             "name": "calcular_custo_estimado",
-            "description": "Calcula estimativa de custo em USD/BRL baseado em tokens de entrada e saída.",
+            "description": "Calcula custo em USD/BRL por tokens.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "tokens_entrada": {"type": "integer", "description": "Número de tokens de input"},
-                    "tokens_saida": {"type": "integer", "description": "Número de tokens de output"},
+                    "tokens_entrada": {"type": "integer"},
+                    "tokens_saida": {"type": "integer"},
                 },
                 "required": ["tokens_entrada", "tokens_saida"],
             },
@@ -66,10 +58,10 @@ TOOLS_SCHEMA = [
         "type": "function",
         "function": {
             "name": "resumir_contexto",
-            "description": "Gera resumo técnico curto de uma conversa para memória.",
+            "description": "Resumo técnico de conversa para memória.",
             "parameters": {
                 "type": "object",
-                "properties": {"conversa": {"type": "string", "description": "Texto da conversa a resumir"}},
+                "properties": {"conversa": {"type": "string"}},
                 "required": ["conversa"],
             },
         },
@@ -77,8 +69,8 @@ TOOLS_SCHEMA = [
 ]
 
 
-def _detect_intent(texto: str) -> Optional[str]:
-    """Tool Router: detecta intenção para sugerir tool_choice."""
+def _detect_tool_intent(texto: str) -> Optional[str]:
+    """Tool Router: só Heathcliff usa. Sugere tool_choice."""
     t = (texto or "").lower()
     if any(x in t for x in ["código", "codigo", "analisar", "vulnerabilidade", "```", "função", "funcao"]):
         return "analisar_codigo"
@@ -92,7 +84,7 @@ def _detect_intent(texto: str) -> Optional[str]:
 
 
 def _executar_tool(nome: str, args: Dict[str, Any]) -> str:
-    """Executa tool e retorna string para o modelo."""
+    """Executa tool e retorna string. Fallback: retorna erro em JSON."""
     try:
         from yui.yui_tools import executar_tool
         r = executar_tool(nome, args)
@@ -101,114 +93,36 @@ def _executar_tool(nome: str, args: Dict[str, Any]) -> str:
         return json.dumps({"ok": False, "erro": str(e)}, ensure_ascii=False)
 
 
-def chat_yui(
+def _resolve_agent(model: str, mensagem: str) -> str:
+    """Resolve agente: auto → classificar_intencao; yui/heathcliff → direto."""
+    m = (model or "yui").strip().lower()
+    if m == "auto":
+        from yui.intent_classifier import classificar_intencao
+        return classificar_intencao(mensagem)
+    if m == "heathcliff":
+        return "heathcliff"
+    return "yui"
+
+
+async def stream_chat_agent(
     mensagem: str,
+    agent: str,
     chat_id: Optional[str] = None,
     user_id: Optional[str] = None,
-    system_override: Optional[str] = None,
-) -> Dict[str, Any]:
-    """
-    Chat síncrono com Tool Use.
-    Retorna: {ok, texto, tool_calls, usage}
-    """
-    from openai import OpenAI
-    client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY", ""))
-
-    messages: List[Dict[str, Any]] = []
-    if chat_id and user_id:
-        from yui.memory_manager import build_context_for_yui
-        ctx, _ = build_context_for_yui(chat_id, user_id, mensagem)
-        if ctx:
-            messages = ctx
-        else:
-            messages = [{"role": "user", "content": mensagem}]
-    else:
-        messages = [{"role": "user", "content": mensagem}]
-
-    system = system_override or SYSTEM_PROMPT
-    sys_ctx = next((m.get("content", "") for m in messages if m.get("role") == "system"), None)
-    if sys_ctx:
-        system = system + "\n\nContexto resumido:\n" + sys_ctx
-        messages = [m for m in messages if m.get("role") != "system"]
-    if not any(m.get("role") == "system" for m in messages):
-        messages.insert(0, {"role": "system", "content": system})
-
-    intent = _detect_intent(mensagem)
-    tool_choice = "auto"
-    if intent:
-        tool_choice = {"type": "function", "function": {"name": intent}}
-
-    max_iter = 3
-    for _ in range(max_iter):
-        resp = client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=messages,
-            tools=TOOLS_SCHEMA,
-            tool_choice=tool_choice,
-            temperature=0.2,
-            top_p=1,
-            max_tokens=800,
-        )
-        choice = resp.choices[0] if resp.choices else None
-        if not choice:
-            return {"ok": False, "texto": "Sem resposta.", "tool_calls": [], "usage": {}}
-
-        msg = choice.message
-        tool_calls = getattr(msg, "tool_calls", None) or []
-
-        if not tool_calls:
-            texto = (msg.content or "").strip()
-            if chat_id and user_id and texto:
-                from yui.memory_manager import save_message
-                save_message(chat_id, "user", mensagem, user_id)
-                save_message(chat_id, "assistant", texto, user_id)
-            return {
-                "ok": True,
-                "texto": texto,
-                "tool_calls": [],
-                "usage": getattr(resp, "usage", None) and {
-                    "prompt_tokens": getattr(resp.usage, "prompt_tokens", 0),
-                    "completion_tokens": getattr(resp.usage, "completion_tokens", 0),
-                } or {},
-            }
-
-        # Executar tools
-        messages.append(msg)
-        for tc in tool_calls:
-            name = tc.function.name if hasattr(tc.function, "name") else tc.get("function", {}).get("name", "")
-            args_str = tc.function.arguments if hasattr(tc.function, "arguments") else tc.get("function", {}).get("arguments", "{}")
-            try:
-                args = json.loads(args_str) if isinstance(args_str, str) else (args_str or {})
-            except json.JSONDecodeError:
-                args = {}
-            result = _executar_tool(name, args)
-            messages.append({
-                "role": "tool",
-                "tool_call_id": getattr(tc, "id", "") or tc.get("id", ""),
-                "content": result,
-            })
-        tool_choice = "auto"
-
-    return {"ok": False, "texto": "Limite de iterações de tools atingido.", "tool_calls": [], "usage": {}}
-
-
-async def stream_chat_yui(
-    mensagem: str,
-    chat_id: Optional[str] = None,
-    user_id: Optional[str] = None,
-    system_override: Optional[str] = None,
 ) -> AsyncIterator[str]:
     """
-    Chat em streaming. Em caso de tool calls, executa e faz nova chamada;
-    o streaming é da resposta final.
+    Chat em streaming. agent: "yui" | "heathcliff".
+    Yui: sem tools. Heathcliff: com tools, fallback se tool falhar.
     """
     from openai import AsyncOpenAI
     client = AsyncOpenAI(api_key=os.environ.get("OPENAI_API_KEY", ""))
 
     messages: List[Dict[str, Any]] = []
+    resumo_usado: Optional[str] = None
+
     if chat_id and user_id:
-        from yui.memory_manager import build_context_for_yui
-        ctx, _ = build_context_for_yui(chat_id, user_id, mensagem)
+        from yui.memory_manager import build_context_for_chat
+        ctx, resumo_usado = build_context_for_chat(chat_id, user_id, mensagem)
         if ctx:
             messages = ctx
         else:
@@ -216,7 +130,16 @@ async def stream_chat_yui(
     else:
         messages = [{"role": "user", "content": mensagem}]
 
-    system = system_override or SYSTEM_PROMPT
+    if agent == "yui":
+        system = YUI_SYSTEM_PROMPT
+        tools = None
+        tool_choice = None
+    else:
+        system = HEATHCLIFF_SYSTEM_PROMPT
+        tools = TOOLS_SCHEMA
+        intent = _detect_tool_intent(mensagem)
+        tool_choice = {"type": "function", "function": {"name": intent}} if intent else "auto"
+
     sys_ctx = next((m.get("content", "") for m in messages if m.get("role") == "system"), None)
     if sys_ctx:
         system = system + "\n\nContexto resumido:\n" + sys_ctx
@@ -224,27 +147,28 @@ async def stream_chat_yui(
     if not any(m.get("role") == "system" for m in messages):
         messages.insert(0, {"role": "system", "content": system})
 
-    intent = _detect_intent(mensagem)
-    tool_choice = "auto"
-    if intent:
-        tool_choice = {"type": "function", "function": {"name": intent}}
+    kwargs: Dict[str, Any] = {
+        "model": "gpt-4o-mini",
+        "messages": messages,
+        "temperature": 0.2,
+        "top_p": 1,
+        "max_tokens": 800,
+        "stream": True,
+    }
+    if tools:
+        kwargs["tools"] = tools
+        kwargs["tool_choice"] = tool_choice
 
     max_iter = 3
     for _ in range(max_iter):
-        stream = await client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=messages,
-            tools=TOOLS_SCHEMA,
-            tool_choice=tool_choice,
-            temperature=0.2,
-            top_p=1,
-            max_tokens=800,
-            stream=True,
-        )
+        try:
+            stream = await client.chat.completions.create(**kwargs)
+        except Exception:
+            yield "Desculpe, ocorreu um erro. Tente novamente."
+            return
 
         full_content = ""
         tool_calls_buf: List[Dict[str, Any]] = []
-        current_tc: Optional[Dict[str, Any]] = None
 
         async for chunk in stream:
             if not chunk.choices:
@@ -272,16 +196,12 @@ async def stream_chat_yui(
                 save_message(chat_id, "assistant", full_content, user_id)
             return
 
-        # Tool calls: executar e continuar (ordem: assistant -> tool responses)
+        # Tool calls (só Heathcliff): executar e continuar
         msg = {"role": "assistant", "content": full_content or None, "tool_calls": []}
         for tc in tool_calls_buf:
             tid = tc.get("id", "")
             name = tc.get("name", "")
             args_str = tc.get("arguments", "{}")
-            try:
-                args = json.loads(args_str) if isinstance(args_str, str) else {}
-            except json.JSONDecodeError:
-                args = {}
             msg["tool_calls"].append({"id": tid, "function": {"name": name, "arguments": args_str}})
         messages.append(msg)
         for tc in tool_calls_buf:
@@ -294,22 +214,23 @@ async def stream_chat_yui(
                 args = {}
             result = _executar_tool(name, args)
             messages.append({"role": "tool", "tool_call_id": tid, "content": result})
-        tool_choice = "auto"
+        kwargs["tool_choice"] = "auto"
+        kwargs["messages"] = messages
 
 
-def stream_chat_yui_sync(
+def stream_chat_sync(
     mensagem: str,
+    agent: str,
     chat_id: Optional[str] = None,
     user_id: Optional[str] = None,
-    system_override: Optional[str] = None,
 ) -> Generator[str, None, None]:
-    """Wrapper síncrono para stream_chat_yui (para uso em Flask/Generator)."""
+    """Wrapper síncrono para stream_chat_agent."""
     q: queue.Queue = queue.Queue()
 
     def run_async():
         async def consume():
             try:
-                async for chunk in stream_chat_yui(mensagem, chat_id, user_id, system_override):
+                async for chunk in stream_chat_agent(mensagem, agent, chat_id, user_id):
                     q.put(chunk)
             except Exception as e:
                 q.put({"__error__": str(e)})
@@ -333,3 +254,16 @@ def stream_chat_yui_sync(
         if isinstance(chunk, dict) and chunk.get("__error__"):
             raise RuntimeError(chunk.get("__error__", "Erro no stream"))
         yield chunk
+
+
+# Compatibilidade
+def stream_chat_yui_sync(
+    mensagem: str,
+    chat_id: Optional[str] = None,
+    user_id: Optional[str] = None,
+    system_override: Optional[str] = None,
+    model: str = "yui",
+) -> Generator[str, None, None]:
+    """Compat: usa classificar_intencao quando model=auto."""
+    agent = _resolve_agent(model, mensagem)
+    return stream_chat_sync(mensagem, agent, chat_id, user_id)

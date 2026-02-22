@@ -117,30 +117,34 @@ def stream_resposta(
     except Exception:
         pass
 
-    # 3. Cache Brain (Token Shield)
+    # 3. Cache Brain (chave: user_id + message + resumo_contexto)
+    resumo_ctx = None
     try:
+        if chat_id and user_id:
+            from yui.memory_manager import build_context_for_chat
+            _, resumo_ctx = build_context_for_chat(chat_id, user_id, message)
         from yui_ai.core.cache_brain import buscar_cache
-        cached = buscar_cache(message)
+        cached = buscar_cache(message, user_id=user_id, resumo_contexto=resumo_ctx)
         if cached:
             yield cached
             return
     except Exception:
         pass
 
-    # 4. LLM Agent — Yui modular (Tool Use + memória resumida)
+    # 4. LLM Agent — Yui/Heathcliff com classificação de intenção
     try:
-        from yui import stream_chat_yui_sync
+        from yui.yui_core import stream_chat_yui_sync
         full_reply: list[str] = []
         for chunk in stream_chat_yui_sync(
             message,
             chat_id=chat_id,
             user_id=user_id,
+            model=model,
         ):
             full_reply.append(chunk)
             yield chunk
         reply = "".join(full_reply).strip()
     except Exception:
-        # Fallback: agent legado
         from core.ai_loader import get_agent_controller
         agent = get_agent_controller()
         full_reply = []
@@ -156,12 +160,11 @@ def stream_resposta(
             yield chunk
         reply = "".join(full_reply).strip()
 
-    # 5. Salvar no cache
-    reply = "".join(full_reply).strip()
+    # 5. Salvar no cache (chave única)
     if reply:
         try:
             from yui_ai.core.cache_brain import salvar_cache
-            salvar_cache(message, reply)
+            salvar_cache(message, reply, user_id=user_id, resumo_contexto=resumo_ctx)
         except Exception:
             pass
 
@@ -232,10 +235,14 @@ def handle_chat_stream(
     except Exception:
         pass
 
-    # Cache Brain (Token Shield)
+    # Cache Brain (chave: user_id + message + resumo)
+    resumo_ctx = None
     try:
+        if chat_id and user_id:
+            from yui.memory_manager import build_context_for_chat
+            _, resumo_ctx = build_context_for_chat(chat_id, user_id, message)
         from yui_ai.core.cache_brain import buscar_cache
-        cached = buscar_cache(message)
+        cached = buscar_cache(message, user_id=user_id, resumo_contexto=resumo_ctx)
         if cached:
             session_memory.add(user_id, "user", message)
             session_memory.add(user_id, "assistant", cached)
@@ -276,7 +283,7 @@ def handle_chat_stream(
     if reply:
         try:
             from yui_ai.core.cache_brain import salvar_cache
-            salvar_cache(message, reply)
+            salvar_cache(message, reply, user_id=user_id, resumo_contexto=resumo_ctx)
         except Exception:
             pass
 

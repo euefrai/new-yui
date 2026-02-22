@@ -1,8 +1,7 @@
 """
 Yui Memory Manager — Resumo e controle de histórico.
-- Armazena histórico no banco (core.memory)
-- Se histórico > 10 mensagens, resumir usando resumir_contexto
-- Usa apenas resumo + última pergunta para economizar tokens
+- SEMPRE usa apenas: resumo (se existir) + última mensagem do usuário
+- Nunca reutiliza resposta anterior como nova pergunta
 """
 
 from typing import Any, Dict, List, Optional
@@ -28,22 +27,20 @@ def save_message(chat_id: str, role: str, content: str, user_id: Optional[str] =
         pass
 
 
-def build_context_for_yui(
+def build_context_for_chat(
     chat_id: str,
     user_id: Optional[str] = None,
     ultima_pergunta: str = "",
 ) -> tuple[List[Dict[str, Any]], Optional[str]]:
     """
-    Monta o contexto otimizado para a Yui.
-    - Se histórico <= 10 mensagens: retorna mensagens formatadas para a API
-    - Se histórico > 10: usa resumir_contexto e retorna [system com resumo] + [user com última pergunta]
+    Monta o contexto SEMPRE com: resumo (se houver) + última pergunta.
+    Nunca envia histórico completo. Nunca reutiliza resposta anterior como pergunta.
     Retorna: (messages, resumo_usado)
     """
     msgs = get_messages(chat_id, user_id, limit=MSG_LIMIT + 20)
     if not msgs:
-        return [], None
+        return [{"role": "user", "content": ultima_pergunta or ""}], None
 
-    # Formatar para formato OpenAI
     formatted: List[Dict[str, str]] = []
     for m in msgs:
         role = (m.get("role") or "user").lower()
@@ -53,30 +50,28 @@ def build_context_for_yui(
         if content:
             formatted.append({"role": role, "content": content})
 
-    if len(formatted) <= MSG_LIMIT:
-        return formatted, None
+    # A mensagem atual (ultima_pergunta) é a nova pergunta do usuário — sempre usá-la
+    user_content = (ultima_pergunta or "").strip()
+    if not user_content and formatted:
+        for m in reversed(formatted):
+            if m.get("role") == "user":
+                user_content = m.get("content", "") or ""
+                break
 
-    # Histórico grande: resumir
-    conversa_texto = "\n".join(
-        f"{m['role']}: {m['content'][:500]}" for m in formatted[:-1]
+    # Sempre resumir histórico (evitar vazamento de contexto)
+    conversa_para_resumo = "\n".join(
+        f"{m['role']}: {m['content'][:400]}" for m in formatted
     )
-    from yui.yui_tools import resumir_contexto
-    result = resumir_contexto(conversa_texto)
-    resumo = result.get("resumo", conversa_texto[:1500]) if result.get("ok") else conversa_texto[:1500]
+    if not conversa_para_resumo.strip():
+        return [{"role": "user", "content": user_content}], None
 
-    # Retornar apenas: resumo como system + última pergunta como user
+    from yui.yui_tools import resumir_contexto
+    result = resumir_contexto(conversa_para_resumo)
+    resumo = result.get("resumo", conversa_para_resumo[:1500]) if result.get("ok") else conversa_para_resumo[:1500]
+
+    # Sempre: resumo + última pergunta (nunca histórico completo)
     messages = [
         {"role": "system", "content": f"Contexto resumido da conversa anterior:\n{resumo}"},
-        {"role": "user", "content": ultima_pergunta or (formatted[-1].get("content", "") if formatted else "")},
+        {"role": "user", "content": user_content},
     ]
     return messages, resumo
-
-
-def append_and_maybe_summarize(
-    chat_id: str,
-    role: str,
-    content: str,
-    user_id: Optional[str] = None,
-) -> None:
-    """Salva mensagem e, se histórico > 10, pode acionar resumo na próxima chamada."""
-    save_message(chat_id, role, content, user_id)

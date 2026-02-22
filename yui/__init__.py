@@ -1,7 +1,8 @@
 """
-Yui — Assistente técnica modular com Tool Use (OpenAI function calling).
+Yui — Assistente modular com agentes Yui (geral) e Heathcliff (técnico).
 """
 
-from yui.yui_core import chat_yui, stream_chat_yui, stream_chat_yui_sync
+from yui.yui_core import stream_chat_yui_sync, stream_chat_sync, stream_chat_agent
+from yui.intent_classifier import classificar_intencao
 
-__all__ = ["chat_yui", "stream_chat_yui", "stream_chat_yui_sync"]
+__all__ = ["stream_chat_yui_sync", "stream_chat_sync", "stream_chat_agent", "classificar_intencao"]
