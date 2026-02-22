@@ -1061,6 +1061,34 @@ body.theme-light .inputArea {
   white-space: pre-wrap;
   word-break: break-word;
   position: relative;
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.msgAvatar {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+}
+
+.msgAvatarUser {
+  background: rgba(88, 166, 255, 0.2);
+}
+
+.msgAvatarAssistant {
+  background: rgba(112, 0, 255, 0.2);
+}
+
+.msgBubbleInner {
+  flex: 1;
+  min-width: 0;
+  position: relative;
 }
 
 .msgBubble.user {
@@ -1177,6 +1205,10 @@ body.theme-light .previewFrame {
   gap: 6px;
   opacity: 0;
   transition: var(--transition-fast);
+}
+
+.msgBubbleInner {
+  position: relative;
 }
 
 .msgBubble:hover .msgActions {
@@ -1413,6 +1445,54 @@ body.theme-light .msgContent .codeBlockToWorkspace {
 .chatVazio.chatLoading {
   color: var(--slate-500);
   opacity: 0.9;
+}
+
+/* Sugestões estilo ChatGPT */
+.chatSuggestionsWrap {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.chatSuggestionsTitle {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--slate-600);
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+.chatSuggestionsGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+}
+
+.chatSuggestionBtn {
+  padding: 12px 18px;
+  background: var(--slate-100);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  color: var(--slate-700);
+  font-size: 0.9rem;
+  font-family: inherit;
+  cursor: pointer;
+  transition: var(--transition-fast);
+  text-align: left;
+  max-width: 320px;
+}
+
+.chatSuggestionBtn:hover {
+  background: var(--slate-50);
+  border-color: var(--accent);
+  color: var(--accent);
+  box-shadow: 0 2px 8px rgba(112, 0, 255, 0.2);
 }
 
 /* ========== Model Switcher — Toggle pílula ========== */

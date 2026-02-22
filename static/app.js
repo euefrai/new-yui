@@ -376,15 +376,16 @@
 
   function finalizeAssistantBubble(bubble) {
     if (!bubble) return;
+    var target = bubble.querySelector(".msgBubbleInner") || bubble;
     var fullText = bubble.textContent || "";
     addTaskFromText(fullText);
     var cleaned = fullText.replace(/\n?\[DOWNLOAD\]:\S+/, "").trim();
     cleaned = cleaned.replace(/\n?\[TASK\]:[^\n]*/g, "").trim();
-    bubble.innerHTML = formatMarkdownToHtml(cleaned);
-    attachCodeBlockCopyButtons(bubble);
-    initDownloadButtons(bubble, fullText);
+    target.innerHTML = formatMarkdownToHtml(cleaned);
+    attachCodeBlockCopyButtons(target);
+    initDownloadButtons(target, fullText);
     if (typeof window.hljs !== "undefined") {
-      bubble.querySelectorAll("pre code").forEach(function (el) {
+      target.querySelectorAll("pre code").forEach(function (el) {
         try { window.hljs.highlightElement(el); } catch (e) {}
       });
     }
@@ -977,17 +978,71 @@
     }
   }
 
+  function renderChatSuggestions() {
+    if (!chat || !chatAtual || !user) return;
+    var suggestions = [
+      "Explique conceitos de programação de forma simples",
+      "Crie um projeto Flask com API REST",
+      "Ajude-me a debugar um erro no meu código",
+      "Gere uma landing page moderna em HTML/CSS",
+      "Como implementar autenticação em uma aplicação web?",
+      "Escreva um script Python para automatizar tarefas",
+      "Sugira melhorias para a arquitetura do meu projeto",
+      "Traduza este código para outra linguagem"
+    ];
+    var wrap = document.createElement("div");
+    wrap.className = "chatSuggestionsWrap";
+    var title = document.createElement("div");
+    title.className = "chatSuggestionsTitle";
+    title.textContent = "Como posso ajudar hoje?";
+    wrap.appendChild(title);
+    var grid = document.createElement("div");
+    grid.className = "chatSuggestionsGrid";
+    suggestions.forEach(function (s) {
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "chatSuggestionBtn";
+      btn.textContent = s;
+      btn.addEventListener("click", function () {
+        msgInput.value = s;
+        msgInput.focus();
+        wrap.remove();
+      });
+      grid.appendChild(btn);
+    });
+    wrap.appendChild(grid);
+    chat.appendChild(wrap);
+  }
+
   function renderMensagensNoChat(msgs) {
     if (!chat) return;
     chat.innerHTML = "";
     if (!Array.isArray(msgs) || msgs.length === 0) {
+      if (chatAtual && user) renderChatSuggestions();
       chat.scrollTop = 0;
       return;
     }
-    msgs.forEach(function (m) {
+    msgs.forEach(function (m, idx) {
       var div = document.createElement("div");
       div.className = "msgBubble " + (m.role === "user" ? "user" : "assistant");
       if (m.id) div.dataset.messageId = m.id;
+      var avatar = document.createElement("div");
+      avatar.className = "msgAvatar " + (m.role === "user" ? "msgAvatarUser" : "msgAvatarAssistant");
+      avatar.innerHTML = m.role === "user" ? "👤" : "🤖";
+      avatar.title = m.role === "user" ? "Você" : "Yui";
+      div.appendChild(avatar);
+      var contentWrap = document.createElement("div");
+      contentWrap.className = "msgBubbleInner";
+
+      var prevUserMsg = null;
+      if (m.role === "assistant" && idx > 0) {
+        for (var i = idx - 1; i >= 0; i--) {
+          if (msgs[i].role === "user") {
+            prevUserMsg = (msgs[i].content || "").trim();
+            break;
+          }
+        }
+      }
 
       if (m.id) {
         var actions = document.createElement("div");
@@ -1013,6 +1068,23 @@
           melhorarMensagem(div);
         });
 
+        var btnCopy = document.createElement("button");
+        btnCopy.className = "msgActionBtn";
+        btnCopy.type = "button";
+        btnCopy.textContent = "📋";
+        btnCopy.title = "Copiar mensagem";
+        btnCopy.addEventListener("click", function (e) {
+          e.stopPropagation();
+          var txt = (m.content || "").trim();
+          if (txt && navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(txt).then(function () {
+              var old = btnCopy.textContent;
+              btnCopy.textContent = "✓";
+              setTimeout(function () { btnCopy.textContent = old; }, 1500);
+            });
+          }
+        });
+
         var btnDelete = document.createElement("button");
         btnDelete.className = "msgActionBtn";
         btnDelete.type = "button";
@@ -1023,10 +1095,23 @@
           excluirMensagem(div);
         });
 
+        if (m.role === "assistant" && prevUserMsg) {
+          var btnRegen = document.createElement("button");
+          btnRegen.className = "msgActionBtn";
+          btnRegen.type = "button";
+          btnRegen.textContent = "🔄";
+          btnRegen.title = "Regenerar resposta";
+          btnRegen.addEventListener("click", function (e) {
+            e.stopPropagation();
+            regenerarResposta(div, prevUserMsg);
+          });
+          actions.appendChild(btnRegen);
+        }
         actions.appendChild(btnReply);
         actions.appendChild(btnImprove);
+        actions.appendChild(btnCopy);
         actions.appendChild(btnDelete);
-        div.appendChild(actions);
+        contentWrap.appendChild(actions);
       }
 
       var content = document.createElement("div");
@@ -1103,14 +1188,14 @@
       } else {
         content.textContent = raw;
       }
-      div.appendChild(content);
+      contentWrap.appendChild(content);
 
       if (downloadUrl) {
         var link = document.createElement("a");
         setupDownloadButton(link, downloadUrl);
-        div.appendChild(link);
+        contentWrap.appendChild(link);
       } else if (m.role === "assistant") {
-        tryAttachPendingDownloadButton(div, m.content || raw);
+        tryAttachPendingDownloadButton(contentWrap, m.content || raw);
       }
       if (previewUrl) {
         var btnPrev = document.createElement("button");
@@ -1122,8 +1207,9 @@
           e.stopPropagation();
           openPreview(previewUrl, "Preview do projeto");
         });
-        div.appendChild(btnPrev);
+        contentWrap.appendChild(btnPrev);
       }
+      div.appendChild(contentWrap);
       chat.appendChild(div);
     });
     if (typeof window.hljs !== "undefined") {
@@ -1357,6 +1443,105 @@
     msgInput.focus();
   }
 
+  function regenerarResposta(bubble, prevUserMsg) {
+    if (!chatAtual || !user || !prevUserMsg) return;
+    var messageId = bubble && bubble.dataset ? bubble.dataset.messageId : null;
+    var btnEnviar = document.getElementById("btnEnviar");
+    bubble.remove();
+    if (messageId) {
+      fetch(apiUrl("/api/message/delete"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message_id: messageId, user_id: user.id })
+      }).catch(function () {});
+    }
+    delete messagesCache[chatAtual];
+    var assistantBubble = document.createElement("div");
+    assistantBubble.className = "msgBubble assistant";
+    assistantBubble.setAttribute("data-status", "sending");
+    var avatar = document.createElement("div");
+    avatar.className = "msgAvatar msgAvatarAssistant";
+    avatar.innerHTML = "🤖";
+    assistantBubble.appendChild(avatar);
+    var inner = document.createElement("div");
+    inner.className = "msgBubbleInner";
+    var statusLine = document.createElement("div");
+    statusLine.className = "assistantStatus";
+    statusLine.textContent = "🧠 Pensando...";
+    var cursor = document.createElement("span");
+    cursor.className = "cursorStream";
+    inner.appendChild(statusLine);
+    inner.appendChild(cursor);
+    assistantBubble.appendChild(inner);
+    chat.appendChild(assistantBubble);
+    chat.scrollTop = chat.scrollHeight;
+    if (btnEnviar) btnEnviar.disabled = true;
+    var body = { chat_id: chatAtual, user_id: user.id, message: prevUserMsg, model: getCurrentModel() };
+    var ctx = window.getWorkspaceContext && window.getWorkspaceContext();
+    if (ctx) { body.active_files = ctx.active_files || []; body.console_errors = ctx.console_errors || []; }
+    body.workspace_open = window.getWorkspaceOpen ? window.getWorkspaceOpen() : false;
+    fetch(apiUrl("/api/chat/stream"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
+      .then(function (r) { if (!r.ok || !r.body) throw new Error("Stream failed"); return r.body.getReader(); })
+      .then(function (reader) {
+        var decoder = new TextDecoder();
+        var buffer = "";
+        function read() {
+          return reader.read().then(function (result) {
+            if (result.done) {
+              if (cursor && cursor.parentNode) cursor.remove();
+              assistantBubble.setAttribute("data-status", "sent");
+              finalizeAssistantBubble(assistantBubble);
+              if (btnEnviar) btnEnviar.disabled = false;
+              fetchTelemetry();
+              fetchCognitive();
+              fetchMission();
+              return;
+            }
+            buffer += decoder.decode(result.value, { stream: true });
+            var events = buffer.split("\n\n");
+            buffer = events.pop() || "";
+            events.forEach(function (event) {
+              var idx = event.indexOf("data: ");
+              if (idx === -1) return;
+              try {
+                var payload = event.slice(idx + 6).trim();
+                if (!payload) return;
+                var chunk = JSON.parse(payload);
+                if (typeof chunk === "string" && chunk.indexOf("__STATUS__:") === 0) {
+                  var state = chunk.slice("__STATUS__:".length);
+                  if (state === "done") {
+                    statusLine.remove();
+                    if (cursor && cursor.parentNode) cursor.remove();
+                    assistantBubble.setAttribute("data-status", "sent");
+                    finalizeAssistantBubble(assistantBubble);
+                  } else if (state === "thinking") {
+                    statusLine.textContent = "🧠 Pensando...";
+                  } else {
+                    statusLine.textContent = state.slice("executing_tools:".length) || "🔧 Executando...";
+                  }
+                  return;
+                }
+                if (typeof chunk === "string" && chunk.indexOf("__BUDGET_CONFIRM__:") === 0) return;
+                assistantBubble.setAttribute("data-status", "streaming");
+                var textNode = document.createTextNode(chunk);
+                (cursor.parentNode || assistantBubble).insertBefore(textNode, cursor);
+              } catch (e) {}
+            });
+            chat.scrollTop = chat.scrollHeight;
+            return read();
+          });
+        }
+        return read();
+      })
+      .catch(function () {
+        if (cursor && cursor.parentNode) cursor.remove();
+        assistantBubble.setAttribute("data-status", "error");
+        var errTarget = assistantBubble.querySelector(".msgBubbleInner") || assistantBubble;
+        errTarget.textContent = "Erro ao regenerar. Tente novamente.";
+        if (btnEnviar) btnEnviar.disabled = false;
+      });
+  }
+
   var refreshBtn = document.getElementById("refreshPage");
   if (refreshBtn) {
     refreshBtn.addEventListener("click", function () {
@@ -1374,7 +1559,8 @@
     if (id) {
       setChatAtual(id, "Novo chat");
       carregarChats(true);
-      chat.innerHTML = "<div class=\"chatVazio\">Novo chat. Envie uma mensagem.</div>";
+      chat.innerHTML = "";
+      renderChatSuggestions();
     } else {
       chat.innerHTML = "<div class=\"chatVazio\">Erro ao criar chat. Tente de novo.</div>";
     }
@@ -1436,13 +1622,21 @@
 
       var userBubble = document.createElement("div");
       userBubble.className = "msgBubble user";
-      userBubble.textContent = texto || (temArquivo ? "📎 Arquivo enviado" : "");
+      var userAvatar = document.createElement("div");
+      userAvatar.className = "msgAvatar msgAvatarUser";
+      userAvatar.innerHTML = "👤";
+      userAvatar.title = "Você";
+      userBubble.appendChild(userAvatar);
+      var userContent = document.createElement("div");
+      userContent.className = "msgBubbleInner";
+      userContent.textContent = texto || (temArquivo ? "📎 Arquivo enviado" : "");
       if (temArquivo && pendingFileName) {
         var tag = document.createElement("div");
         tag.className = "fileTag";
         tag.textContent = "📎 " + pendingFileName;
-        userBubble.appendChild(tag);
+        userContent.appendChild(tag);
       }
+      userBubble.appendChild(userContent);
       chat.appendChild(userBubble);
     chat.scrollTop = chat.scrollHeight;
 
@@ -1516,13 +1710,21 @@
         var assistantBubble = document.createElement("div");
         assistantBubble.className = "msgBubble assistant";
         assistantBubble.setAttribute("data-status", "sending");
+        var avatar = document.createElement("div");
+        avatar.className = "msgAvatar msgAvatarAssistant";
+        avatar.innerHTML = "🤖";
+        avatar.title = "Yui";
+        assistantBubble.appendChild(avatar);
+        var inner = document.createElement("div");
+        inner.className = "msgBubbleInner";
         var statusLine = document.createElement("div");
         statusLine.className = "assistantStatus";
         statusLine.textContent = "🧠 Pensando...";
         var cursor = document.createElement("span");
         cursor.className = "cursorStream";
-        assistantBubble.appendChild(statusLine);
-        assistantBubble.appendChild(cursor);
+        inner.appendChild(statusLine);
+        inner.appendChild(cursor);
+        assistantBubble.appendChild(inner);
         chat.appendChild(assistantBubble);
         chat.scrollTop = chat.scrollHeight;
 
@@ -1606,20 +1808,21 @@
                         var msg = parts.slice(2).join(":").trim() || ("Custo estimado R$ " + costVal + ". Deseja continuar?");
                         if (sLine) sLine.remove();
                         if (cur && cur.parentNode) cur.remove();
-                        aBubble.innerHTML = "<div class=\"assistantStatus\">" + escapeHtml(msg) + "</div><button type=\"button\" class=\"msgBudgetConfirm\">Sim, continuar</button>";
+                        var innerEl = aBubble.querySelector(".msgBubbleInner") || aBubble;
+                        innerEl.innerHTML = "<div class=\"assistantStatus\">" + escapeHtml(msg) + "</div><button type=\"button\" class=\"msgBudgetConfirm\">Sim, continuar</button>";
                         aBubble.setAttribute("data-status", "budget_confirm");
                         if (btn) btn.disabled = false;
                         var confirmBtn = aBubble.querySelector(".msgBudgetConfirm");
                         if (confirmBtn) {
                           confirmBtn.addEventListener("click", function () {
-                            aBubble.innerHTML = "";
+                            innerEl.innerHTML = "";
                             var newStatus = document.createElement("div");
                             newStatus.className = "assistantStatus";
                             newStatus.textContent = "🧠 Pensando...";
                             var newCursor = document.createElement("span");
                             newCursor.className = "cursorStream";
-                            aBubble.appendChild(newStatus);
-                            aBubble.appendChild(newCursor);
+                            innerEl.appendChild(newStatus);
+                            innerEl.appendChild(newCursor);
                             aBubble.setAttribute("data-status", "sending");
                             if (btn) btn.disabled = true;
                             runStreamFetch(cId, txt, true, aBubble, newStatus, newCursor, btn);
@@ -1629,7 +1832,7 @@
                       }
                       aBubble.setAttribute("data-status", "streaming");
                       var textNode = document.createTextNode(chunk);
-                      aBubble.insertBefore(textNode, cur);
+                      (cur.parentNode || aBubble).insertBefore(textNode, cur);
                     } catch (e) {}
                   }
                 });
@@ -1642,7 +1845,8 @@
           .catch(function () {
             if (cur && cur.parentNode) cur.remove();
             aBubble.setAttribute("data-status", "error");
-            aBubble.textContent = "Erro de rede ou streaming não disponível. Tente novamente.";
+            var errTarget = aBubble.querySelector(".msgBubbleInner") || aBubble;
+            errTarget.textContent = "Erro de rede ou streaming não disponível. Tente novamente.";
             if (btn) btn.disabled = false;
             chat.scrollTop = chat.scrollHeight;
           });
