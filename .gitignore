@@ -47,6 +47,9 @@ sandbox/
 # Mapa do projeto (gerado pelo Project Mapper)
 .yui_map.json
 
+# Índice do workspace (gerado por npm run yui:index)
+.yui-index.json
+
 # Scripts ZIP gerados pela tool criar_zip_projeto
 scripts/make_zip_*.py
 
