@@ -32,16 +32,14 @@ def classificar_intencao(mensagem: str) -> str:
     if "```" in t:
         return "heathcliff"
 
-    # Verificar palavras-chave
+    # Verificar palavras-chave (exact match O(1), substring com any() short-circuit)
     words = set(t.split())
     for w in words:
         if len(w) < 3:
             continue
         if w in TECH_KEYWORDS:
             return "heathcliff"
-        # Substring match para variações
-        for kw in TECH_KEYWORDS:
-            if kw in w or w in kw:
-                return "heathcliff"
+        if any(kw in w or w in kw for kw in TECH_KEYWORDS):
+            return "heathcliff"
 
     return "yui"

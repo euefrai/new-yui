@@ -7,6 +7,7 @@ Yui Memory Manager — Resumo e controle de histórico.
 from typing import Any, Dict, List, Optional
 
 MSG_LIMIT = 10
+MIN_MESSAGES_FOR_SUMMARY = 3  # Pula resumo se poucas mensagens (economia de tokens)
 
 
 def get_messages(chat_id: str, user_id: Optional[str] = None, limit: Optional[int] = None) -> List[Dict[str, Any]]:
@@ -58,12 +59,19 @@ def build_context_for_chat(
                 user_content = m.get("content", "") or ""
                 break
 
-    # Sempre resumir histórico (evitar vazamento de contexto)
     conversa_para_resumo = "\n".join(
         f"{m['role']}: {m['content'][:400]}" for m in formatted
     )
     if not conversa_para_resumo.strip():
         return [{"role": "user", "content": user_content}], None
+
+    # Resumir só quando há histórico suficiente (economia de tokens)
+    if len(formatted) < MIN_MESSAGES_FOR_SUMMARY:
+        messages = [
+            {"role": "system", "content": f"Contexto:\n{conversa_para_resumo[:1500]}"},
+            {"role": "user", "content": user_content},
+        ]
+        return messages, conversa_para_resumo[:1500]
 
     from yui.yui_tools import resumir_contexto
     result = resumir_contexto(conversa_para_resumo)

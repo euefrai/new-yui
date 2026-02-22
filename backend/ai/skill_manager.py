@@ -3,6 +3,7 @@
 # Sistema dinâmico de habilidades: descobre, registra e executa.
 # ==========================================================
 
+import importlib.util
 import json
 import os
 from datetime import datetime
@@ -79,13 +80,16 @@ def executar_skill(nome: str, dados: Dict[str, Any] | None = None) -> Tuple[bool
         return False, "Arquivo da skill não existe"
 
     try:
-        namespace: Dict[str, Any] = {}
-        with open(caminho, "r", encoding="utf-8") as f:
-            codigo = f.read()
-        exec(codigo, namespace)
+        spec = importlib.util.spec_from_file_location(
+            f"skill_{nome}", caminho, submodule_search_locations=[]
+        )
+        if not spec or not spec.loader:
+            return False, "Não foi possível carregar o módulo da skill"
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
 
-        if "run" in namespace:
-            resultado = namespace["run"](dados or {})
+        if hasattr(module, "run"):
+            resultado = module.run(dados or {})
             return True, resultado
         return False, "Skill não possui função run()"
     except Exception as e:

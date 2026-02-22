@@ -5,4 +5,18 @@ para manter retrocompatibilidade de código que ainda importa funções/blueprin
 por este caminho legado.
 """
 
-from web.routes.routes_api import *  # noqa: F401,F403
+from web.routes.routes_api import (
+    main_bp,
+    file_bp,
+    tool_bp,
+    system_bp,
+    sandbox_bp,
+    goals_bp,
+    missions_bp,
+    clear_chat,
+    index,
+    api_upload,
+    api_analyze_file,
+    api_list_tools,
+    api_run_tool,
+)

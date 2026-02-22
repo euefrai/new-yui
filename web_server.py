@@ -5,8 +5,10 @@ Rotas em: routes/routes_chat.py, routes_auth.py, routes_api.py (blueprints).
 Lógica em: services/, config/settings.py.
 """
 
-from flask import Flask
+import logging
 import os
+
+from flask import Flask
 from flask_cors import CORS
 from werkzeug.middleware.proxy_fix import ProxyFix
 
@@ -53,30 +55,30 @@ if IS_CLOUD_RUNTIME:
         from core.capabilities import apply_mode
         apply_mode("lite")
     except Exception as e:
-        print(f"⚠️ apply_mode(lite): {e}")
+        logging.warning("apply_mode(lite): %s", e)
 
 # Event Bus: wiring (workspace_toggled → system_state etc.)
 try:
     from core.event_wiring import wire_events
     wire_events()
 except Exception as e:
-    print(f"⚠️ Event wiring: {e}")
+    logging.warning("Event wiring: %s", e)
 
 # Observability: auto-trace de eventos (Graph, Scheduler, Governor)
 try:
     from core.observability import wire_observability
     wire_observability()
 except Exception as e:
-    print(f"⚠️ Observability wiring: {e}")
+    logging.warning("Observability wiring: %s", e)
 
 # Core Engine: injeta plugins no startup
 try:
     from core.plugins_loader import inject_into_engine
     _tools = inject_into_engine()
     if _tools:
-        print(f"⚙️ Core Engine: {len(_tools)} tools disponíveis (incl. plugins)")
+        logging.info("Core Engine: %d tools disponíveis (incl. plugins)", len(_tools))
 except Exception as e:
-    print(f"⚠️ Plugin loader: {e}")
+    logging.warning("Plugin loader: %s", e)
 
 # Capability Loader: escaneia capabilities/ e registra no Task Engine
 try:
@@ -85,13 +87,11 @@ try:
     get_task_engine()  # dispara carregamento
     caps = list_loaded()
     if caps:
-        print("🔎 Capabilities carregadas:")
-        for c in caps:
-            print(f"   ✔ {c}")
+        logging.info("Capabilities carregadas: %s", caps)
     else:
-        print("🔎 Capabilities: fallback bootstrap")
+        logging.info("Capabilities: fallback bootstrap")
 except Exception as e:
-    print(f"⚠️ Capability loader: {e}")
+    logging.warning("Capability loader: %s", e)
 
 
 if __name__ == "__main__":
@@ -105,7 +105,7 @@ if __name__ == "__main__":
             from core.event_bus import emit
             emit("memory_update_requested", root=str(settings.BASE_DIR))
         except Exception as e:
-            print(f"⚠️ Indexação da memória vetorial ignorada: {e}")
+            logging.warning("Indexação da memória vetorial ignorada: %s", e)
 
     threading.Thread(target=_indexar_memoria, daemon=True).start()
     _debug = settings.FLASK_DEBUG and not IS_CLOUD_RUNTIME

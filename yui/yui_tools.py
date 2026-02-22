@@ -10,6 +10,7 @@ Yui Tools — Implementação das ferramentas técnicas.
 """
 
 import shutil
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List
 
@@ -92,7 +93,7 @@ def escrever_arquivo_workspace(caminho: str, conteudo: str) -> Dict[str, Any]:
         if target.exists():
             backup_root = sandbox / BACKUP_DIR
             backup_root.mkdir(parents=True, exist_ok=True)
-            ts = __import__("datetime").datetime.now().strftime("%Y%m%d_%H%M%S")
+            ts = datetime.now().strftime("%Y%m%d_%H%M%S")
             safe_name = caminho.replace("/", "_").replace("\\", "_")
             backup_path = backup_root / f"{safe_name}.{ts}.bak"
             shutil.copy2(target, backup_path)

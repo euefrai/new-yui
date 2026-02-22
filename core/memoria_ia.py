@@ -5,6 +5,7 @@ Usada pelo Heathcliff para lembrar decisões anteriores.
 
 import json
 import re
+from datetime import datetime
 from pathlib import Path
 from typing import List, Optional
 
@@ -76,7 +77,7 @@ def salvar_resumo(
         "chat_id": chat_id,
         "resumo": resumo.strip()[:4000],
         "tags": tags,
-        "created_at": __import__("datetime").datetime.utcnow().isoformat() + "Z",
+        "created_at": datetime.utcnow().isoformat() + "Z",
     })
     _save_local(items)
     return True

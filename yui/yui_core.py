@@ -13,6 +13,8 @@ from typing import Any, AsyncIterator, Dict, Generator, List, Optional
 
 from yui.agent_prompts import YUI_SYSTEM_PROMPT, HEATHCLIFF_SYSTEM_PROMPT
 
+MAX_TOOL_ITERATIONS = 3
+
 # Tools apenas para Heathcliff
 TOOLS_SCHEMA = [
     {
@@ -183,11 +185,10 @@ async def stream_chat_agent(
     client = AsyncOpenAI(api_key=os.environ.get("OPENAI_API_KEY", ""))
 
     messages: List[Dict[str, Any]] = []
-    resumo_usado: Optional[str] = None
 
     if chat_id and user_id:
         from yui.memory_manager import build_context_for_chat
-        ctx, resumo_usado = build_context_for_chat(chat_id, user_id, mensagem)
+        ctx, _ = build_context_for_chat(chat_id, user_id, mensagem)
         if ctx:
             messages = ctx
         else:
@@ -227,8 +228,7 @@ async def stream_chat_agent(
         kwargs["tools"] = tools
         kwargs["tool_choice"] = tool_choice
 
-    max_iter = 3
-    for _ in range(max_iter):
+    for _ in range(MAX_TOOL_ITERATIONS):
         try:
             stream = await client.chat.completions.create(**kwargs)
         except Exception:

@@ -36,9 +36,16 @@ SUPABASE_SERVICE_KEY = _get("SUPABASE_SERVICE_KEY") or _get("SUPABASE_SERVICE_RO
 SUPABASE_KEY_BACKEND = SUPABASE_SERVICE_KEY or SUPABASE_ANON_KEY
 
 # Flask
-SECRET_KEY = _get("SECRET_KEY") or "yui-dev-secret-change-in-production"
 PORT = int(os.environ.get("PORT") or "5000")
 FLASK_DEBUG = os.environ.get("FLASK_DEBUG", "false").lower() in ("1", "true", "yes")
+_SECRET = _get("SECRET_KEY")
+if not _SECRET:
+    if FLASK_DEBUG:
+        _SECRET = "yui-dev-secret-change-in-production"
+    else:
+        import secrets
+        _SECRET = secrets.token_hex(32)
+SECRET_KEY = _SECRET
 USE_MINIFIED_STATIC = os.environ.get("USE_MINIFIED_STATIC", "false").lower() in ("1", "true", "yes")
 STATIC_VERSION = _get("STATIC_VERSION") or "20260215"
 
