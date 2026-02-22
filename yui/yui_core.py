@@ -66,6 +66,48 @@ TOOLS_SCHEMA = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "listar_arquivos_workspace",
+            "description": "Lista arquivos do workspace (sandbox). Use para ver estrutura do projeto.",
+            "parameters": {
+                "type": "object",
+                "properties": {"pasta": {"type": "string", "description": "Pasta relativa (ex: . ou src)"}},
+                "required": [],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "ler_arquivo_workspace",
+            "description": "Lê conteúdo de um arquivo do workspace.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "caminho": {"type": "string", "description": "Caminho relativo (ex: main.py)"},
+                    "max_chars": {"type": "integer", "description": "Máx caracteres (default 8000)"},
+                },
+                "required": ["caminho"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "escrever_arquivo_workspace",
+            "description": "Escreve/modifica arquivo no workspace. Cria backup automático.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "caminho": {"type": "string"},
+                    "conteudo": {"type": "string"},
+                },
+                "required": ["caminho", "conteudo"],
+            },
+        },
+    },
 ]
 
 
@@ -80,6 +122,12 @@ def _detect_tool_intent(texto: str) -> Optional[str]:
         return "calcular_custo_estimado"
     if any(x in t for x in ["resumir", "resumo", "histórico", "historico"]):
         return "resumir_contexto"
+    if any(x in t for x in ["listar", "arquivos", "arquivo", "pasta", "workspace", "ver arquivos"]):
+        return "listar_arquivos_workspace"
+    if any(x in t for x in ["ler", "abrir", "conteúdo", "conteudo", "mostrar arquivo"]):
+        return "ler_arquivo_workspace"
+    if any(x in t for x in ["escrever", "modificar", "alterar", "criar arquivo", "salvar"]):
+        return "escrever_arquivo_workspace"
     return None
 
 
@@ -104,11 +152,28 @@ def _resolve_agent(model: str, mensagem: str) -> str:
     return "yui"
 
 
+def _build_workspace_context(active_files: Optional[List[str]] = None, console_errors: Optional[List[str]] = None, workspace_open: bool = False) -> str:
+    """Monta contexto do workspace para injetar no prompt."""
+    if not workspace_open and not active_files and not console_errors:
+        return ""
+    parts = []
+    if workspace_open:
+        parts.append("Workspace aberto.")
+    if active_files:
+        parts.append(f"Arquivos ativos no editor: {', '.join(active_files[:5])}")
+    if console_errors:
+        parts.append(f"Erros do console: {'; '.join(console_errors[:3])}")
+    return "\n".join(parts) if parts else ""
+
+
 async def stream_chat_agent(
     mensagem: str,
     agent: str,
     chat_id: Optional[str] = None,
     user_id: Optional[str] = None,
+    active_files: Optional[List[str]] = None,
+    console_errors: Optional[List[str]] = None,
+    workspace_open: bool = False,
 ) -> AsyncIterator[str]:
     """
     Chat em streaming. agent: "yui" | "heathcliff".
@@ -144,6 +209,9 @@ async def stream_chat_agent(
     if sys_ctx:
         system = system + "\n\nContexto resumido:\n" + sys_ctx
         messages = [m for m in messages if m.get("role") != "system"]
+    ws_ctx = _build_workspace_context(active_files, console_errors, workspace_open)
+    if ws_ctx:
+        system = system + "\n\n[Workspace]\n" + ws_ctx
     if not any(m.get("role") == "system" for m in messages):
         messages.insert(0, {"role": "system", "content": system})
 
@@ -223,6 +291,9 @@ def stream_chat_sync(
     agent: str,
     chat_id: Optional[str] = None,
     user_id: Optional[str] = None,
+    active_files: Optional[List[str]] = None,
+    console_errors: Optional[List[str]] = None,
+    workspace_open: bool = False,
 ) -> Generator[str, None, None]:
     """Wrapper síncrono para stream_chat_agent."""
     q: queue.Queue = queue.Queue()
@@ -230,7 +301,12 @@ def stream_chat_sync(
     def run_async():
         async def consume():
             try:
-                async for chunk in stream_chat_agent(mensagem, agent, chat_id, user_id):
+                async for chunk in stream_chat_agent(
+                    mensagem, agent, chat_id, user_id,
+                    active_files=active_files,
+                    console_errors=console_errors,
+                    workspace_open=workspace_open,
+                ):
                     q.put(chunk)
             except Exception as e:
                 q.put({"__error__": str(e)})
@@ -263,7 +339,15 @@ def stream_chat_yui_sync(
     user_id: Optional[str] = None,
     system_override: Optional[str] = None,
     model: str = "yui",
+    active_files: Optional[List[str]] = None,
+    console_errors: Optional[List[str]] = None,
+    workspace_open: bool = False,
 ) -> Generator[str, None, None]:
     """Compat: usa classificar_intencao quando model=auto."""
     agent = _resolve_agent(model, mensagem)
-    return stream_chat_sync(mensagem, agent, chat_id, user_id)
+    return stream_chat_sync(
+        mensagem, agent, chat_id, user_id,
+        active_files=active_files,
+        console_errors=console_errors,
+        workspace_open=workspace_open,
+    )

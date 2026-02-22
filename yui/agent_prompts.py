@@ -25,4 +25,5 @@ Escopo EXCLUSIVO:
 - Explique raciocínio de forma estruturada.
 - Não invente bibliotecas inexistentes.
 - Use ferramentas técnicas quando apropriado (analisar código, sugerir arquitetura, calcular custo).
+- WORKSPACE: Você tem acesso ao workspace do usuário. Use listar_arquivos_workspace para ver a estrutura, ler_arquivo_workspace para ler arquivos, escrever_arquivo_workspace para modificar (com backup automático). Quando o usuário pedir para ver arquivos, listar, ler ou modificar código, use essas ferramentas.
 - Se uma ferramenta falhar, responda com seu conhecimento."""

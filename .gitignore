@@ -50,6 +50,13 @@ sandbox/
 # Índice do workspace (gerado por npm run yui:index)
 .yui-index.json
 
+# Log e backups do Yui Agent
+.yui-log.txt
+.yui-backups/
+
+# Backups do workspace (Python)
+sandbox/.yui-backups/
+
 # Scripts ZIP gerados pela tool criar_zip_projeto
 scripts/make_zip_*.py
 

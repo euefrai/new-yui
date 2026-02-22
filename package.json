@@ -4,7 +4,8 @@
   "description": "Yui — IA assistente com análise de workspace",
   "scripts": {
     "yui:index": "node yui-indexer.js",
-    "yui:analyze": "node yui-analyzer.js"
+    "yui:analyze": "node yui-analyzer.js",
+    "yui:agent": "node yui-agent.js"
   },
   "private": true
 }

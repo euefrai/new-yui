@@ -4,9 +4,106 @@ Yui Tools — Implementação das ferramentas técnicas.
 - sugerir_arquitetura: estrutura de pastas e responsabilidades
 - calcular_custo_estimado: estimativa de custo em tokens
 - resumir_contexto: resumo técnico para memória
+- listar_arquivos_workspace: lista arquivos do workspace (sandbox)
+- ler_arquivo_workspace: lê arquivo do workspace
+- escrever_arquivo_workspace: escreve no workspace (com backup)
 """
 
-from typing import Any, Dict
+import shutil
+from pathlib import Path
+from typing import Any, Dict, List
+
+FORBIDDEN_DIRS = {"node_modules", ".git", "dist", "build", ".next", "coverage", "__pycache__"}
+BACKUP_DIR = ".yui-backups"
+
+
+def _get_sandbox() -> Path:
+    """Retorna o diretório do workspace (sandbox)."""
+    try:
+        from config.settings import SANDBOX_DIR
+        return Path(SANDBOX_DIR)
+    except Exception:
+        return Path(__file__).resolve().parents[1] / ".." / "sandbox"
+
+
+def _safe_path(base: Path, rel_path: str) -> Path:
+    """Resolve path dentro do base, bloqueando path traversal."""
+    rel_path = (rel_path or ".").replace("\\", "/").lstrip("/")
+    if ".." in rel_path or rel_path.startswith("/"):
+        raise ValueError("Path inválido")
+    base_resolved = base.resolve()
+    full = (base_resolved / rel_path).resolve()
+    try:
+        full.relative_to(base_resolved)
+    except ValueError:
+        raise ValueError("Path fora do workspace")
+    return full
+
+
+def listar_arquivos_workspace(pasta: str = ".") -> Dict[str, Any]:
+    """
+    Lista arquivos do workspace (sandbox).
+    pasta: caminho relativo ao sandbox.
+    """
+    try:
+        sandbox = _get_sandbox()
+        target = _safe_path(sandbox, pasta)
+        if not target.is_dir():
+            return {"ok": False, "arquivos": [], "erro": f"Pasta não encontrada: {pasta}"}
+
+        arquivos: List[str] = []
+        for p in target.rglob("*"):
+            if p.is_file():
+                rel = p.relative_to(sandbox)
+                parts = rel.parts
+                if any(part.lower() in FORBIDDEN_DIRS for part in parts):
+                    continue
+                arquivos.append(str(rel).replace("\\", "/"))
+        return {"ok": True, "arquivos": sorted(arquivos)[:200], "erro": None}
+    except ValueError as e:
+        return {"ok": False, "arquivos": [], "erro": str(e)}
+    except Exception as e:
+        return {"ok": False, "arquivos": [], "erro": str(e)}
+
+
+def ler_arquivo_workspace(caminho: str, max_chars: int = 8000) -> Dict[str, Any]:
+    """Lê conteúdo de um arquivo do workspace."""
+    try:
+        sandbox = _get_sandbox()
+        target = _safe_path(sandbox, caminho)
+        if not target.is_file():
+            return {"ok": False, "conteudo": "", "erro": f"Arquivo não encontrado: {caminho}"}
+        content = target.read_text(encoding="utf-8", errors="replace")
+        return {"ok": True, "conteudo": content[:max_chars], "erro": None}
+    except ValueError as e:
+        return {"ok": False, "conteudo": "", "erro": str(e)}
+    except Exception as e:
+        return {"ok": False, "conteudo": "", "erro": str(e)}
+
+
+def escrever_arquivo_workspace(caminho: str, conteudo: str) -> Dict[str, Any]:
+    """Escreve no workspace. Cria backup automático antes de modificar."""
+    try:
+        sandbox = _get_sandbox()
+        target = _safe_path(sandbox, caminho)
+
+        # Backup antes de modificar
+        backup_path = None
+        if target.exists():
+            backup_root = sandbox / BACKUP_DIR
+            backup_root.mkdir(parents=True, exist_ok=True)
+            ts = __import__("datetime").datetime.now().strftime("%Y%m%d_%H%M%S")
+            safe_name = caminho.replace("/", "_").replace("\\", "_")
+            backup_path = backup_root / f"{safe_name}.{ts}.bak"
+            shutil.copy2(target, backup_path)
+
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(conteudo, encoding="utf-8", errors="replace")
+        return {"ok": True, "backup": str(backup_path) if backup_path else None, "erro": None}
+    except ValueError as e:
+        return {"ok": False, "backup": None, "erro": str(e)}
+    except Exception as e:
+        return {"ok": False, "backup": None, "erro": str(e)}
 
 
 def analisar_codigo(codigo: str) -> Dict[str, Any]:
@@ -183,4 +280,16 @@ def executar_tool(nome: str, args: Dict[str, Any]) -> Dict[str, Any]:
         )
     if nome == "resumir_contexto":
         return resumir_contexto(args.get("conversa", "") or "")
+    if nome == "listar_arquivos_workspace":
+        return listar_arquivos_workspace(args.get("pasta", ".") or ".")
+    if nome == "ler_arquivo_workspace":
+        return ler_arquivo_workspace(
+            args.get("caminho", "") or "",
+            int(args.get("max_chars", 8000) or 8000),
+        )
+    if nome == "escrever_arquivo_workspace":
+        return escrever_arquivo_workspace(
+            args.get("caminho", "") or "",
+            args.get("conteudo", "") or "",
+        )
     return {"ok": False, "erro": f"Tool desconhecida: {nome}"}

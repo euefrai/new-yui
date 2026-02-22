@@ -131,7 +131,7 @@ def stream_resposta(
     except Exception:
         pass
 
-    # 4. LLM Agent — Yui/Heathcliff com classificação de intenção
+    # 4. LLM Agent — Yui/Heathcliff com classificação de intenção e contexto do workspace
     try:
         from yui.yui_core import stream_chat_yui_sync
         full_reply: list[str] = []
@@ -140,6 +140,9 @@ def stream_resposta(
             chat_id=chat_id,
             user_id=user_id,
             model=model,
+            active_files=active_files,
+            console_errors=console_errors,
+            workspace_open=workspace_open,
         ):
             full_reply.append(chunk)
             yield chunk
