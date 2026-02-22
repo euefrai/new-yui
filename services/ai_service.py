@@ -127,20 +127,34 @@ def stream_resposta(
     except Exception:
         pass
 
-    # 4. LLM Agent
-    from core.ai_loader import get_agent_controller
-    agent = get_agent_controller()
-    full_reply: list[str] = []
-    for chunk in agent(
-        user_id, chat_id, message,
-        model=model,
-        confirm_high_cost=confirm_high_cost,
-        active_files=active_files,
-        console_errors=console_errors,
-        workspace_open=workspace_open,
-    ):
-        full_reply.append(chunk)
-        yield chunk
+    # 4. LLM Agent — Yui modular (Tool Use + memória resumida)
+    try:
+        from yui import stream_chat_yui_sync
+        full_reply: list[str] = []
+        for chunk in stream_chat_yui_sync(
+            message,
+            chat_id=chat_id,
+            user_id=user_id,
+        ):
+            full_reply.append(chunk)
+            yield chunk
+        reply = "".join(full_reply).strip()
+    except Exception:
+        # Fallback: agent legado
+        from core.ai_loader import get_agent_controller
+        agent = get_agent_controller()
+        full_reply = []
+        for chunk in agent(
+            user_id, chat_id, message,
+            model=model,
+            confirm_high_cost=confirm_high_cost,
+            active_files=active_files,
+            console_errors=console_errors,
+            workspace_open=workspace_open,
+        ):
+            full_reply.append(chunk)
+            yield chunk
+        reply = "".join(full_reply).strip()
 
     # 5. Salvar no cache
     reply = "".join(full_reply).strip()
