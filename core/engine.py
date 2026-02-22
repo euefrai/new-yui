@@ -17,7 +17,7 @@ OPENAI_API_KEY = (os.environ.get("OPENAI_API_KEY") or "").strip()
 client = OpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY else None
 
 # Modelo: gpt-4o disponível; gpt-5.2 não existe ainda
-MODEL = os.environ.get("OPENAI_CHAT_MODEL", "gpt-5-mini")
+MODEL = os.environ.get("OPENAI_CHAT_MODEL", "gpt-4o-mini")
 
 
 def process_message(user_id, chat_id, message):

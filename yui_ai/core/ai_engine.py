@@ -166,7 +166,7 @@ def perguntar_yui(mensagem, intencao=None):
     try:
         # Usa chat.completions.create (API padrão da OpenAI)
         response = client.chat.completions.create(
-            model=os.getenv("OPENAI_MODEL", "gpt-5-mini"),
+            model=os.getenv("OPENAI_MODEL", "gpt-4o-mini"),
             messages=mensagens,
             temperature=0.6,
             max_tokens=4096,
@@ -239,7 +239,7 @@ def _gerar_resposta_codigo_ia(pedido: str, linguagem: str):
 
     try:
         response = client.chat.completions.create(
-            model=os.getenv("OPENAI_MODEL", "gpt-5-mini"),
+            model=os.getenv("OPENAI_MODEL", "gpt-4o-mini"),
             messages=[
                 {"role": "system", "content": SYSTEM_PROMPT_GERAR_CODIGO},
                 {"role": "user", "content": f"Linguagem: {linguagem}. Pedido do usuário: {pedido}"},
@@ -288,7 +288,7 @@ def stream_resposta_yui(mensagem):
 
     try:
         stream = client.chat.completions.create(
-            model=os.getenv("OPENAI_MODEL", "gpt-5-mini"),
+            model=os.getenv("OPENAI_MODEL", "gpt-4o-mini"),
             messages=mensagens,
             temperature=0.6,
             max_tokens=8192,
@@ -315,7 +315,7 @@ def gerar_titulo_chat(primeira_mensagem: str) -> str:
         return (texto[:37] + "...") if len(texto) > 40 else texto
     try:
         r = client.chat.completions.create(
-            model=os.getenv("OPENAI_MODEL", "gpt-5-mini"),
+            model=os.getenv("OPENAI_MODEL", "gpt-4o-mini"),
             messages=[
                 {"role": "system", "content": "Gere apenas um título muito curto (máximo 40 caracteres, sem aspas) para um chat que começou com a mensagem do usuário. Responda só com o título, nada mais."},
                 {"role": "user", "content": texto},

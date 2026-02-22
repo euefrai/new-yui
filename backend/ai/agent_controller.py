@@ -99,7 +99,7 @@ except ImportError:
 
 OPENAI_API_KEY = (os.environ.get("OPENAI_API_KEY") or "").strip()
 client = OpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY else None
-MODEL = os.environ.get("OPENAI_CHAT_MODEL", "gpt-5-mini")
+MODEL = os.environ.get("OPENAI_CHAT_MODEL", "gpt-4o-mini")
 MAX_HISTORY = 50
 CHUNK_SIZE = 12  # chunks menores = streaming mais fluido  # tamanho do chunk ao “streamar” a resposta final
 

@@ -20,7 +20,7 @@ def _get(key: str, default: str = "") -> str:
 
 # OpenAI
 OPENAI_API_KEY = _get("OPENAI_API_KEY")
-OPENAI_MODEL = _get("OPENAI_MODEL") or "gpt-5-mini"
+OPENAI_MODEL = _get("OPENAI_MODEL") or "gpt-4o-mini"
 
 # Supabase — duas keys: anon no frontend, service_role no backend
 SUPABASE_URL = _get("SUPABASE_URL")
