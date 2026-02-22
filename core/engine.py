@@ -17,7 +17,7 @@ OPENAI_API_KEY = (os.environ.get("OPENAI_API_KEY") or "").strip()
 client = OpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY else None
 
 # Modelo: gpt-4o disponível; gpt-5.2 não existe ainda
-MODEL = os.environ.get("OPENAI_CHAT_MODEL", "gpt-4o-mini")
+MODEL = os.environ.get("OPENAI_CHAT_MODEL", "gpt-5-mini")
 
 
 def process_message(user_id, chat_id, message):
@@ -97,8 +97,15 @@ def process_message(user_id, chat_id, message):
     if not client:
         return "⚠️ Configure OPENAI_API_KEY no servidor para respostas da Yui."
 
-    response = client.chat.completions.create(model=MODEL, messages=msgs)
-    raw_content = (response.choices[0].message.content or "").strip()
+    response = client.chat.completions.create(
+        model=MODEL,
+        messages=msgs,
+        temperature=0.6,
+        max_tokens=4096,
+    )
+    raw_content = ""
+    if response.choices and len(response.choices) > 0:
+        raw_content = (response.choices[0].message.content or "").strip()
 
     def _parse_json(text: str):
         """Extrai e parseia um JSON de tools/answer mesmo com markdown ou texto ao redor."""

@@ -17,12 +17,12 @@ from backend.ai.context_memory import buscar_contexto as buscar_contexto_chat
 from backend.ai.vector_memory import buscar_contexto as buscar_contexto_vetorial
 from core.memoria_ia import buscar_memoria as buscar_memoria_ia
 
-# Limites para servidores 2GB (contexto gigante drena RAM)
-MAX_MENSAGENS_HISTORICO = 12
-MAX_MENSAGENS_DB = 50  # limite na query Supabase (evita carregar 10k msgs)
-LIMITE_CURTA = 6
-LIMITE_LONGA = 6
-VETORIAL_LIMITE = 4
+# Limites para contexto rico (nível ChatGPT)
+MAX_MENSAGENS_HISTORICO = 50
+MAX_MENSAGENS_DB = 100  # limite na query Supabase
+LIMITE_CURTA = 12
+LIMITE_LONGA = 12
+VETORIAL_LIMITE = 12
 
 
 def _build_short_term(historico: List[Dict[str, Any]], ultimas: int = 6) -> str:

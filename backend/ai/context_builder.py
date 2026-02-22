@@ -25,8 +25,8 @@ IGNORAR_PASTAS = {
     ".cache",
 }
 
-MAX_ARQUIVOS = 25
-MAX_CHARS = 2500
+MAX_ARQUIVOS = 50
+MAX_CHARS = 8000
 
 
 # ==========================================================

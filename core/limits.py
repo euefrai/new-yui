@@ -7,7 +7,7 @@
 import os
 
 # Máximo de etapas no plano (planner respeita isso)
-MAX_STEPS = int(os.environ.get("YUI_MAX_STEPS", "5"))
+MAX_STEPS = int(os.environ.get("YUI_MAX_STEPS", "12"))
 
 # Máximo de tokens na resposta (placeholder; modelo tem seu próprio limite)
 MAX_TOKENS = int(os.environ.get("YUI_MAX_TOKENS", "4096"))

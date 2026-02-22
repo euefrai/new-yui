@@ -99,8 +99,8 @@ except ImportError:
 
 OPENAI_API_KEY = (os.environ.get("OPENAI_API_KEY") or "").strip()
 client = OpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY else None
-MODEL = os.environ.get("OPENAI_CHAT_MODEL", "gpt-4o-mini")
-MAX_HISTORY = 12
+MODEL = os.environ.get("OPENAI_CHAT_MODEL", "gpt-5-mini")
+MAX_HISTORY = 50
 CHUNK_SIZE = 12  # chunks menores = streaming mais fluido  # tamanho do chunk ao “streamar” a resposta final
 
 TOOL_DESCRIPTIONS = {
@@ -123,8 +123,9 @@ TOOL_DESCRIPTIONS = {
 }
 
 TOOL_SYSTEM_HEADER = (
-    "Você é a Yui, uma IA desenvolvedora que responde SEMPRE em português do Brasil.\n"
-    "Você tem acesso a ferramentas internas. Use-as quando isso gerar uma resposta mais útil.\n\n"
+    "Você é a Yui, uma IA desenvolvedora de alto nível que responde SEMPRE em português do Brasil.\n"
+    "Seja preciso, reflexiva e completa. Analise o contexto antes de responder. "
+    "Para perguntas complexas, pense passo a passo. Use ferramentas quando isso enriquecer a resposta.\n\n"
     "Ferramentas disponíveis (nomes exatos):\n"
 )
 
@@ -394,8 +395,15 @@ def _fallback_llm_response(
     })
     fallback_msgs.append({"role": "user", "content": user_message})
     try:
-        r = client.chat.completions.create(model=MODEL, messages=fallback_msgs)
-        content = (r.choices[0].message.content or "").strip()
+        r = client.chat.completions.create(
+            model=MODEL,
+            messages=fallback_msgs,
+            temperature=0.6,
+            max_tokens=4096,
+        )
+        content = ""
+        if r.choices and len(r.choices) > 0:
+            content = (r.choices[0].message.content or "").strip()
         return content or "Posso ajudar de outra forma. O que você gostaria de saber?"
     except Exception:
         return "Desculpe, não consegui responder no momento. Tente reformular a pergunta."
@@ -537,6 +545,19 @@ def agent_controller(
     O frontend só recebe texto; nunca JSON cru.
     model: "yui" | "heathcliff" | "auto" (Arbitration Engine decide o líder).
     """
+    if not user_id or not isinstance(user_id, str):
+        for c in _yield_in_chunks("Erro: user_id inválido."):
+            yield c
+        return
+    if not chat_id or not isinstance(chat_id, str):
+        for c in _yield_in_chunks("Erro: chat_id inválido."):
+            yield c
+        return
+    if not user_message or not isinstance(user_message, str):
+        for c in _yield_in_chunks("Envie uma mensagem para continuar."):
+            yield c
+        return
+
     import time
     turn_start = time.time()
     tools_executed_this_turn: List[str] = []
@@ -909,8 +930,15 @@ def agent_controller(
         elif get_energy_manager and get_energy_manager().is_critical():
             msgs.insert(-1, {"role": "system", "content": "Energia baixa: responda de forma MUITO resumida (máx 2-3 frases)."})
         transition(AgentState.EXECUTING)
-        response = client.chat.completions.create(model=MODEL, messages=msgs)
-        raw_content = (response.choices[0].message.content or "").strip()
+        response = client.chat.completions.create(
+            model=MODEL,
+            messages=msgs,
+            temperature=0.6,
+            max_tokens=8192,
+        )
+        raw_content = ""
+        if response.choices and len(response.choices) > 0:
+            raw_content = (response.choices[0].message.content or "").strip()
         prompt_tokens, completion_tokens = 0, 0
         try:
             usage = getattr(response, "usage", None)
@@ -1123,8 +1151,15 @@ def agent_controller(
                 get_energy_manager().consume(COST_REFLECT)
             try:
                 def _call_model_reflect(messages):
-                    r = client.chat.completions.create(model=MODEL, messages=messages)
-                    return (r.choices[0].message.content or "").strip()
+                    r = client.chat.completions.create(
+                        model=MODEL,
+                        messages=messages,
+                        temperature=0.5,
+                        max_tokens=4096,
+                    )
+                    if r.choices and len(r.choices) > 0:
+                        return (r.choices[0].message.content or "").strip()
+                    return ""
 
                 if is_enabled("self_reflection") and allow_reflection:
                     melhorou, nova_resposta = avaliar_resposta(_call_model_reflect, msgs, reply)

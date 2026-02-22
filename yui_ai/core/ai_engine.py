@@ -166,12 +166,17 @@ def perguntar_yui(mensagem, intencao=None):
     try:
         # Usa chat.completions.create (API padrão da OpenAI)
         response = client.chat.completions.create(
-            model=os.getenv("OPENAI_MODEL", "gpt-4o-mini"),
+            model=os.getenv("OPENAI_MODEL", "gpt-5-mini"),
             messages=mensagens,
-            temperature=0.6
+            temperature=0.6,
+            max_tokens=4096,
         )
 
-        texto = response.choices[0].message.content.strip()
+        texto = ""
+        if response.choices and len(response.choices) > 0:
+            texto = (response.choices[0].message.content or "").strip()
+        if not texto:
+            return {"status": "error", "data": {"resposta": "Resposta vazia da IA.", "acao": "nenhuma", "dados": {}, "nivel": 0}}
         payload = _parse_json_resposta(texto)
 
         resultado = {
@@ -234,12 +239,13 @@ def _gerar_resposta_codigo_ia(pedido: str, linguagem: str):
 
     try:
         response = client.chat.completions.create(
-            model=os.getenv("OPENAI_MODEL", "gpt-4o-mini"),
+            model=os.getenv("OPENAI_MODEL", "gpt-5-mini"),
             messages=[
                 {"role": "system", "content": SYSTEM_PROMPT_GERAR_CODIGO},
                 {"role": "user", "content": f"Linguagem: {linguagem}. Pedido do usuário: {pedido}"},
             ],
-            temperature=0.5,
+            temperature=0.3,
+            max_tokens=4096,
         )
         texto = (response.choices[0].message.content or "").strip()
         return True, texto, None
@@ -282,9 +288,10 @@ def stream_resposta_yui(mensagem):
 
     try:
         stream = client.chat.completions.create(
-            model=os.getenv("OPENAI_MODEL", "gpt-4o-mini"),
+            model=os.getenv("OPENAI_MODEL", "gpt-5-mini"),
             messages=mensagens,
             temperature=0.6,
+            max_tokens=8192,
             stream=True,
         )
         for chunk in stream:
@@ -308,13 +315,13 @@ def gerar_titulo_chat(primeira_mensagem: str) -> str:
         return (texto[:37] + "...") if len(texto) > 40 else texto
     try:
         r = client.chat.completions.create(
-            model=os.getenv("OPENAI_MODEL", "gpt-4o-mini"),
+            model=os.getenv("OPENAI_MODEL", "gpt-5-mini"),
             messages=[
                 {"role": "system", "content": "Gere apenas um título muito curto (máximo 40 caracteres, sem aspas) para um chat que começou com a mensagem do usuário. Responda só com o título, nada mais."},
                 {"role": "user", "content": texto},
             ],
             temperature=0.3,
-            max_tokens=60,
+            max_tokens=128,
         )
         titulo = (r.choices[0].message.content or "").strip().strip('"')[:40]
         return titulo or texto[:40]
