@@ -6,7 +6,10 @@
 CREATE TABLE IF NOT EXISTS users_profile (
   id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   email TEXT,
-  nome TEXT
+  nome TEXT,
+  nivel_tecnico TEXT DEFAULT 'desconhecido' CHECK (nivel_tecnico IN ('iniciante', 'intermediario', 'avancado', 'desconhecido')),
+  linguagens_pref TEXT DEFAULT '',
+  modo_resposta TEXT DEFAULT 'dev' CHECK (modo_resposta IN ('dev', 'explicativo', 'resumido'))
 );
 
 -- Chats por usuário

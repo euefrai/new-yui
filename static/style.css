@@ -739,6 +739,193 @@ body.theme-light .inputArea {
   gap: 8px;
 }
 
+/* ========== Admin Panel ========== */
+.adminPanel {
+  padding: 10px 12px;
+  background: var(--slate-100);
+  border: 1px solid var(--border);
+  font-size: 12px;
+}
+
+.adminPanelHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.adminPanelTitle {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--slate-500);
+}
+
+.adminStatus {
+  font-size: 0.7rem;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.adminStatus.adminOk {
+  background: rgba(16, 185, 129, 0.2);
+  color: #10b981;
+}
+
+.adminStatus.adminErr {
+  background: rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+}
+
+.adminTabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.adminTab {
+  padding: 4px 10px;
+  font-size: 0.72rem;
+  background: var(--slate-200);
+  border: 1px solid var(--border);
+  color: var(--slate-600);
+  cursor: pointer;
+  border-radius: 6px;
+}
+
+.adminTab:hover {
+  background: var(--slate-300);
+  color: var(--slate-700);
+}
+
+.adminTab.active {
+  background: var(--accent);
+  color: var(--bg);
+  border-color: var(--accent);
+}
+
+.adminTabContent {
+  display: none;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.adminTabContent.active {
+  display: flex;
+}
+
+.adminLogsActions,
+.adminUsersActions,
+.adminStatsActions {
+  display: flex;
+  gap: 6px;
+}
+
+.adminBtn {
+  padding: 4px 10px;
+  font-size: 0.72rem;
+  background: var(--slate-200);
+  border: 1px solid var(--border);
+  color: var(--slate-600);
+  cursor: pointer;
+  border-radius: 6px;
+}
+
+.adminBtn:hover {
+  background: var(--slate-300);
+  color: var(--slate-700);
+}
+
+.adminBtnDanger {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+.adminBtnDanger:hover {
+  background: rgba(239, 68, 68, 0.25);
+}
+
+.adminLogsContent {
+  max-height: 200px;
+  overflow-y: auto;
+  padding: 8px;
+  font-family: "JetBrains Mono", Consolas, monospace;
+  font-size: 0.7rem;
+  line-height: 1.4;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--slate-600);
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.adminUsersList {
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.adminTable {
+  width: 100%;
+  font-size: 0.72rem;
+  border-collapse: collapse;
+}
+
+.adminTable th,
+.adminTable td {
+  padding: 4px 8px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+
+.adminTable th {
+  color: var(--slate-500);
+  font-weight: 500;
+}
+
+.adminTdId {
+  font-family: "JetBrains Mono", monospace;
+  color: var(--slate-600);
+}
+
+.adminStatsGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.adminStatCard {
+  padding: 12px;
+  background: var(--slate-200);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  text-align: center;
+}
+
+.adminStatValue {
+  display: block;
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.adminStatLabel {
+  font-size: 0.7rem;
+  color: var(--slate-500);
+}
+
+.adminError,
+.adminEmpty {
+  padding: 10px;
+  color: var(--slate-500);
+  font-size: 0.76rem;
+}
+
+.adminError {
+  color: #ef4444;
+}
+
 .activityTimelineList .timelineSymbol {
   flex-shrink: 0;
   width: 1.2em;

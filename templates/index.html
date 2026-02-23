@@ -72,6 +72,10 @@
               <span class="sidebarTabIcon">⚙</span>
               <span class="sidebarTabLabel">Sistema</span>
             </button>
+            <button type="button" class="sidebarTab" data-sidebar-tab="admin" title="Painel Admin">
+              <span class="sidebarTabIcon">🛡</span>
+              <span class="sidebarTabLabel">Admin</span>
+            </button>
           </div>
           <div class="sidebarTabContentWrap">
             <div class="sidebarTabContent active" id="sidebarTabTarefas">
@@ -148,6 +152,38 @@
                 <div class="telemetryRow">
                   <span class="telemetryLabel">Escrita em disco</span>
                   <span class="telemetryValue" id="telemetryDiskWrites">—</span>
+                </div>
+              </div>
+            </div>
+            <div class="sidebarTabContent" id="sidebarTabAdmin">
+              <div class="adminPanel" id="adminPanel">
+                <div class="adminPanelHeader">
+                  <span class="adminPanelTitle">🛡 Painel Admin</span>
+                  <span id="adminStatus" class="adminStatus"></span>
+                </div>
+                <div class="adminTabs">
+                  <button type="button" class="adminTab active" data-admin-tab="logs">Logs</button>
+                  <button type="button" class="adminTab" data-admin-tab="users">Usuários</button>
+                  <button type="button" class="adminTab" data-admin-tab="stats">Estatísticas</button>
+                </div>
+                <div class="adminTabContent active" id="adminTabLogs">
+                  <div class="adminLogsActions">
+                    <button type="button" id="adminLogsRefresh" class="adminBtn">Atualizar</button>
+                    <button type="button" id="adminLogsClear" class="adminBtn adminBtnDanger">Limpar logs</button>
+                  </div>
+                  <pre id="adminLogsContent" class="adminLogsContent">Carregando...</pre>
+                </div>
+                <div class="adminTabContent" id="adminTabUsers">
+                  <div class="adminUsersActions">
+                    <button type="button" id="adminUsersRefresh" class="adminBtn">Atualizar</button>
+                  </div>
+                  <div id="adminUsersList" class="adminUsersList">Carregando...</div>
+                </div>
+                <div class="adminTabContent" id="adminTabStats">
+                  <div class="adminStatsActions">
+                    <button type="button" id="adminStatsRefresh" class="adminBtn">Atualizar</button>
+                  </div>
+                  <div id="adminStatsContent" class="adminStatsContent">Carregando...</div>
                 </div>
               </div>
             </div>
@@ -263,6 +299,7 @@
   </script>
 
   <script src="/static/app.js?v={{ static_version }}"></script>
+  <script src="/static/admin.js?v={{ static_version }}"></script>
   <script src="/static/chat.js?v={{ static_version }}"></script>
   <script src="/static/editor.js?v={{ static_version }}"></script>
   <script src="/static/workspace-project.js?v={{ static_version }}"></script>

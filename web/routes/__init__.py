@@ -9,6 +9,7 @@ def register_routes(app: Flask) -> None:
     from web.routes.routes_api import main_bp, file_bp, tool_bp, goals_bp, missions_bp, system_bp, sandbox_bp
     from web.routes.routes_chat import chat_bp
     from web.routes.routes_auth import user_bp
+    from web.routes.routes_admin import admin_bp
 
     app.register_blueprint(main_bp)
     app.register_blueprint(chat_bp, url_prefix="/api")
@@ -17,5 +18,6 @@ def register_routes(app: Flask) -> None:
     app.register_blueprint(tool_bp, url_prefix="/api/tools")
     app.register_blueprint(system_bp)
     app.register_blueprint(sandbox_bp)
+    app.register_blueprint(admin_bp)
     app.register_blueprint(goals_bp)
     app.register_blueprint(missions_bp)

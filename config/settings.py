@@ -73,6 +73,10 @@ AUTODEV_DRY_RUN = os.environ.get("AUTODEV_DRY_RUN", "").lower() in ("1", "true",
 AUTODEV_AUTO_APPROVE = os.environ.get("AUTODEV_AUTO_APPROVE", "true").lower() in ("1", "true", "yes")
 GITHUB_TOKEN = _get("GITHUB_TOKEN")
 
+# Admin — emails ou user_ids (separados por vírgula) com acesso ao painel admin
+ADMIN_EMAILS = _get("ADMIN_EMAILS")
+ADMIN_USER_IDS = _get("ADMIN_USER_IDS")
+
 # Pastas derivadas
 GENERATED_PROJECTS_DIR = BASE_DIR / "generated_projects"
 WEB_LEGACY_DIR = BASE_DIR / "web"
