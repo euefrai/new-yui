@@ -403,7 +403,7 @@ if __name__ == "__main__":
     try:
         with open(script_path, "w", encoding="utf-8") as f:
             f.write(script_code)
-        command = f"python {script_path.relative_to(PROJECT_ROOT)}"
+        command = f"{sys.executable} {str(script_path)}"
         base_result = {
             "ok": True,
             "script_path": str(script_path),

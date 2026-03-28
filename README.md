@@ -31,7 +31,8 @@ Configure `OPENAI_API_KEY` no arquivo `.env` (copie de `.env.example`) para usar
 A interface principal usa **Supabase** para login e para separar chats por usuário (sidebar estilo ChatGPT, nome no rodapé).
 
 1. Crie um projeto em [supabase.com](https://supabase.com).
-2. No SQL Editor do Supabase, execute o conteúdo de **`supabase_schema.sql`** (cria as tabelas `chats` e `messages` e opcionalmente `users_profile`). Opcional: execute **`supabase_migration_messages_extra.sql`** para adicionar colunas `type`, `metadata` e `status` na tabela `messages` (replay de ferramentas, histórico estruturado).
+2. No SQL Editor do Supabase, execute o conteúdo de **`supabase_schema.sql`** (cria as tabelas `chats`, `messages`, `memory_events`, `memoria_ia` e `users_profile`).
+   - Importante: para o backend persistir chats e memória no Supabase, também é necessário definir `SUPABASE_SERVICE_KEY`.
 3. No `.env` (ou nas variáveis de ambiente do Zeabur/Render), defina:
    - `SUPABASE_URL` = URL do projeto (ex.: `https://xxxx.supabase.co`)
    - `SUPABASE_ANON_KEY` = chave **anon** (pública) — usada só no **frontend** (login/Auth no navegador).

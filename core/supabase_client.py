@@ -20,7 +20,7 @@ def get_supabase_client(mode: Literal["anon", "service"] = "anon"):
     if not settings.SUPABASE_URL:
         return None
     if mode == "service":
-        key = settings.SUPABASE_SERVICE_KEY or settings.SUPABASE_ANON_KEY
+        key = settings.SUPABASE_SERVICE_KEY
         if not key:
             return None
         if _service_client is None:

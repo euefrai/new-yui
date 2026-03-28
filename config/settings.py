@@ -33,7 +33,7 @@ SUPABASE_ANON_KEY = (
 SUPABASE_SERVICE_KEY = _get("SUPABASE_SERVICE_KEY") or _get("SUPABASE_SERVICE_ROLE_KEY") or _get("SUPABASE_KEY")
 
 # Backend usa sempre service_role (nunca expor no frontend)
-SUPABASE_KEY_BACKEND = SUPABASE_SERVICE_KEY or SUPABASE_ANON_KEY
+SUPABASE_KEY_BACKEND = SUPABASE_SERVICE_KEY
 
 # Flask
 PORT = int(os.environ.get("PORT") or "5000")
@@ -54,7 +54,7 @@ USE_ASYNC_QUEUE = os.environ.get("USE_ASYNC_QUEUE", "").lower() in ("1", "true",
 
 # Memória: uma fonte só — USE_SUPABASE_MEMORY=true usa cloud; false usa JSON local
 _use_supabase_env = os.environ.get("USE_SUPABASE_MEMORY", "").strip().lower() in ("1", "true", "yes")
-USE_SUPABASE_MEMORY = _use_supabase_env or bool(SUPABASE_URL and SUPABASE_KEY_BACKEND)
+USE_SUPABASE_MEMORY = _use_supabase_env or bool(SUPABASE_URL and SUPABASE_SERVICE_KEY)
 USE_LOCAL_MEMORY = not USE_SUPABASE_MEMORY
 
 # Energy Manager (freio cognitivo)
